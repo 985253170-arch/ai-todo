@@ -21,3 +21,33 @@ export interface TaskGroup {
   createdAt: string;
   updatedAt: string;
 }
+
+export type ApiErrorCode =
+  | "EMPTY_INPUT"
+  | "INPUT_TOO_SHORT"
+  | "INPUT_TOO_LONG"
+  | "HIGH_RISK_INPUT"
+  | "AI_GENERATION_FAILED"
+  | "AI_PARSE_FAILED"
+  | "NETWORK_ERROR";
+
+export interface GenerateTasksRequest {
+  goal: string;
+}
+
+export interface GenerateTasksSuccessResponse {
+  success: true;
+  data: TaskGroup;
+}
+
+export interface GenerateTasksErrorResponse {
+  success: false;
+  error: {
+    code: ApiErrorCode;
+    message: string;
+  };
+}
+
+export type GenerateTasksResponse =
+  | GenerateTasksSuccessResponse
+  | GenerateTasksErrorResponse;
