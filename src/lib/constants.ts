@@ -2,11 +2,18 @@ export const STORAGE_KEY = "ai_todo_current_task_group";
 
 export const UI_TEXT = {
   APP_NAME: "AI Todo",
-  TAGLINE: "把模糊目标拆成今天可以执行的任务。",
+  APP_TAGLINE: "把模糊目标拆成今天可以执行的任务。",
   INPUT_PLACEHOLDER: "例如：我要学习 Python / 我要准备面试 / 我要做一个小项目",
-  GENERATE_BUTTON: "AI 拆分任务",
+  BUTTON_GENERATE: "AI 拆分任务",
   GENERATING_BUTTON: "生成中...",
   EMPTY_STATE: "还没有任务，输入一个目标试试。",
+  EXAMPLE_LABEL: "试试：",
+  EXAMPLE_GOALS: [
+    "我要学习 Python",
+    "我要准备面试",
+    "我要做一个小项目",
+    "我要减肥",
+  ],
 } as const;
 
 export const ERROR_MESSAGES = {
