@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ERROR_MESSAGES } from "@/lib/constants";
-import { validateGoalInput } from "@/lib/input-validator";
+import {
+  checkRiskInput,
+  validateGoalInput,
+} from "@/lib/input-validator";
 import { loadTaskGroup, saveTaskGroup } from "@/lib/storage";
 import type {
   ApiErrorCode,
@@ -56,6 +59,12 @@ export function useTaskGroup() {
 
     if (!validation.isValid) {
       setErrorMessage(validation.message);
+      setPageStatus("error");
+      return;
+    }
+
+    if (checkRiskInput(inputGoal)) {
+      setErrorMessage(ERROR_MESSAGES.HIGH_RISK_INPUT);
       setPageStatus("error");
       return;
     }
