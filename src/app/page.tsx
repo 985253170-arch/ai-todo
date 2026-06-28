@@ -8,8 +8,15 @@ import { TaskList } from "@/components/TaskList";
 import { useTaskGroup } from "@/hooks/useTaskGroup";
 
 export default function Home() {
-  const { inputGoal, errorMessage, setInputGoal, handleGenerate } =
-    useTaskGroup();
+  const {
+    inputGoal,
+    errorMessage,
+    tasks,
+    completedCount,
+    totalCount,
+    setInputGoal,
+    handleGenerate,
+  } = useTaskGroup();
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 sm:px-6 sm:py-10">
@@ -24,7 +31,11 @@ export default function Home() {
             value={inputGoal}
           />
           <ExampleGoals />
-          <TaskList />
+          <TaskList
+            completedCount={completedCount}
+            tasks={tasks}
+            totalCount={totalCount}
+          />
         </div>
       </div>
     </main>
