@@ -22,14 +22,26 @@ function cleanAIResponse(rawText: string) {
   return cleanedText;
 }
 
-export function parseAIResponse(rawText: string) {
-  let parsedResponse: unknown;
-
+function parseJsonObject(cleanedText: string) {
   try {
-    parsedResponse = JSON.parse(cleanAIResponse(rawText));
+    return JSON.parse(cleanedText) as unknown;
   } catch {
-    throw new ParseAIResponseError("AI response is not valid JSON.");
+    const jsonMatch = cleanedText.match(/\{[\s\S]*"tasks"[\s\S]*\}/);
+
+    if (!jsonMatch) {
+      throw new ParseAIResponseError("AI response is not valid JSON.");
+    }
+
+    try {
+      return JSON.parse(jsonMatch[0]) as unknown;
+    } catch {
+      throw new ParseAIResponseError("AI response JSON fallback failed.");
+    }
   }
+}
+
+export function parseAIResponse(rawText: string) {
+  const parsedResponse = parseJsonObject(cleanAIResponse(rawText));
 
   if (!parsedResponse || typeof parsedResponse !== "object") {
     throw new ParseAIResponseError("AI response is not an object.");

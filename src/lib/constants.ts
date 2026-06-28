@@ -8,6 +8,8 @@ export const UI_TEXT = {
   GENERATING_BUTTON: "生成中...",
   EMPTY_STATE: "还没有任务，输入一个目标试试。",
   TASK_LIST_TITLE: "今日任务",
+  LOADING_TEXT: "AI 正在拆解任务...",
+  PRIVACY_NOTICE: "请勿输入密码、证件号等敏感信息。",
   EXAMPLE_LABEL: "试试：",
   EXAMPLE_GOALS: [
     "我要学习 Python",

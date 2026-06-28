@@ -55,6 +55,10 @@ export function useTaskGroup() {
   }
 
   async function handleGenerate() {
+    if (pageStatus === "loading") {
+      return;
+    }
+
     const validation = validateGoalInput(inputGoal);
 
     if (!validation.isValid) {
