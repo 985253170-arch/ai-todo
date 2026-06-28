@@ -13,6 +13,7 @@ export function useTaskGroup() {
 
   function handleInputGoalChange(goal: string) {
     setInputGoal(goal);
+    setErrorMessage(null);
     setPageStatus(goal.length > 0 ? "editing" : "idle");
   }
 
