@@ -16,6 +16,7 @@ export default function Home() {
     totalCount,
     setInputGoal,
     handleGenerate,
+    handleToggleTask,
   } = useTaskGroup();
 
   return (
@@ -33,6 +34,7 @@ export default function Home() {
           <ExampleGoals />
           <TaskList
             completedCount={completedCount}
+            onToggleTask={handleToggleTask}
             tasks={tasks}
             totalCount={totalCount}
           />

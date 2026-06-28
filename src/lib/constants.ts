@@ -7,6 +7,7 @@ export const UI_TEXT = {
   BUTTON_GENERATE: "AI 拆分任务",
   GENERATING_BUTTON: "生成中...",
   EMPTY_STATE: "还没有任务，输入一个目标试试。",
+  TASK_LIST_TITLE: "今日任务",
   EXAMPLE_LABEL: "试试：",
   EXAMPLE_GOALS: [
     "我要学习 Python",

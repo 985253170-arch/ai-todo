@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { validateGoalInput } from "@/lib/input-validator";
+import { loadTaskGroup, saveTaskGroup } from "@/lib/storage";
 import type { PageStatus, Task, TaskGroup } from "@/lib/types";
 
 const MOCK_TASK_TITLES = [
@@ -41,6 +42,19 @@ export function useTaskGroup() {
   const completedCount = tasks.filter((task) => task.completed).length;
   const totalCount = tasks.length;
 
+  useEffect(() => {
+    const restoreTimer = window.setTimeout(() => {
+      const savedTaskGroup = loadTaskGroup();
+
+      if (savedTaskGroup) {
+        setTaskGroup(savedTaskGroup);
+        setPageStatus("success");
+      }
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
+  }, []);
+
   function handleInputGoalChange(goal: string) {
     setInputGoal(goal);
     setErrorMessage(null);
@@ -57,8 +71,32 @@ export function useTaskGroup() {
     }
 
     setErrorMessage(null);
-    setTaskGroup(createMockTaskGroup(inputGoal.trim()));
+    const mockTaskGroup = createMockTaskGroup(inputGoal.trim());
+    setTaskGroup(mockTaskGroup);
+    saveTaskGroup(mockTaskGroup);
     setPageStatus("success");
+  }
+
+  function handleToggleTask(taskId: string) {
+    setTaskGroup((currentTaskGroup) => {
+      if (!currentTaskGroup) {
+        return currentTaskGroup;
+      }
+
+      const now = new Date().toISOString();
+      const updatedTaskGroup: TaskGroup = {
+        ...currentTaskGroup,
+        tasks: currentTaskGroup.tasks.map((task) =>
+          task.id === taskId
+            ? { ...task, completed: !task.completed, updatedAt: now }
+            : task,
+        ),
+        updatedAt: now,
+      };
+
+      saveTaskGroup(updatedTaskGroup);
+      return updatedTaskGroup;
+    });
   }
 
   return {
@@ -72,5 +110,6 @@ export function useTaskGroup() {
     isGenerateDisabled,
     setInputGoal: handleInputGoalChange,
     handleGenerate,
+    handleToggleTask,
   };
 }
