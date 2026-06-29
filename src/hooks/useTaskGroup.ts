@@ -6,7 +6,8 @@ import {
   checkRiskInput,
   validateGoalInput,
 } from "@/lib/input-validator";
-import { loadTaskGroup, saveTaskGroup } from "@/lib/storage";
+import { isTaskGroupFromToday } from "@/lib/date-utils";
+import { loadTaskGroup, removeTaskGroup, saveTaskGroup } from "@/lib/storage";
 import type {
   ApiErrorCode,
   GenerateTasksResponse,
@@ -29,11 +30,14 @@ export function useTaskGroup() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pageStatus, setPageStatus] = useState<PageStatus>("idle");
   const [taskGroup, setTaskGroup] = useState<TaskGroup | null>(null);
+  const [showNewDayPrompt, setShowNewDayPrompt] = useState(false);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
 
   const isGenerateDisabled = useMemo(() => pageStatus === "loading", [pageStatus]);
   const tasks = taskGroup?.tasks ?? [];
   const completedCount = tasks.filter((task) => task.completed).length;
   const totalCount = tasks.length;
+  const isAllCompleted = totalCount > 0 && completedCount === totalCount;
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -42,6 +46,7 @@ export function useTaskGroup() {
       if (savedTaskGroup) {
         setTaskGroup(savedTaskGroup);
         setPageStatus("success");
+        setShowNewDayPrompt(!isTaskGroupFromToday(savedTaskGroup));
       }
     }, 0);
 
@@ -51,7 +56,27 @@ export function useTaskGroup() {
   function handleInputGoalChange(goal: string) {
     setInputGoal(goal);
     setErrorMessage(null);
+    setRegenerateError(null);
     setPageStatus(goal.length > 0 ? "editing" : "idle");
+  }
+
+  async function requestTaskGroup(goal: string) {
+    const response = await fetch("/api/generate-tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal: goal.trim() }),
+    });
+    const result = (await response.json()) as GenerateTasksResponse;
+
+    if (!response.ok || !result.success) {
+      const errorCode = result.success
+        ? "AI_GENERATION_FAILED"
+        : result.error.code;
+
+      return { success: false as const, errorCode };
+    }
+
+    return { success: true as const, data: result.data };
   }
 
   async function handleGenerate() {
@@ -74,32 +99,68 @@ export function useTaskGroup() {
     }
 
     setErrorMessage(null);
+    setRegenerateError(null);
     setPageStatus("loading");
 
     try {
-      const response = await fetch("/api/generate-tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal: inputGoal.trim() }),
-      });
-      const result = (await response.json()) as GenerateTasksResponse;
+      const result = await requestTaskGroup(inputGoal);
 
-      if (!response.ok || !result.success) {
-        const errorCode = result.success
-          ? "AI_GENERATION_FAILED"
-          : result.error.code;
-
-        setErrorMessage(API_ERROR_MESSAGES[errorCode]);
-        setPageStatus(errorCode === "AI_PARSE_FAILED" ? "parse_error" : "error");
+      if (!result.success) {
+        setErrorMessage(API_ERROR_MESSAGES[result.errorCode]);
+        setPageStatus(result.errorCode === "AI_PARSE_FAILED" ? "parse_error" : "error");
         return;
       }
 
       setTaskGroup(result.data);
       saveTaskGroup(result.data);
+      setShowNewDayPrompt(false);
       setPageStatus("success");
     } catch {
       setErrorMessage(ERROR_MESSAGES.NETWORK_ERROR);
       setPageStatus("error");
+    }
+  }
+
+  async function handleRegenerate() {
+    if (pageStatus === "loading") {
+      return;
+    }
+
+    const goal = inputGoal.trim() || taskGroup?.goal || "";
+    const validation = validateGoalInput(goal);
+
+    if (!validation.isValid) {
+      setRegenerateError(validation.message);
+      setPageStatus(taskGroup ? "success" : "error");
+      return;
+    }
+
+    if (checkRiskInput(goal)) {
+      setRegenerateError(ERROR_MESSAGES.HIGH_RISK_INPUT);
+      setPageStatus(taskGroup ? "success" : "error");
+      return;
+    }
+
+    setErrorMessage(null);
+    setRegenerateError(null);
+    setPageStatus("loading");
+
+    try {
+      const result = await requestTaskGroup(goal);
+
+      if (!result.success) {
+        setRegenerateError(ERROR_MESSAGES.REGENERATE_FAILED);
+        setPageStatus(taskGroup ? "success" : "error");
+        return;
+      }
+
+      setTaskGroup(result.data);
+      saveTaskGroup(result.data);
+      setShowNewDayPrompt(false);
+      setPageStatus("success");
+    } catch {
+      setRegenerateError(ERROR_MESSAGES.REGENERATE_FAILED);
+      setPageStatus(taskGroup ? "success" : "error");
     }
   }
 
@@ -125,6 +186,31 @@ export function useTaskGroup() {
     });
   }
 
+  function handleClearTasks() {
+    setTaskGroup(null);
+    removeTaskGroup();
+    setPageStatus("idle");
+    setShowNewDayPrompt(false);
+    setRegenerateError(null);
+  }
+
+  function handleExampleClick(goal: string) {
+    setInputGoal(goal);
+    setErrorMessage(null);
+    setRegenerateError(null);
+    setPageStatus("editing");
+  }
+
+  function handleStartNewDay() {
+    setTaskGroup(null);
+    removeTaskGroup();
+    setInputGoal("");
+    setErrorMessage(null);
+    setPageStatus("idle");
+    setShowNewDayPrompt(false);
+    setRegenerateError(null);
+  }
+
   return {
     pageStatus,
     taskGroup,
@@ -134,8 +220,15 @@ export function useTaskGroup() {
     completedCount,
     totalCount,
     isGenerateDisabled,
+    showNewDayPrompt,
+    regenerateError,
+    isAllCompleted,
     setInputGoal: handleInputGoalChange,
     handleGenerate,
     handleToggleTask,
+    handleClearTasks,
+    handleRegenerate,
+    handleExampleClick,
+    handleStartNewDay,
   };
 }

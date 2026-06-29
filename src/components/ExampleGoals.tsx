@@ -1,6 +1,10 @@
 import { UI_TEXT } from "@/lib/constants";
 
-export function ExampleGoals() {
+interface ExampleGoalsProps {
+  onExampleClick: (goal: string) => void;
+}
+
+export function ExampleGoals({ onExampleClick }: ExampleGoalsProps) {
   return (
     <section className="space-y-3">
       <p className="text-sm font-medium text-slate-500">
@@ -8,12 +12,14 @@ export function ExampleGoals() {
       </p>
       <div className="flex flex-wrap gap-2">
         {UI_TEXT.EXAMPLE_GOALS.map((goal) => (
-          <span
+          <button
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600"
             key={goal}
+            onClick={() => onExampleClick(goal)}
+            type="button"
           >
             {goal}
-          </span>
+          </button>
         ))}
       </div>
     </section>

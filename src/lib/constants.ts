@@ -8,6 +8,11 @@ export const UI_TEXT = {
   GENERATING_BUTTON: "生成中...",
   EMPTY_STATE: "还没有任务，输入一个目标试试。",
   TASK_LIST_TITLE: "今日任务",
+  CLEAR_TASKS_BUTTON: "清空",
+  REGENERATE_BUTTON: "重新生成",
+  START_NEW_DAY_BUTTON: "开始新一天",
+  NEW_DAY_PROMPT: "这是上次的任务，要开始新一天吗？",
+  COMPLETE_ALL_MESSAGE: "🎉 全部完成！干得漂亮。",
   LOADING_TEXT: "AI 正在拆解任务...",
   PRIVACY_NOTICE: "请勿输入密码、证件号等敏感信息。",
   EXAMPLE_LABEL: "试试：",
@@ -30,4 +35,5 @@ export const ERROR_MESSAGES = {
   HIGH_RISK_INPUT:
     "这个目标可能会带来伤害或风险，我不能帮你拆解执行步骤。请换一个安全、积极的目标。",
   CHAT_INPUT: "我是用来帮你拆解任务的。请输入一个目标，例如：我要准备面试。",
+  REGENERATE_FAILED: "重新生成失败，请稍后重试。",
 } as const;

@@ -5,6 +5,7 @@ import { GoalInput } from "@/components/GoalInput";
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/HeroSection";
 import { LoadingState } from "@/components/LoadingState";
+import { NewDayPrompt } from "@/components/NewDayPrompt";
 import { TaskList } from "@/components/TaskList";
 import { useTaskGroup } from "@/hooks/useTaskGroup";
 
@@ -17,9 +18,16 @@ export default function Home() {
     totalCount,
     isGenerateDisabled,
     pageStatus,
+    showNewDayPrompt,
+    regenerateError,
+    isAllCompleted,
     setInputGoal,
     handleGenerate,
     handleToggleTask,
+    handleClearTasks,
+    handleRegenerate,
+    handleExampleClick,
+    handleStartNewDay,
   } = useTaskGroup();
 
   return (
@@ -35,11 +43,18 @@ export default function Home() {
             onSubmit={handleGenerate}
             value={inputGoal}
           />
-          <ExampleGoals />
+          <ExampleGoals onExampleClick={handleExampleClick} />
+          {showNewDayPrompt ? (
+            <NewDayPrompt onStartNewDay={handleStartNewDay} />
+          ) : null}
           {pageStatus === "loading" ? <LoadingState /> : null}
           <TaskList
             completedCount={completedCount}
+            isAllCompleted={isAllCompleted}
+            onClearTasks={handleClearTasks}
+            onRegenerate={handleRegenerate}
             onToggleTask={handleToggleTask}
+            regenerateError={regenerateError}
             tasks={tasks}
             totalCount={totalCount}
           />

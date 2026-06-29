@@ -1,4 +1,6 @@
+import { CompleteAllPrompt } from "@/components/CompleteAllPrompt";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { TaskItem } from "@/components/TaskItem";
 import { TaskProgress } from "@/components/TaskProgress";
 import type { Task } from "@/lib/types";
@@ -8,14 +10,22 @@ interface TaskListProps {
   tasks: Task[];
   completedCount: number;
   totalCount: number;
+  isAllCompleted: boolean;
+  regenerateError: string | null;
   onToggleTask: (taskId: string) => void;
+  onClearTasks: () => void;
+  onRegenerate: () => void;
 }
 
 export function TaskList({
   tasks,
   completedCount,
   totalCount,
+  isAllCompleted,
+  regenerateError,
   onToggleTask,
+  onClearTasks,
+  onRegenerate,
 }: TaskListProps) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -23,6 +33,24 @@ export function TaskList({
         <h2 className="text-base font-semibold text-slate-950">
           {UI_TEXT.TASK_LIST_TITLE}
         </h2>
+        {totalCount > 0 ? (
+          <div className="flex items-center gap-3">
+            <button
+              className="text-sm font-medium text-slate-500"
+              onClick={onRegenerate}
+              type="button"
+            >
+              {UI_TEXT.REGENERATE_BUTTON}
+            </button>
+            <button
+              className="text-sm font-medium text-slate-500"
+              onClick={onClearTasks}
+              type="button"
+            >
+              {UI_TEXT.CLEAR_TASKS_BUTTON}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {tasks.length === 0 ? (
@@ -42,6 +70,8 @@ export function TaskList({
             completedCount={completedCount}
             totalCount={totalCount}
           />
+          {isAllCompleted ? <CompleteAllPrompt /> : null}
+          <ErrorMessage message={regenerateError} />
         </div>
       )}
     </section>
