@@ -31,6 +31,14 @@ export type ApiErrorCode =
   | "AI_PARSE_FAILED"
   | "NETWORK_ERROR";
 
+export type CloudTaskGroupErrorCode =
+  | "INVALID_DEVICE_ID"
+  | "INVALID_TASK_GROUP"
+  | "NOT_CONFIGURED"
+  | "CLOUD_SAVE_FAILED"
+  | "CLOUD_LOAD_FAILED"
+  | "CLOUD_DELETE_FAILED";
+
 export interface GenerateTasksRequest {
   goal: string;
 }
@@ -51,3 +59,20 @@ export interface GenerateTasksErrorResponse {
 export type GenerateTasksResponse =
   | GenerateTasksSuccessResponse
   | GenerateTasksErrorResponse;
+
+export interface CloudTaskGroupSuccessResponse {
+  success: true;
+  data?: TaskGroup | null;
+}
+
+export interface CloudTaskGroupErrorResponse {
+  success: false;
+  error: {
+    code: CloudTaskGroupErrorCode;
+    message: string;
+  };
+}
+
+export type CloudTaskGroupResponse =
+  | CloudTaskGroupSuccessResponse
+  | CloudTaskGroupErrorResponse;

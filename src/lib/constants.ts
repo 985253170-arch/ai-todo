@@ -42,4 +42,10 @@ export const ERROR_MESSAGES = {
     "这个目标可能会带来伤害或风险，我不能帮你拆解执行步骤。请换一个安全、积极的目标。",
   CHAT_INPUT: "我是用来帮你拆解任务的。请输入一个目标，例如：我要准备面试。",
   REGENERATE_FAILED: "重新生成失败，请稍后重试。",
+  INVALID_DEVICE_ID: "设备标识无效。",
+  INVALID_TASK_GROUP: "任务组数据无效。",
+  NOT_CONFIGURED: "云端保存暂未配置。",
+  CLOUD_SAVE_FAILED: "云端保存失败，请稍后重试。",
+  CLOUD_LOAD_FAILED: "云端读取失败，请稍后重试。",
+  CLOUD_DELETE_FAILED: "云端删除失败，请稍后重试。",
 } as const;
