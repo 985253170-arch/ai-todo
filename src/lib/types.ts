@@ -76,3 +76,15 @@ export interface CloudTaskGroupErrorResponse {
 export type CloudTaskGroupResponse =
   | CloudTaskGroupSuccessResponse
   | CloudTaskGroupErrorResponse;
+
+export interface AuthUser {
+  id: string;
+  email: string | null;
+}
+
+export type AuthErrorCode = "AUTH_NOT_CONFIGURED" | "AUTH_OPERATION_FAILED";
+
+export interface AuthMeResponse {
+  success: true;
+  user: AuthUser | null;
+}

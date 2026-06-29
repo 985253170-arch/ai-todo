@@ -49,4 +49,6 @@ export const ERROR_MESSAGES = {
   CLOUD_SAVE_FAILED: "云端保存失败，请稍后重试。",
   CLOUD_LOAD_FAILED: "云端读取失败，请稍后重试。",
   CLOUD_DELETE_FAILED: "云端删除失败，请稍后重试。",
+  AUTH_NOT_CONFIGURED: "登录服务暂未配置。",
+  AUTH_OPERATION_FAILED: "登录操作失败，请稍后重试。",
 } as const;
