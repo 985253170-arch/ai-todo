@@ -1,5 +1,7 @@
 # AI Todo
 
+Phase 10 completed: Supabase cloud backup and restore
+
 AI Todo 是一个 Next.js 应用，用来把模糊目标拆成今天可以执行的小任务。当前版本支持 AI 生成任务、任务勾选、本地保存恢复，并通过 Supabase API 为当前设备提供云端备份/恢复能力。
 
 ## 技术栈
