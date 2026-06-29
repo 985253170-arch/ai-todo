@@ -1,4 +1,5 @@
 export const STORAGE_KEY = "ai_todo_current_task_group";
+export const DEVICE_ID_STORAGE_KEY = "ai_todo_device_id";
 
 export const UI_TEXT = {
   APP_NAME: "AI Todo",

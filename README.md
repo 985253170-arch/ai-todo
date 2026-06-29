@@ -1,6 +1,6 @@
 # AI Todo
 
-AI Todo 是一个 Next.js 应用，用来把模糊目标拆成今天可以执行的小任务。当前版本支持 AI 生成任务、任务勾选、本地保存恢复，并在 Phase 10B 中新增了云端任务组 API 能力。
+AI Todo 是一个 Next.js 应用，用来把模糊目标拆成今天可以执行的小任务。当前版本支持 AI 生成任务、任务勾选、本地保存恢复，并通过 Supabase API 为当前设备提供云端备份/恢复能力。
 
 ## 技术栈
 
@@ -67,6 +67,19 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 - 不要提交 `.env.local`。
 - `.env.example` 只能保留占位符。
 - 浏览器端代码不要直接 import 或调用 Supabase service role key。
+
+## Phase 10 云端备份
+
+localStorage 仍然是主存储，Supabase 只作为当前设备的云端备份。
+
+Phase 10C 前端行为：
+
+- 页面初始化时优先读取 localStorage。
+- 如果 localStorage 有任务组，不请求云端覆盖本地数据。
+- 如果 localStorage 没有任务组，会用 `ai_todo_device_id` 调用云端读取接口。
+- AI 生成、任务勾选、重新生成成功后，先写 localStorage，再异步备份到云端。
+- 清空任务和开始新一天时，先清空本地，再异步删除云端数据。
+- 云端失败不会影响本地生成、勾选、刷新恢复等核心流程。
 
 ## Phase 10B 云端 API
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ERROR_MESSAGES } from "@/lib/constants";
+import { getOrCreateDeviceId } from "@/lib/device-id";
 import {
   checkRiskInput,
   validateGoalInput,
@@ -10,6 +11,7 @@ import { isTaskGroupFromToday } from "@/lib/date-utils";
 import { loadTaskGroup, removeTaskGroup, saveTaskGroup } from "@/lib/storage";
 import type {
   ApiErrorCode,
+  CloudTaskGroupResponse,
   GenerateTasksResponse,
   PageStatus,
   TaskGroup,
@@ -24,6 +26,69 @@ const API_ERROR_MESSAGES: Record<ApiErrorCode, string> = {
   AI_PARSE_FAILED: ERROR_MESSAGES.AI_PARSE_FAILED,
   NETWORK_ERROR: ERROR_MESSAGES.NETWORK_ERROR,
 };
+
+function reportCloudError(action: string, error: unknown) {
+  if (process.env.NODE_ENV === "development") {
+    console.warn(`Failed to ${action} task group in cloud.`, error);
+  }
+}
+
+async function saveTaskGroupToCloud(deviceId: string, taskGroup: TaskGroup) {
+  try {
+    const response = await fetch("/api/task-group/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, taskGroup }),
+    });
+
+    if (!response.ok) {
+      reportCloudError("save", response.status);
+    }
+  } catch (error) {
+    reportCloudError("save", error);
+  }
+}
+
+async function loadTaskGroupFromCloud(deviceId: string) {
+  try {
+    const response = await fetch(
+      `/api/task-group/load?deviceId=${encodeURIComponent(deviceId)}`,
+    );
+
+    if (!response.ok) {
+      reportCloudError("load", response.status);
+      return null;
+    }
+
+    const result = (await response.json()) as CloudTaskGroupResponse;
+
+    if (!result.success) {
+      reportCloudError("load", result.error.code);
+      return null;
+    }
+
+    return result.data ?? null;
+  } catch (error) {
+    reportCloudError("load", error);
+    return null;
+  }
+}
+
+async function deleteTaskGroupFromCloud(deviceId: string) {
+  try {
+    const response = await fetch("/api/task-group/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId }),
+    });
+
+    if (!response.ok) {
+      reportCloudError("delete", response.status);
+    }
+  } catch (error) {
+    reportCloudError("delete", error);
+  }
+}
 
 export function useTaskGroup() {
   const [inputGoal, setInputGoal] = useState("");
@@ -40,6 +105,8 @@ export function useTaskGroup() {
   const isAllCompleted = totalCount > 0 && completedCount === totalCount;
 
   useEffect(() => {
+    let isCancelled = false;
+
     const restoreTimer = window.setTimeout(() => {
       const savedTaskGroup = loadTaskGroup();
 
@@ -47,10 +114,28 @@ export function useTaskGroup() {
         setTaskGroup(savedTaskGroup);
         setPageStatus("success");
         setShowNewDayPrompt(!isTaskGroupFromToday(savedTaskGroup));
+        return;
       }
+
+      void (async () => {
+        const deviceId = getOrCreateDeviceId();
+        const cloudTaskGroup = await loadTaskGroupFromCloud(deviceId);
+
+        if (!cloudTaskGroup || isCancelled) {
+          return;
+        }
+
+        setTaskGroup(cloudTaskGroup);
+        saveTaskGroup(cloudTaskGroup);
+        setPageStatus("success");
+        setShowNewDayPrompt(!isTaskGroupFromToday(cloudTaskGroup));
+      })();
     }, 0);
 
-    return () => window.clearTimeout(restoreTimer);
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(restoreTimer);
+    };
   }, []);
 
   function handleInputGoalChange(goal: string) {
@@ -113,6 +198,7 @@ export function useTaskGroup() {
 
       setTaskGroup(result.data);
       saveTaskGroup(result.data);
+      void saveTaskGroupToCloud(getOrCreateDeviceId(), result.data);
       setShowNewDayPrompt(false);
       setPageStatus("success");
     } catch {
@@ -156,6 +242,7 @@ export function useTaskGroup() {
 
       setTaskGroup(result.data);
       saveTaskGroup(result.data);
+      void saveTaskGroupToCloud(getOrCreateDeviceId(), result.data);
       setShowNewDayPrompt(false);
       setPageStatus("success");
     } catch {
@@ -182,6 +269,7 @@ export function useTaskGroup() {
       };
 
       saveTaskGroup(updatedTaskGroup);
+      void saveTaskGroupToCloud(getOrCreateDeviceId(), updatedTaskGroup);
       return updatedTaskGroup;
     });
   }
@@ -189,6 +277,7 @@ export function useTaskGroup() {
   function handleClearTasks() {
     setTaskGroup(null);
     removeTaskGroup();
+    void deleteTaskGroupFromCloud(getOrCreateDeviceId());
     setPageStatus("idle");
     setShowNewDayPrompt(false);
     setRegenerateError(null);
@@ -204,6 +293,7 @@ export function useTaskGroup() {
   function handleStartNewDay() {
     setTaskGroup(null);
     removeTaskGroup();
+    void deleteTaskGroupFromCloud(getOrCreateDeviceId());
     setInputGoal("");
     setErrorMessage(null);
     setPageStatus("idle");
