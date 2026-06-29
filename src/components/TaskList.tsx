@@ -30,20 +30,20 @@ export function TaskList({
   return (
     <section className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-md shadow-slate-200/70 sm:p-5">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-base font-semibold text-slate-950">
+        <h2 className="text-base font-semibold tracking-tight text-slate-950">
           {UI_TEXT.TASK_LIST_TITLE}
         </h2>
         {totalCount > 0 ? (
           <div className="flex items-center gap-2">
             <button
-              className="min-h-11 rounded-lg px-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="min-h-11 rounded-lg px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
               onClick={onRegenerate}
               type="button"
             >
               {UI_TEXT.REGENERATE_BUTTON}
             </button>
             <button
-              className="min-h-11 rounded-lg px-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="min-h-11 rounded-lg px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
               onClick={onClearTasks}
               type="button"
             >

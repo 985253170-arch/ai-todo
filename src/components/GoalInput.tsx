@@ -27,7 +27,7 @@ export function GoalInput({
           value={value}
         />
         <button
-          className="min-h-12 touch-manipulation rounded-lg bg-blue-600 px-5 text-base font-medium text-white transition-colors hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="min-h-12 touch-manipulation rounded-lg bg-blue-600 px-5 text-base font-medium text-white transition-colors duration-150 hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
           disabled={isLoading}
           onClick={onSubmit}
           type="button"
