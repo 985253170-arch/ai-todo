@@ -18,6 +18,9 @@
 - [十四、每个 Phase 的技术实现重点](#十四每个-phase-的技术实现重点)
 - [十五、潜在风险与规避方案](#十五潜在风险与规避方案)
 - [十六、部署架构](#十六部署架构)
+- [十七、Phase 8：任务管理体验升级](#十七phase-8任务管理体验升级)
+- [十八、Phase 9：视觉美化--pwa--移动端优化](#十八phase-9视觉美化--pwa--移动端优化)
+- [十九、Phase 8 与 Phase 9 关系](#十九phase-8-与-phase-9-关系)
 
 ---
 
@@ -65,58 +68,63 @@ V1.0 技术选型遵循以下原则：
 
 ## 二、项目目录结构
 
-### 2.1 推荐目录结构
+### 2.1 V1.0 实际目录结构
+
+> 以下为 V1.0 完成后的实际目录结构。与初始设计相比，实际实现中未创建 `useLocalStorage.ts`（其职责已合并到 `storage.ts` 和 `useTaskGroup.ts` 中），`public/` 目录为空（V1.0 无静态资源需求）。
 
 ```
 ai-todo/
 ├── .env.local                  # 环境变量（AI API Key），不提交 Git
 ├── .env.example                # 环境变量示例模板
 ├── .gitignore                  # Git 忽略规则
-├── next.config.js              # Next.js 配置
+├── Architecture.md             # 技术架构文档
+├── PRD.md                      # 产品需求文档
+├── README.md                   # 项目说明
+├── eslint.config.mjs           # ESLint 配置（flat config）
+├── next.config.ts              # Next.js 配置
+├── postcss.config.mjs          # PostCSS 配置
 ├── tailwind.config.ts          # Tailwind 配置
 ├── tsconfig.json               # TypeScript 配置
 ├── package.json                # 项目依赖
-├── README.md                   # 项目说明
+├── package-lock.json           # 依赖锁定
 │
-├── public/                     # 静态资源
-│   └── favicon.ico
+├── public/                     # 静态资源（V1.0 为空，V1.2 将加入 PWA 图标和 manifest）
 │
 └── src/
     ├── app/                    # Next.js App Router 页面
-    │   ├── layout.tsx          # 根布局（全局 HTML 结构）
-    │   ├── page.tsx            # 首页（唯一页面）
+    │   ├── layout.tsx          # 根布局（全局 HTML 结构 + metadata）
+    │   ├── page.tsx            # 首页（唯一页面，状态中心）
     │   ├── globals.css         # 全局样式 + Tailwind 指令
     │   │
     │   └── api/                # API Route（后端接口）
     │       └── generate-tasks/ # AI 任务生成接口
     │           └── route.ts    # POST /api/generate-tasks
     │
-    ├── components/             # 可复用组件
+    ├── components/             # 可复用组件（10 个）
     │   ├── Header.tsx          # 页面顶部（产品名称）
     │   ├── HeroSection.tsx     # 产品介绍区域
-    │   ├── GoalInput.tsx       # 目标输入组件（输入框 + 按钮）
-    │   ├── ExampleGoals.tsx    # 示例目标快捷提示
+    │   ├── GoalInput.tsx       # 目标输入组件（受控组件：输入框 + 按钮）
+    │   ├── ExampleGoals.tsx    # 示例目标快捷提示（纯展示）
     │   ├── TaskList.tsx        # 任务列表容器
     │   ├── TaskItem.tsx        # 单条任务项（勾选框 + 标题）
     │   ├── TaskProgress.tsx    # 完成进度（已完成 X / Y）
     │   ├── EmptyState.tsx      # 空状态展示
     │   ├── LoadingState.tsx    # 加载状态展示
-    │   └── ErrorMessage.tsx    # 错误提示组件
+    │   └── ErrorMessage.tsx    # 错误提示组件（支持 error/warning/info 三种类型）
     │
     ├── hooks/                  # 自定义 Hooks
-    │   ├── useTaskGroup.ts     # 任务组状态管理 Hook
-    │   └── useLocalStorage.ts  # localStorage 读写 Hook
+    │   └── useTaskGroup.ts     # 任务组状态管理 Hook（142 行，核心状态中心）
     │
     ├── lib/                    # 工具函数与业务逻辑
     │   ├── types.ts            # TypeScript 类型定义
-    │   ├── storage.ts          # localStorage 操作函数
-    │   ├── task-parser.ts      # AI 返回 JSON 解析与校验
-    │   ├── input-validator.ts  # 用户输入校验函数
-    │   └── constants.ts        # 常量定义（键名、提示文案等）
+    │   ├── constants.ts        # 常量定义（STORAGE_KEY、UI_TEXT、ERROR_MESSAGES）
+    │   ├── storage.ts          # localStorage 操作函数（save/load/remove + type guard 校验）
+    │   ├── ai-client.ts        # AI 服务调用封装（3 层 fallback）
+    │   ├── task-parser.ts      # AI 返回 JSON 解析与校验（Markdown 清理 + JSON.parse + 正则兜底）
+    │   └── input-validator.ts  # 用户输入校验 + 高风险输入检测
     │
-    └── prompts/                # AI Prompt 模板（可选，便于维护）
-        └── task-generation.ts  # 任务生成 Prompt 模板
-```
+    └── prompts/                # AI Prompt 模板
+        └── task-generation.ts  # 任务生成 Prompt（System + User + 大目标检测）
 
 ### 2.2 目录设计原则
 
@@ -203,14 +211,15 @@ layout.tsx (根布局)
 
 ```typescript
 // 职责：展示示例目标，降低用户输入门槛
-// Props：
-//   - onSelectExample: (goal: string) => void  // 点击示例后的回调（可选，V1.0可先做纯文本）
+// Props：无（V1.0 纯展示组件，Phase 8 将增加 onClick 回调变为可交互按钮）
 // 状态：无
 // 示例列表：
 //   - 我要学习 Python
 //   - 我要准备面试
 //   - 我要做一个小项目
 //   - 我要减肥
+//
+// Phase 8 变更：新增 onClick prop，<span> 改为 <button>
 ```
 
 #### TaskList.tsx
@@ -358,7 +367,7 @@ interface PageState {
 ```typescript
 // hooks/useTaskGroup.ts
 
-// 对外暴露的接口
+// 对外暴露的接口（V1.0 实际接口 + Phase 8 新增标注）
 interface UseTaskGroupReturn {
   // 状态
   pageStatus: PageStatus;
@@ -372,13 +381,19 @@ interface UseTaskGroupReturn {
   totalCount: number;                         // 总任务数
   isGenerateDisabled: boolean;                // 按钮是否应禁用
 
-  // 操作方法
+  // 操作方法（V1.0）
   setInputGoal: (goal: string) => void;       // 更新输入框内容
   handleGenerate: () => Promise<void>;        // 点击 AI 拆分按钮
   handleToggleTask: (taskId: string) => void; // 勾选/取消任务
-  handleClearTasks: () => void;               // 清空任务（P2 可选）
-  handleRegenerate: () => Promise<void>;      // 重新生成（P2 可选）
-  dismissError: () => void;                   // 关闭错误提示
+
+  // Phase 8 新增（V1.1）
+  showNewDayPrompt: boolean;                  // 是否显示"新一天"提示
+  regenerateError: string | null;             // 重新生成失败的错误
+  isAllCompleted: boolean;                    // 是否全部完成
+  handleClearTasks: () => void;               // 清空当前任务
+  handleRegenerate: () => Promise<void>;      // 重新生成任务
+  handleExampleClick: (goal: string) => void; // 示例点击填入
+  handleStartNewDay: () => void;              // 开始新一天
 }
 ```
 
@@ -586,6 +601,8 @@ localStorage 键名：ai_todo_current_task_group
 | AI 生成任务成功 | `saveTaskGroup(taskGroup)` | 存储完整任务组 |
 | 用户勾选任务 | `updateTask(taskId, { completed: true })` | 更新单条任务状态 |
 | 用户取消勾选 | `updateTask(taskId, { completed: false })` | 更新单条任务状态 |
+
+> **V1.0 实际实现简化**：未实现独立的 `updateTask` 函数。勾选操作由 `useTaskGroup.handleToggleTask` 内部通过 `setTaskGroup` 不可变更新 + 直接调用 `saveTaskGroup(updatedTaskGroup)` 完成，效果等价。
 | 用户清空任务 | `removeTaskGroup()` | 删除 localStorage 数据 |
 | 用户重新生成 | `saveTaskGroup(newTaskGroup)` | 覆盖旧任务组 |
 
@@ -662,6 +679,8 @@ function loadTaskGroup(): TaskGroup | null {
 
 /**
  * 更新单条任务的部分字段
+ * 注意：V1.0 未实现此函数，实际采用更简单的方案：
+ * useTaskGroup.handleToggleTask 内部 setTaskGroup + saveTaskGroup
  */
 function updateTask(taskId: string, updates: Partial<Task>): TaskGroup | null {
   const group = loadTaskGroup();
@@ -1028,7 +1047,8 @@ export function buildUserPrompt(goal: string): string {
 ```typescript
 // lib/input-validator.ts
 
-const RISK_KEYWORDS = ['报复', '违法', '自伤', '伤害', '自杀', '杀人', '毒品', '诈骗'];
+// V1.0 实际关键词列表（与 src/lib/input-validator.ts 保持一致）
+const RISK_KEYWORDS = ["自杀", "自残", "伤害", "杀人", "报复", "诈骗", "毒品", "炸弹", "攻击", "违法"];
 
 export function checkRiskInput(goal: string): { isRisk: boolean; reason?: string } {
   const trimmed = goal.trim().toLowerCase();
@@ -1376,6 +1396,8 @@ className="flex items-center gap-3 rounded-lg bg-white p-4 shadow-sm"
 | Phase 5 | 接入 AI 生成任务 | 真实 AI 接口替代假数据 | 2-3 小时 |
 | Phase 6 | 异常处理与体验优化 | 加载/错误/响应式 | 2-3 小时 |
 | Phase 7 | 部署上线 | GitHub + Vercel | 30 分钟-1 小时 |
+| Phase 8 | 任务管理体验升级 | 清空/重生成/示例点击/全部完成/新一天 | 2-3 小时 |
+| Phase 9 | 视觉美化 + PWA | 视觉层次/移动端/PWA/品牌 | 2-3 小时 |
 
 ### 13.2 阶段依赖关系
 
@@ -1388,6 +1410,8 @@ Phase 0 (项目初始化)
                           └── Phase 5 (接入 AI)
                                 └── Phase 6 (异常 + 体验)
                                       └── Phase 7 (部署)
+                                            └── Phase 8 (任务管理体验升级) ← V1.1
+                                                  └── Phase 9 (视觉美化 + PWA) ← V1.2
 ```
 
 **关键点**：Phase 3 和 Phase 4 使用假数据，可以在没有 AI API Key 的情况下跑通完整 UI 流程。Phase 5 才接入真实 AI。
@@ -1555,10 +1579,10 @@ const MOCK_TASKS: Task[] = [
 **目标**：实现任务完成状态切换 + localStorage 持久化
 
 **技术重点**：
-1. 创建 `lib/storage.ts`，实现 `saveTaskGroup`、`loadTaskGroup`、`updateTask`、`removeTaskGroup`
+1. 创建 `lib/storage.ts`，实现 `saveTaskGroup`、`loadTaskGroup`、`removeTaskGroup`
 2. 在 `useTaskGroup` 中：
    - AI 生成/假数据生成任务后 → 调用 `saveTaskGroup`
-   - 勾选任务 → 更新内存状态 + 调用 `updateTask` 持久化
+   - 勾选任务 → 更新内存状态 + 调用 `saveTaskGroup` 持久化（V1.0 实际采用此种方式，未创建独立的 `updateTask` 函数）
    - 页面初始化 → 调用 `loadTaskGroup` 恢复数据
 3. `TaskItem` 的勾选框绑定 `onClick`，调用 `handleToggleTask(taskId)`
 4. 已完成任务 → 勾选框选中 + 文字删除线 (`line-through`) + 灰色 (`text-gray-400`)
@@ -1702,7 +1726,7 @@ useEffect(() => {
    - 确保按钮高度 ≥ 44px
    - 确保无横向滚动
 
-**可选增强（P2）**：
+**可选增强（P2，已在 Phase 8 实现）**：
 - 重新生成任务按钮
 - 清空任务按钮
 - 示例目标可点击快捷填入
@@ -1914,77 +1938,837 @@ export type GenerateTasksResponse =
   | GenerateTasksSuccessResponse
   | GenerateTasksErrorResponse;
 
-/** useTaskGroup Hook 返回类型 */
+/** useTaskGroup Hook 返回类型（V1.0 实际接口） */
 export interface UseTaskGroupReturn {
+  // 状态
   pageStatus: PageStatus;
   taskGroup: TaskGroup | null;
   inputGoal: string;
   errorMessage: string | null;
-  tasks: Task[];
-  completedCount: number;
-  totalCount: number;
-  setInputGoal: (goal: string) => void;
-  handleGenerate: () => Promise<void>;
-  handleToggleTask: (taskId: string) => void;
-  handleClearTasks: () => void;
-  handleRegenerate: () => Promise<void>;
-  dismissError: () => void;
+
+  // 派生状态
+  tasks: Task[];                              // taskGroup?.tasks ?? []
+  completedCount: number;                     // 已完成任务数
+  totalCount: number;                         // 总任务数
+  isGenerateDisabled: boolean;                // 按钮是否应禁用（pageStatus === "loading"）
+
+  // 操作方法
+  setInputGoal: (goal: string) => void;       // 更新输入框内容 + 自动清除 error
+  handleGenerate: () => Promise<void>;        // 点击 AI 拆分按钮
+  handleToggleTask: (taskId: string) => void; // 勾选/取消任务 + 自动保存
+
+  // Phase 8 新增（V1.1）
+  showNewDayPrompt: boolean;                  // 是否显示"新一天"提示
+  regenerateError: string | null;             // 重新生成失败的错误（独立于 errorMessage）
+  isAllCompleted: boolean;                    // 是否全部完成
+  handleClearTasks: () => void;               // 清空当前任务
+  handleRegenerate: () => Promise<void>;      // 重新生成任务
+  handleExampleClick: (goal: string) => void; // 示例点击填入（不调用 AI）
+  handleStartNewDay: () => void;              // 开始新一天
 }
 ```
 
 ## 附录 B：提示文案清单
 
+### V1.0 实际常量
+
 ```typescript
 // src/lib/constants.ts
 
+export const STORAGE_KEY = "ai_todo_current_task_group";
+
 export const UI_TEXT = {
   // 页面文案
-  APP_NAME: 'AI Todo',
-  APP_TAGLINE: '把模糊目标拆成今天可以执行的任务。',
-  HERO_DESCRIPTION: '输入一个目标，让 AI 帮你拆成清晰、具体、可执行的任务清单。',
+  APP_NAME: "AI Todo",
+  APP_TAGLINE: "把模糊目标拆成今天可以执行的任务。",
 
   // 输入框
-  INPUT_PLACEHOLDER: '例如：我要学习 Python / 我要准备面试 / 我要做一个小项目',
-  BUTTON_GENERATE: 'AI 拆分任务',
-  BUTTON_GENERATING: '生成中...',
-  BUTTON_REGENERATE: '重新生成',
-  BUTTON_CLEAR: '清空任务',
+  INPUT_PLACEHOLDER: "例如：我要学习 Python / 我要准备面试 / 我要做一个小项目",
+  BUTTON_GENERATE: "AI 拆分任务",
+  GENERATING_BUTTON: "生成中...",
 
   // 示例目标
-  EXAMPLE_LABEL: '试试：',
+  EXAMPLE_LABEL: "试试：",
   EXAMPLE_GOALS: [
-    '我要学习 Python',
-    '我要准备面试',
-    '我要做一个小项目',
-    '我要减肥',
+    "我要学习 Python",
+    "我要准备面试",
+    "我要做一个小项目",
+    "我要减肥",
   ],
 
   // 任务列表
-  TASK_LIST_TITLE: '今日任务',
-  EMPTY_STATE: '还没有任务，输入一个目标试试。',
-  LOADING_TEXT: 'AI 正在拆解任务...',
-  PROGRESS_FORMAT: (completed: number, total: number) => `已完成 ${completed} / ${total}`,
+  TASK_LIST_TITLE: "今日任务",
+  EMPTY_STATE: "还没有任务，输入一个目标试试。",
+  LOADING_TEXT: "AI 正在拆解任务...",
 
   // 隐私提示
-  PRIVACY_NOTICE: '请勿输入密码、证件号等敏感信息。',
+  PRIVACY_NOTICE: "请勿输入密码、证件号等敏感信息。",
 } as const;
 
 export const ERROR_MESSAGES = {
-  EMPTY_INPUT: '请先输入一个目标。',
-  INPUT_TOO_SHORT: '请输入更具体的目标，例如：我要学习 Python。',
-  INPUT_TOO_LONG: '目标描述太长，请简化为一句话。',
-  AI_GENERATION_FAILED: '任务生成失败，请稍后重试。',
-  AI_PARSE_FAILED: '任务解析失败，请重新生成。',
-  NETWORK_ERROR: '网络连接异常，请检查后重试。',
-  SAVE_FAILED: '任务暂时无法保存，请稍后重试。',
-  HIGH_RISK_INPUT: '这个目标可能会带来伤害或风险，我不能帮你拆解执行步骤。请换一个安全、积极的目标。',
-  CHAT_INPUT: '我是用来帮你拆解任务的。请输入一个目标，例如：我要准备面试。',
+  EMPTY_INPUT: "请先输入一个目标。",
+  INPUT_TOO_SHORT: "请输入更具体的目标，例如：我要学习 Python。",
+  INPUT_TOO_LONG: "目标描述太长，请简化为一句话。",
+  AI_GENERATION_FAILED: "任务生成失败，请稍后重试。",
+  AI_PARSE_FAILED: "任务解析失败，请重新生成。",
+  NETWORK_ERROR: "网络连接异常，请检查后重试。",
+  SAVE_FAILED: "任务暂时无法保存，请稍后重试。",
+  HIGH_RISK_INPUT: "这个目标可能会带来伤害或风险，我不能帮你拆解执行步骤。请换一个安全、积极的目标。",
+  CHAT_INPUT: "我是用来帮你拆解任务的。请输入一个目标，例如：我要准备面试。",
 } as const;
+```
+
+### Phase 8 新增常量（V1.1）
+
+```typescript
+// 在 UI_TEXT 中新增：
+CLEAR_TASKS_BUTTON: "清空",
+REGENERATE_BUTTON: "重新生成",
+START_NEW_DAY_BUTTON: "开始新一天",
+NEW_DAY_PROMPT: "这是上次的任务，要开始新一天吗？",
+COMPLETE_ALL_MESSAGE: "🎉 全部完成！干得漂亮。",
+
+// 在 ERROR_MESSAGES 中新增：
+REGENERATE_FAILED: "重新生成失败，请稍后重试。",
 ```
 
 ---
 
-> **文档版本**：V1.0
+## 十七、Phase 8：任务管理体验升级
+
+### 17.1 阶段定位
+
+| 属性 | 说明 |
+|------|------|
+| 阶段编号 | Phase 8 |
+| 所属版本 | V1.1 |
+| 前置依赖 | Phase 0-7 全部通过 |
+| 核心目标 | 补齐当前任务组的基础管理能力，不推翻 V1.0 架构 |
+| 新增依赖 | **0 个** |
+| 修改 AI 调用 | **不修改** |
+| 修改 API Route | **不修改** |
+| 预计工作量 | 2-3 小时 |
+
+### 17.2 功能清单
+
+| # | 功能 | 说明 |
+|---|------|------|
+| 1 | 清空当前任务 | 一键清空 taskGroup，localStorage 同步清除，页面回到空状态 |
+| 2 | 重新生成任务 | 基于输入框目标（或 taskGroup.goal）重新调用 AI，成功后替换旧任务组，失败时保留旧任务 |
+| 3 | 示例目标点击填入 | 点击示例目标按钮 → 文本填入输入框，**不自动调用 AI** |
+| 4 | 全部完成提示 | totalCount > 0 且 completedCount === totalCount 时显示完成提示 |
+| 5 | 第二天新一天提示 | 恢复非今天创建的任务组时，显示提示 + "开始新一天"按钮，不清除旧数据 |
+
+### 17.3 类型系统变更 — 无需修改
+
+**`TaskGroup` 不做任何修改**。当前 `createdAt: string`（ISO 8601）已足够支撑"是否为今天创建"的判断。判断逻辑抽取为独立纯函数，不侵入类型定义：
+
+```typescript
+// src/lib/date-utils.ts（新增文件）
+
+/**
+ * 判断 taskGroup 是否为今天创建
+ * 使用本地时区，与用户感知的"今天"一致
+ */
+export function isTaskGroupFromToday(taskGroup: TaskGroup): boolean {
+  const createdDate = new Date(taskGroup.createdAt);
+  const today = new Date();
+
+  return (
+    createdDate.getFullYear() === today.getFullYear() &&
+    createdDate.getMonth() === today.getMonth() &&
+    createdDate.getDate() === today.getDate()
+  );
+}
+```
+
+**`PageStatus` 不做修改**。现有状态机 `"idle" | "editing" | "loading" | "success" | "error" | "parse_error"` 已覆盖 Phase 8 所有页面状态。
+
+### 17.4 useTaskGroup Hook 变更
+
+#### 17.4.1 新增内部状态
+
+```typescript
+// 新增 Hook 内部状态（不暴露到类型系统外）
+const [showNewDayPrompt, setShowNewDayPrompt] = useState(false);
+const [regenerateError, setRegenerateError] = useState<string | null>(null);
+```
+
+**为什么 `regenerateError` 要独立于 `errorMessage`**：
+- `errorMessage` 被 `GoalInput` 消费，渲染在输入卡片内
+- 重新生成失败时，页面状态必须保持 `"success"`（旧任务不能丢失）
+- 如果复用 `errorMessage` + `pageStatus="error"`，`TaskList` 的条件渲染逻辑会把旧任务隐藏
+- `regenerateError` 单独渲染在 `TaskList` 区域，不影响旧任务展示
+
+#### 17.4.2 新增派生状态
+
+```typescript
+const isAllCompleted = totalCount > 0 && completedCount === totalCount;
+```
+
+#### 17.4.3 修改 `useEffect` 恢复逻辑
+
+```
+V1.0 逻辑：
+  loadTaskGroup() → 存在 → setTaskGroup + setPageStatus("success")
+
+Phase 8 逻辑：
+  loadTaskGroup() → 存在 →
+    setTaskGroup(savedTaskGroup)
+    setPageStatus("success")
+    if (!isTaskGroupFromToday(savedTaskGroup)):
+      setShowNewDayPrompt(true)
+    // 关键：不自动清除旧任务，用户自行决定
+```
+
+#### 17.4.4 新增方法
+
+**handleClearTasks()**
+
+```typescript
+function handleClearTasks() {
+  setTaskGroup(null);
+  removeTaskGroup();
+  setPageStatus("idle");
+  setShowNewDayPrompt(false);
+  setRegenerateError(null);
+  // inputGoal 不清空，方便用户输入新目标
+}
+```
+
+**handleRegenerate()**
+
+```
+重新生成流程：
+1. 确定目标文本：
+   - 如果 inputGoal.trim() 非空 → 使用 inputGoal
+   - 否则如果 taskGroup.goal 存在 → 使用 taskGroup.goal
+   - 否则 → 等同于空输入（触发 EMPTY_INPUT 校验）
+2. 输入校验（validateGoalInput + checkRiskInput）→ 同 handleGenerate
+3. setPageStatus("loading")
+4. setRegenerateError(null)
+5. 调用 /api/generate-tasks
+6. 成功：
+   - setTaskGroup(result.data)
+   - saveTaskGroup(result.data)
+   - setPageStatus("success")
+   - setInputGoal("")
+7. 失败：
+   - 保持 taskGroup 不变 ← 旧任务不丢失
+   - 保持 pageStatus("success") ← 旧任务继续显示
+   - setRegenerateError("重新生成失败，请稍后重试。")
+```
+
+**重新生成失败时的数据流**：
+
+```
+失败前：taskGroup=旧任务组, pageStatus="success", 任务列表正常显示
+失败后：taskGroup=旧任务组(不变), pageStatus="success"(不变)
+        regenerateError="重新生成失败,请稍后重试。"
+        → TaskList 下方显示可关闭的 error banner
+        → 旧任务完整保留，用户可继续勾选
+```
+
+**handleExampleClick(goal: string)**
+
+```typescript
+function handleExampleClick(goal: string) {
+  setInputGoal(goal);
+  setErrorMessage(null);
+  setPageStatus("editing");
+  // 不调用 AI，不触发任何 fetch
+}
+```
+
+**handleStartNewDay()**
+
+```typescript
+function handleStartNewDay() {
+  setTaskGroup(null);
+  removeTaskGroup();
+  setPageStatus("idle");
+  setShowNewDayPrompt(false);
+  setRegenerateError(null);
+  setInputGoal("");
+}
+```
+
+#### 17.4.5 返回值扩展
+
+在现有 return 对象基础上新增：
+
+```typescript
+showNewDayPrompt: boolean;
+regenerateError: string | null;
+isAllCompleted: boolean;
+handleClearTasks: () => void;
+handleRegenerate: () => Promise<void>;
+handleExampleClick: (goal: string) => void;
+handleStartNewDay: () => void;
+```
+
+### 17.5 组件变更
+
+#### 17.5.1 新增组件
+
+**CompleteAllPrompt.tsx**
+
+```typescript
+// 职责：全部任务完成时显示鼓励提示
+// Props：无
+// 渲染条件：isAllCompleted === true 时，在 TaskProgress 下方渲染
+// 渲染内容：🎉 全部完成！干得漂亮。
+// 取消勾选任一条 → isAllCompleted 变 false → 组件消失
+```
+
+**NewDayPrompt.tsx**
+
+```typescript
+// 职责：恢复非今天的旧任务时提示用户开始新一天
+// Props：
+//   - onStartNewDay: () => void
+// 渲染条件：showNewDayPrompt === true 时，在 GoalInput 和 TaskList 之间渲染
+// 渲染内容：
+//   - 提示文字："这是上次的任务，要开始新一天吗？"
+//   - 按钮："开始新一天"
+//   - 次要操作：用户可以忽略提示，继续使用旧任务（勾选/取消仍有效）
+```
+
+#### 17.5.2 修改组件
+
+**ExampleGoals.tsx**
+
+```
+变更前：渲染 <span>，无交互
+变更后：
+  - 新增 Props: onClick: (goal: string) => void
+  - 渲染 <button>（保留原有样式 + cursor-pointer + hover 效果）
+  - onClick 调用 props.onClick(goal)
+  - 保持 flex-wrap 布局
+```
+
+**TaskList.tsx**
+
+```
+新增 Props:
+  isAllCompleted: boolean
+  onClearTasks: () => void
+  onRegenerate: () => void
+  regenerateError: string | null
+
+渲染变更：
+  - 标题栏右侧新增两个小按钮：[重新生成] [清空]
+  - isAllCompleted 为 true 时，TaskProgress 下方渲染 CompleteAllPrompt
+  - regenerateError 不为 null 时，渲染 ErrorMessage（type="error"）
+  - 清空/重新生成按钮仅在 totalCount > 0 时显示
+```
+
+**page.tsx**
+
+```
+新增解构：
+  showNewDayPrompt, regenerateError, isAllCompleted,
+  handleClearTasks, handleRegenerate, handleExampleClick, handleStartNewDay
+
+渲染变更：
+  - ExampleGoals 传递 onClick={handleExampleClick}
+  - GoalInput 和 TaskList 之间条件渲染 NewDayPrompt
+  - TaskList 传递新增 props
+```
+
+#### 17.5.3 不修改的组件
+
+| 组件 | 原因 |
+|------|------|
+| `Header.tsx` | 无逻辑变更 |
+| `HeroSection.tsx` | 无逻辑变更 |
+| `GoalInput.tsx` | API 接口不变 |
+| `LoadingState.tsx` | 逻辑不变 |
+| `ErrorMessage.tsx` | 现有接口已满足 |
+| `EmptyState.tsx` | 无变更 |
+| `TaskItem.tsx` | 无变更 |
+| `TaskProgress.tsx` | 无变更 |
+
+### 17.6 UI 按钮布局
+
+```
+┌─────────────────────────────────────────────┐
+│  Hero Section                                │
+├─────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────┐    │
+│  │  [输入框..........................] [生成] │    │
+│  └─────────────────────────────────────┘    │
+│  试试：[示例1] [示例2] [示例3] [示例4]        │  ← 改为 button
+├─────────────────────────────────────────────┤
+│  ⚠ 这是上次的任务，要开始新一天吗？ [开始]    │  ← NewDayPrompt
+├─────────────────────────────────────────────┤
+│  今日任务              [重新生成] [清空]      │  ← 新增操作按钮
+│  ┌─────────────────────────────────────┐    │
+│  │ ☐ 任务 1    ☑ 任务 2    ☐ 任务 3    │    │
+│  └─────────────────────────────────────┘    │
+│  已完成 1/3                                 │
+│  🎉 全部完成！干得漂亮。                     │  ← CompleteAllPrompt
+│  ⚠ 重新生成失败，请稍后重试。               │  ← regenerateError
+└─────────────────────────────────────────────┘
+```
+
+### 17.7 localStorage 兼容性
+
+**V1.0 存储数据**已包含 `createdAt` 字段，`isTaskGroup` type guard 已校验 `typeof taskGroup.createdAt === "string"`。Phase 8 **不修改 `STORAGE_KEY`**，**不修改存储结构**，**不修改 `isTaskGroup` 验证逻辑**。
+
+如果极端情况下旧数据缺少 `createdAt`，`isTaskGroup` 会拒绝 → `removeTaskGroup()` 清除 → 等价于首次访问。不需要显式迁移函数。
+
+**storage.ts 无需新增任何函数**。现有 `removeTaskGroup()` 已满足清空需求。
+
+### 17.8 常量新增
+
+在 `UI_TEXT` 中：
+
+```typescript
+CLEAR_TASKS_BUTTON: "清空",
+REGENERATE_BUTTON: "重新生成",
+START_NEW_DAY_BUTTON: "开始新一天",
+NEW_DAY_PROMPT: "这是上次的任务，要开始新一天吗？",
+COMPLETE_ALL_MESSAGE: "🎉 全部完成！干得漂亮。",
+```
+
+在 `ERROR_MESSAGES` 中：
+
+```typescript
+REGENERATE_FAILED: "重新生成失败，请稍后重试。",
+```
+
+### 17.9 文件变更汇总
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| **新增** | `src/lib/date-utils.ts` | `isTaskGroupFromToday` 函数 (~10 行) |
+| **新增** | `src/components/CompleteAllPrompt.tsx` | 全部完成提示 (~15 行) |
+| **新增** | `src/components/NewDayPrompt.tsx` | 新一天提示 (~20 行) |
+| **修改** | `src/lib/constants.ts` | 新增 6 个常量 (~7 行) |
+| **修改** | `src/hooks/useTaskGroup.ts` | 新增状态、方法、派生值 (~60 行) |
+| **修改** | `src/components/ExampleGoals.tsx` | span→button + onClick (~10 行) |
+| **修改** | `src/components/TaskList.tsx` | 按钮 + 条件渲染 (~25 行) |
+| **修改** | `src/app/page.tsx` | 传递新 props + 条件渲染 (~15 行) |
+| **不动** | 其余所有文件 | — |
+
+### 17.10 严禁事项
+
+| 禁止 | 说明 |
+|------|------|
+| 数据库 | 不引入 |
+| 登录/注册 | 不引入 |
+| 历史记录 | 不存储多于 1 个 taskGroup |
+| 多任务组管理 | 不同时维护多个 taskGroup |
+| 日历提醒 | 不引入 |
+| 推送通知 | 不引入 |
+| PWA | 不进入 Phase 9 范围 |
+| API Route 修改 | 不动 `route.ts` |
+| AI 调用修改 | 不动 `ai-client.ts`、`task-parser.ts`、prompts |
+| 新依赖 | 0 个新 npm 包 |
+| types.ts 修改 | 决不允许 |
+| storage.ts 修改 | 决不允许（`removeTaskGroup` 已满足需求） |
+
+### 17.11 Phase 8 验收标准
+
+| # | 验收项 | 预期行为 |
+|---|--------|---------|
+| 1 | 清空任务 | 点击清空 → taskGroup 消失 → localStorage 清除 → 页面回到空状态 |
+| 2 | 清空后输入保留 | inputGoal 不清空，用户可直接输入新目标 |
+| 3 | 重新生成（输入框有值） | 使用输入框目标 → loading → 新任务替换旧任务 → completed 全 false |
+| 4 | 重新生成（输入框为空，有 goal） | 使用 taskGroup.goal → loading → 新任务替换 → 输入框不自动填充 |
+| 5 | 重新生成失败 | 旧任务保留 → 页面仍为 success → 显示重生成错误提示 → 用户可继续勾选 |
+| 6 | 示例点击填入 | 点击示例 → 文本填入输入框 → 不自动调用 AI → 显示 editing 状态 |
+| 7 | 全部完成提示 | 勾选最后一条 → 显示 "🎉 全部完成！" → 取消任一条 → 提示消失 |
+| 8 | 第二天恢复提示 | 昨天创建的任务组 → 今天打开 → 显示旧任务 + "这是上次的任务" 提示 |
+| 9 | 开始新一天 | 点击 "开始新一天" → 清空一切 → 回到空状态 |
+| 10 | 忽略新一天提示 | 不点击 "开始新一天" → 旧任务可正常勾选/取消 → 功能不受影响 |
+| 11 | 当天任务不显示提示 | 今天创建的任务组 → 刷新/重新打开 → 不显示新一天提示 |
+| 12 | localStorage 兼容 | V1.0 存储的旧数据正常恢复 + 正确判断是否为今天 |
+| 13 | 按钮在无任务时隐藏 | totalCount === 0 时，不显示清空和重新生成按钮 |
+| 14 | lint + build 通过 | `npm run lint` 和 `npm run build` 无错误 |
+| 15 | 不越界 | 不包含任何 Phase 9 内容（PWA、视觉美化等） |
+
+### 17.12 开发任务拆分
+
+```
+Task 8.1  [基础]   新增 src/lib/date-utils.ts                     (~10 行)
+Task 8.2  [基础]   constants.ts 新增 UI_TEXT 和 ERROR_MESSAGES     (~7 行)
+Task 8.3  [核心]   useTaskGroup 新增状态、方法、派生值              (~60 行变更)
+Task 8.4  [组件]   新增 CompleteAllPrompt.tsx                      (~15 行)
+Task 8.5  [组件]   新增 NewDayPrompt.tsx                           (~20 行)
+Task 8.6  [组件]   修改 ExampleGoals.tsx（span→button + onClick）  (~10 行变更)
+Task 8.7  [组件]   修改 TaskList.tsx（按钮 + 条件渲染）             (~25 行变更)
+Task 8.8  [组装]   修改 page.tsx（传递新 props + 条件渲染）         (~15 行变更)
+Task 8.9  [验证]   lint + build + 手动验收 15 条
+```
+
+---
+
+## 十八、Phase 9：视觉美化 + PWA + 移动端优化
+
+### 18.1 阶段定位
+
+| 属性 | 说明 |
+|------|------|
+| 阶段编号 | Phase 9 |
+| 所属版本 | V1.2 |
+| 前置依赖 | Phase 8 全部通过 |
+| 核心目标 | 视觉层次美化 + PWA 基础支持 + 移动端触控和布局优化 |
+| 新增依赖 | **0 个** |
+| 修改 AI 调用 | **不修改** |
+| 修改 API Route | **不修改** |
+| 修改业务逻辑 | **不修改任何 useState / useEffect / 事件处理函数** |
+| 预计工作量 | 2-3 小时 |
+
+### 18.2 功能清单
+
+| # | 功能 | 说明 |
+|---|------|------|
+| 1 | 视觉美化 | 组件卡片层次、按钮四态、错误提示视觉增强、进度条 |
+| 2 | 移动端优化 | 触控目标 ≥ 44px、安全区适配、示例按钮防溢出 |
+| 3 | PWA 支持 | manifest.json + 图标 + metadata，支持添加到主屏幕 |
+| 4 | 品牌文案 | app name 保持 AI Todo，视觉风格简洁清爽 |
+
+### 18.3 PWA 实现 — 零依赖方案
+
+**不引入 `next-pwa` 或任何 PWA 相关 npm 包。**
+
+"添加到主屏幕"所需的最小技术集：
+
+| 要求 | 实现方式 | 需要依赖？ |
+|------|---------|-----------|
+| Web App Manifest | `public/manifest.json` | ❌ |
+| App Icons | `public/icon-192.png` + `public/icon-512.png` | ❌ |
+| Theme Color | `<meta name="theme-color">` in layout.tsx | ❌ |
+| Apple Touch Icon | `<link rel="apple-touch-icon">` in layout.tsx | ❌ |
+| Service Worker | **不做** | ❌ |
+
+**为什么不做 Service Worker**：离线 AI 生成不可用（需要网络），缓存策略对 V1.2 过度设计。如果后续版本需要离线缓存，再评估引入 `next-pwa`。
+
+#### 18.3.1 manifest.json 设计
+
+采用 `public/manifest.json`（而非 `app/manifest.ts`），所有浏览器原生支持，不依赖 Next.js 特性，Vercel 默认支持：
+
+```json
+{
+  "name": "AI Todo",
+  "short_name": "AI Todo",
+  "description": "把模糊目标拆成今天可以执行的任务。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+```
+
+配色说明：
+- `background_color: "#f8fafc"` = Tailwind `bg-slate-50`
+- `theme_color: "#0f172a"` = Tailwind `slate-900`，与现有按钮色系一致
+
+#### 18.3.2 App Icon 方案
+
+不依赖设计师，使用简洁几何图形：
+- 192×192 PNG：白色背景 + 深色 ✓ 勾选图标
+- 512×512 PNG：同上，高分辨率
+- 在 README.md 中注明图标为自绘
+
+文件位置：
+```
+public/
+  icon-192.png
+  icon-512.png
+  manifest.json
+```
+
+#### 18.3.3 layout.tsx metadata 配置
+
+在现有 `src/app/layout.tsx` 中增加：
+
+```typescript
+// 新增 metadata 字段
+export const metadata: Metadata = {
+  // ... 现有字段保持不变
+  manifest: "/manifest.json",
+  themeColor: "#0f172a",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AI Todo",
+  },
+};
+```
+
+同时在 `<head>` 中保留静态 meta 标签作为 fallback：
+
+```html
+<meta name="theme-color" content="#0f172a" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+```
+
+#### 18.3.4 明确不做的 PWA 功能
+
+| 功能 | 原因 |
+|------|------|
+| Service Worker | 离线 AI 生成不可用，缓存策略过度设计 |
+| 推送通知 | Phase 9 禁止 |
+| 离线页面 | 超出范围 |
+| 安装提示横幅 | 浏览器原生行为已足够 |
+| 高级缓存策略 | 留给后续版本 |
+
+### 18.4 视觉美化方案
+
+#### 18.4.1 美化原则
+
+1. **增量优化**：只改 Tailwind 类名，不改 HTML 结构（除非必要 wrapper）
+2. **不引入设计系统**：不定义 color token、不引入 CSS 变量体系
+3. **可逐条 revert**：每个组件的变更独立
+4. **移动端优先**：每个美化项同时在手机端验证
+
+#### 18.4.2 逐组件美化
+
+**Header.tsx**
+```
+当前：text-xl font-semibold
+优化：增加左侧小装饰线（border-l-2 border-slate-800 pl-3）
+      增加 tracking-tight
+```
+
+**HeroSection.tsx**
+```
+当前：h1 text-4xl/5xl + p text-lg/xl text-slate-600
+优化：h1 使用 gradient text（bg-gradient-to-r from-slate-900 to-slate-500 bg-clip-text text-transparent）
+      p 改为 text-slate-500（更柔和）
+```
+
+**GoalInput.tsx**
+```
+当前：rounded-lg border border-slate-200 shadow-sm
+优化：rounded-xl shadow-md（更明显卡片感）
+      input focus 环从 ring-slate-200 → ring-slate-300
+      button 增加 hover:bg-slate-900 active:bg-slate-800 transition-colors duration-150
+      privacy notice 改为 text-slate-400
+```
+
+**TaskList.tsx**
+```
+当前：rounded-lg border shadow-sm
+优化：rounded-xl shadow-md
+      标题 h2 增加 tracking-tight
+      清空/重新生成按钮：text-xs text-slate-500 hover:text-slate-700 transition-colors
+```
+
+**TaskItem.tsx**
+```
+当前：rounded-md border bg-white
+优化：rounded-lg
+      增加 hover:bg-slate-50 transition-colors
+      checkbox 增加 cursor-pointer accent-slate-950
+```
+
+**EmptyState.tsx**
+```
+当前：简单文字
+优化：增加居中 emoji 图标 + text-slate-400
+```
+
+**LoadingState.tsx**
+```
+当前：静态圆环 + 文字
+优化：**修复 animate-spin**（已知 Phase 6 P2）
+      文字改为 text-slate-500
+```
+
+**ErrorMessage.tsx**
+```
+当前：按 type 显示不同文字颜色
+优化：增加左边框色条（border-l-2）
+      error: border-l-red-500 bg-red-50
+      warning: border-l-amber-500 bg-amber-50
+      info: border-l-slate-400 bg-slate-50
+      保留 role="alert"
+```
+
+**TaskProgress.tsx**
+```
+当前：简单文字 "已完成 X / Y"
+优化：增加进度条（bg-slate-200 底 + bg-slate-800 填充，h-1 rounded-full）
+      保留文字百分比
+```
+
+**CompleteAllPrompt.tsx**（Phase 8 新增组件）
+```
+优化配色：border-emerald-200 bg-emerald-50 text-emerald-700
+```
+
+**NewDayPrompt.tsx**（Phase 8 新增组件）
+```
+优化配色：border-amber-200 bg-amber-50 text-amber-700
+```
+
+#### 18.4.3 全局美化
+
+```
+页面背景：保持 bg-slate-50
+Header 增加 pt-[env(safe-area-inset-top,0px)]
+main 增加 pb-[env(safe-area-inset-bottom,1rem)]
+```
+
+### 18.5 移动端优化
+
+#### 18.5.1 触控目标检查
+
+| 元素 | V1.0 状态 | Phase 9 优化 |
+|------|----------|-------------|
+| input | min-h-12 = 48px ✅ | 保持，增加 touch-action:manipulation |
+| button 生成 | min-h-12 = 48px ✅ | 保持 |
+| checkbox | h-6 + padding ≈ 48px ✅ | 保持 |
+| 示例 button | px-3 py-2 = ≤44px ⚠️ | 调整为 min-h-[44px] |
+| 清空/重新生成 | 文字按钮，可能不足 ⚠️ | 增加 min-h-[44px] + 足够 padding |
+
+#### 18.5.2 安全区适配
+
+在 `page.tsx` 的 `<main>` 最外层：
+```
+pb-[env(safe-area-inset-bottom,1rem)]
+```
+
+在 `Header` 增加：
+```
+pt-[env(safe-area-inset-top,0px)]
+```
+
+#### 18.5.3 示例目标防溢出
+
+```
+当前：flex flex-wrap gap-2
+优化：如果 4 个示例在小屏换行后仍过宽 → flex-nowrap overflow-x-auto
+      每个 button shrink-0
+      增加 touch-action: manipulation 消除 300ms 延迟
+```
+
+### 18.6 不修改的文件
+
+| 文件 | 理由 |
+|------|------|
+| `route.ts` | AI 核心逻辑不动 |
+| `ai-client.ts` | AI 核心逻辑不动 |
+| `task-parser.ts` | AI 核心逻辑不动 |
+| `task-generation.ts` | AI 核心逻辑不动 |
+| `input-validator.ts` | 校验逻辑不动 |
+| `storage.ts` | 存储逻辑不动 |
+| `types.ts` | 类型系统不动 |
+| `useTaskGroup.ts` | 状态管理不动 |
+| `date-utils.ts` | Phase 8 逻辑不动 |
+
+### 18.7 文件变更汇总
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| **新增** | `public/manifest.json` | PWA manifest (~18 行) |
+| **新增** | `public/icon-192.png` | App 图标 192×192 |
+| **新增** | `public/icon-512.png` | App 图标 512×512 |
+| **修改** | `src/app/layout.tsx` | metadata + head meta (~10 行) |
+| **修改** | `src/components/HeroSection.tsx` | 字体层次 (~5 行) |
+| **修改** | `src/components/GoalInput.tsx` | 卡片圆角阴影 + 按钮四态 (~10 行) |
+| **修改** | `src/components/TaskList.tsx` | 卡片圆角阴影 (~5 行) |
+| **修改** | `src/components/TaskItem.tsx` | 圆角 + hover (~5 行) |
+| **修改** | `src/components/EmptyState.tsx` | emoji + 颜色 (~5 行) |
+| **修改** | `src/components/LoadingState.tsx` | 修复 animate-spin + 颜色 (~3 行) |
+| **修改** | `src/components/ErrorMessage.tsx` | 左边框 + 背景色 (~8 行) |
+| **修改** | `src/components/TaskProgress.tsx` | 进度条 (~5 行) |
+| **修改** | `src/components/CompleteAllPrompt.tsx` | 绿色配色 (~3 行) |
+| **修改** | `src/components/NewDayPrompt.tsx` | 琥珀配色 (~3 行) |
+| **修改** | `src/components/ExampleGoals.tsx` | hover + touch-action (~5 行) |
+| **修改** | `src/app/page.tsx` | 安全区适配 (~3 行) |
+| **不动** | 其余所有文件 | — |
+
+### 18.8 Phase 9 验收标准
+
+| # | 验收项 | 预期行为 |
+|---|--------|---------|
+| 1 | manifest.json 可访问 | `GET /manifest.json` 返回 200，Content-Type 正确 |
+| 2 | 图标可访问 | `GET /icon-192.png` 和 `/icon-512.png` 返回 200 |
+| 3 | Android 添加到主屏幕 | Chrome → 添加到主屏幕 → standalone 模式 |
+| 4 | iOS 添加到主屏幕 | Safari → 添加到主屏幕 → 无浏览器地址栏 |
+| 5 | theme-color | 状态栏/头部颜色为 `#0f172a` |
+| 6 | Apple touch icon | iOS 主屏幕图标正确显示 |
+| 7 | 视觉一致性 | 所有页面状态（idle/editing/loading/success/error/parse_error）视觉统一 |
+| 8 | 按钮四态 | hover / active / focus / disabled 四种状态均有合适样式 |
+| 9 | 手机端触控目标 | 所有可交互元素 ≥ 44px |
+| 10 | 手机端示例不溢出 | 4 个示例按钮不产生横向滚动（或可接受的水平滚动） |
+| 11 | 手机端任务卡片 | 勾选框触控区域足够，长文本不溢出 |
+| 12 | iPhone 安全区 | 底部横条不遮挡内容，顶部刘海不遮挡 Header |
+| 13 | animate-spin 修复 | LoadingState 的 spinner 有旋转动画 |
+| 14 | 核心逻辑不变 | AI 生成、任务保存、刷新恢复、Phase 8 所有功能与 Phase 8 行为一致 |
+| 15 | lint + build 通过 | 无错误 |
+| 16 | 不越界 | 不包含数据库、登录、历史记录、推送通知等 |
+
+### 18.9 开发任务拆分
+
+```
+Task 9.1  [PWA]    public/manifest.json                             (~18 行)
+Task 9.2  [PWA]    public/icon-192.png + public/icon-512.png         (2 个文件)
+Task 9.3  [PWA]    layout.tsx metadata + head meta 标签              (~10 行变更)
+Task 9.4  [美化]   HeroSection 字体层次                              (~5 行变更)
+Task 9.5  [美化]   GoalInput 卡片 + 按钮四态                          (~10 行变更)
+Task 9.6  [美化]   TaskList + TaskItem 卡片 + hover                  (~10 行变更)
+Task 9.7  [美化]   EmptyState + LoadingState（修 animate-spin P2）   (~8 行变更)
+Task 9.8  [美化]   ErrorMessage + TaskProgress 视觉增强              (~13 行变更)
+Task 9.9  [美化]   CompleteAllPrompt + NewDayPrompt 配色             (~6 行变更)
+Task 9.10 [移动端] page.tsx 安全区 + 触控目标优化                     (~3 行变更)
+Task 9.11 [移动端] ExampleGoals 移动端防溢出                          (~5 行变更)
+Task 9.12 [验证]   lint + build + 移动端真机验收 + PWA 安装测试
+```
+
+---
+
+## 十九、Phase 8 与 Phase 9 关系
+
+### 19.1 为什么必须拆开
+
+| 维度 | Phase 8 | Phase 9 |
+|------|---------|---------|
+| 变更性质 | 行为逻辑（新增状态、方法、交互） | 纯表现层（CSS + 静态资源） |
+| Review 重点 | 状态机正确性、边界条件、localStorage 兼容 | 视觉一致性、移动端适配、PWA 安装流程 |
+| 失败影响 | 最多影响任务管理功能 | 最多影响视觉 |
+| diff 可读性 | 核心文件 ~160 行 | 零逻辑变更，仅 className + 静态文件 |
+| 可独立上线 | ✅ V1.1 即可上线 | ✅ V1.2 独立上线 |
+
+### 19.2 推荐开发节奏
+
+```
+Week 1: Phase 8 开发（Task 8.1 → 8.8）→ Review → 修复 → 通过 → 上线 V1.1
+Week 2: Phase 9 开发（Task 9.1 → 9.12）→ Review → 修复 → 通过 → 上线 V1.2
+```
+
+### 19.3 风险点
+
+| # | 风险 | 影响 Phase | 严重度 | 缓解措施 |
+|---|------|-----------|--------|---------|
+| 1 | `isTaskGroupFromToday` 时区问题：用户跨时区旅行 | Phase 8 | 低 | 使用本地时区 `new Date()`，与用户感知的"今天"一致 |
+| 2 | 重新生成失败时 regenerateError 与 success 状态共存，需确保组件能正确渲染 | Phase 8 | 中 | TaskList 中独立渲染 regenerateError，不经过 GoalInput 的 ErrorMessage |
+| 3 | 示例点击填入后用户期望自动生成 | Phase 8 | 低 | 产品决策：明确行为是"只填入不生成" |
+| 4 | Vercel 上 manifest.json Content-Type | Phase 9 | 低 | Vercel 默认支持 manifest.json，无需额外配置 |
+| 5 | iOS Safari 对 manifest 支持不完整，需 apple-mobile-web-app-capable meta 标签 | Phase 9 | 中 | 同时在 layout.tsx 配置 appleWebApp metadata |
+| 6 | 视觉美化引入 Tailwind class 冲突 | Phase 9 | 低 | 逐组件修改，每次改完验证该组件所有状态 |
+| 7 | 图标手绘可能不专业 | Phase 9 | 低 | 使用简洁几何图形（✓ + 纯色背景），可接受 |
+
+---
+
+> **文档版本**：V1.2
 > **对应 PRD**：AI Todo PRD V1.0
-> **适用范围**：AI Todo V1.0 最小可用版本
-> **最后更新**：2026-06-28
+> **适用范围**：AI Todo V1.0 — V1.2
+> **最后更新**：2026-06-29
