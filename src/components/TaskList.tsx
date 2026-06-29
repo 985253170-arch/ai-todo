@@ -3,8 +3,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { TaskItem } from "@/components/TaskItem";
 import { TaskProgress } from "@/components/TaskProgress";
-import type { Task } from "@/lib/types";
 import { UI_TEXT } from "@/lib/constants";
+import type { Task } from "@/lib/types";
 
 interface TaskListProps {
   tasks: Task[];
@@ -28,22 +28,22 @@ export function TaskList({
   onRegenerate,
 }: TaskListProps) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex items-center justify-between">
+    <section className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-md shadow-slate-200/70 sm:p-5">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold text-slate-950">
           {UI_TEXT.TASK_LIST_TITLE}
         </h2>
         {totalCount > 0 ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
-              className="text-sm font-medium text-slate-500"
+              className="min-h-11 rounded-lg px-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
               onClick={onRegenerate}
               type="button"
             >
               {UI_TEXT.REGENERATE_BUTTON}
             </button>
             <button
-              className="text-sm font-medium text-slate-500"
+              className="min-h-11 rounded-lg px-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
               onClick={onClearTasks}
               type="button"
             >

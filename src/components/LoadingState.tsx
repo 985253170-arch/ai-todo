@@ -3,12 +3,12 @@ import { UI_TEXT } from "@/lib/constants";
 export function LoadingState() {
   return (
     <div
-      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 shadow-sm"
+      className="flex items-center gap-3 rounded-xl border border-blue-100 bg-white/95 px-4 py-3 text-sm font-medium text-slate-500 shadow-sm"
       role="status"
     >
       <span
         aria-hidden="true"
-        className="h-4 w-4 rounded-full border-2 border-slate-300 border-t-slate-950"
+        className="h-4 w-4 animate-spin rounded-full border-2 border-blue-100 border-t-blue-600"
       />
       {UI_TEXT.LOADING_TEXT}
     </div>

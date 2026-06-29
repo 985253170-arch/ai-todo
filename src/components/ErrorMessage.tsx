@@ -6,9 +6,9 @@ interface ErrorMessageProps {
 }
 
 const messageStyles: Record<ErrorMessageType, string> = {
-  error: "text-red-600",
-  warning: "text-amber-700",
-  info: "text-slate-500",
+  error: "border-l-red-500 bg-red-50 text-red-700",
+  warning: "border-l-amber-500 bg-amber-50 text-amber-800",
+  info: "border-l-slate-400 bg-slate-50 text-slate-600",
 };
 
 export function ErrorMessage({ message, type = "error" }: ErrorMessageProps) {
@@ -17,7 +17,10 @@ export function ErrorMessage({ message, type = "error" }: ErrorMessageProps) {
   }
 
   return (
-    <p className={`text-sm font-medium ${messageStyles[type]}`} role="alert">
+    <p
+      className={`rounded-md border-l-2 px-3 py-2 text-sm font-medium ${messageStyles[type]}`}
+      role="alert"
+    >
       {message}
     </p>
   );
