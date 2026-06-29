@@ -10,7 +10,7 @@ export const UI_TEXT = {
   INPUT_PLACEHOLDER: "例如：我要学习 Python / 我要准备面试 / 我要做一个小项目",
   BUTTON_GENERATE: "生成今日任务",
   GENERATING_BUTTON: "生成中...",
-  EMPTY_STATE_TITLE: "还没有今日任务",
+  EMPTY_STATE_TITLE: "还没有生成今日任务",
   EMPTY_STATE_DESCRIPTION: "输入一个目标，让 AI 帮你拆出第一步。",
   TASK_LIST_TITLE: "今日行动计划",
   CLEAR_TASKS_BUTTON: "清空",

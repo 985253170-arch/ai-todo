@@ -28,15 +28,15 @@ export function TaskList({
   onRegenerate,
 }: TaskListProps) {
   return (
-    <section className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow-xl shadow-sky-100/70 sm:p-6">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+        <h2 className="text-lg font-semibold tracking-tight text-slate-700">
           {UI_TEXT.TASK_LIST_TITLE}
         </h2>
         {totalCount > 0 ? (
           <div className="flex items-center gap-2">
             <button
-              className="min-h-10 rounded-full px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="min-h-10 rounded-full px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600"
               onClick={onRegenerate}
               type="button"
             >

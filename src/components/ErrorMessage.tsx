@@ -18,7 +18,7 @@ export function ErrorMessage({ message, type = "error" }: ErrorMessageProps) {
 
   return (
     <p
-      className={`rounded-md border-l-2 px-3 py-2 text-sm font-medium ${messageStyles[type]}`}
+      className={`rounded-lg border-l-2 px-3 py-2 text-sm font-medium ${messageStyles[type]}`}
       role="alert"
     >
       {message}

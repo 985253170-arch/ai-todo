@@ -2,12 +2,16 @@ import { UI_TEXT } from "@/lib/constants";
 
 export function HeroSection() {
   return (
-    <section className="space-y-4 pt-2 sm:pt-4">
+    <section className="space-y-3 pt-1 sm:pt-3">
       <p className="text-sm font-medium text-indigo-600">{UI_TEXT.APP_ROLE}</p>
-      <h1 className="max-w-3xl bg-gradient-to-r from-slate-950 via-indigo-700 to-sky-600 bg-clip-text text-4xl font-semibold tracking-normal text-transparent sm:text-6xl">
-        {UI_TEXT.HERO_TITLE}
+      <h1 className="max-w-2xl text-[30px] font-bold leading-tight tracking-normal text-slate-950 sm:text-5xl">
+        今天想推进哪个
+        <span className="bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent">
+          目标
+        </span>
+        ？
       </h1>
-      <p className="max-w-2xl text-lg leading-8 text-slate-500 sm:text-xl">
+      <p className="max-w-xl text-[15px] leading-7 text-slate-500 sm:text-base">
         {UI_TEXT.APP_TAGLINE}
       </p>
     </section>
