@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AI Todo",
-  description: "把模糊目标拆成今天可以执行的任务。",
+  description: "让 AI 帮你拆成今天能完成的小任务。",
   applicationName: "AI Todo",
   manifest: "/manifest.json",
   appleWebApp: {

@@ -31,8 +31,8 @@ export default function Home() {
   } = useTaskGroup();
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-blue-50 via-slate-50 to-white px-4 py-6 pb-[env(safe-area-inset-bottom,1rem)] text-slate-950 sm:px-6 sm:py-10">
-      <div className="mx-auto flex max-w-4xl flex-col gap-8">
+    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-indigo-50 via-white to-sky-50 px-4 py-6 pb-[env(safe-area-inset-bottom,1rem)] text-slate-950 sm:px-6 sm:py-10">
+      <div className="mx-auto flex max-w-4xl flex-col gap-7 sm:gap-8">
         <Header />
         <HeroSection />
         <div className="grid gap-5">

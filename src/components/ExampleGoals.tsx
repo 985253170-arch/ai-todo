@@ -13,7 +13,7 @@ export function ExampleGoals({ onExampleClick }: ExampleGoalsProps) {
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
         {UI_TEXT.EXAMPLE_GOALS.map((goal) => (
           <button
-            className="min-h-11 shrink-0 touch-manipulation rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition-colors hover:border-blue-200 hover:text-blue-700"
+            className="min-h-10 shrink-0 touch-manipulation rounded-full border border-indigo-100 bg-white/80 px-4 py-2 text-sm text-slate-600 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             key={goal}
             onClick={() => onExampleClick(goal)}
             type="button"

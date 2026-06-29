@@ -1,7 +1,7 @@
 {
   "name": "AI Todo",
   "short_name": "AI Todo",
-  "description": "把模糊目标拆成今天可以执行的任务。",
+  "description": "让 AI 帮你拆成今天能完成的小任务。",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
