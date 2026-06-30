@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
   let taskGroupQuery = supabase
     .from("task_groups")
     .select("id, goal, created_at, updated_at")
+    .is("archived_at", null)
     .order("updated_at", { ascending: false })
     .limit(1);
 

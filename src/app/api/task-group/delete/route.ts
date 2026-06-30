@@ -1,3 +1,8 @@
+// Phase 12: 此 API 的真实语义是 archive（归档），不再是 delete（物理删除）。
+// 路径保留 /api/task-group/delete 是为了兼容现有前端调用方。
+// 归档后 task_group.archived_at 被设置为当前时间，tasks 保留不动。
+// 归档的数据后续可通过历史 API 查询。
+
 import { NextRequest, NextResponse } from "next/server";
 import { ERROR_MESSAGES } from "@/lib/constants";
 import {
@@ -51,25 +56,32 @@ export async function POST(request: NextRequest) {
 
   const userId = await getAuthenticatedUserId();
   const deviceId = typeof body.deviceId === "string" ? body.deviceId.trim() : "";
-  let deleteQuery = supabase.from("task_groups").delete();
+  let archiveQuery = supabase
+    .from("task_groups")
+    .update({ archived_at: new Date().toISOString() })
+    .is("archived_at", null)
+    .select("id");
 
   if (userId) {
-    deleteQuery = deleteQuery.eq("user_id", userId);
+    archiveQuery = archiveQuery.eq("user_id", userId);
   } else {
     if (!deviceId) {
       return errorResponse("INVALID_DEVICE_ID", 400);
     }
 
-    deleteQuery = deleteQuery.eq("device_id", deviceId).is("user_id", null);
+    archiveQuery = archiveQuery.eq("device_id", deviceId).is("user_id", null);
   }
 
-  const { error } = await deleteQuery;
+  const { data, error } = await archiveQuery;
 
   if (error) {
     return errorResponse("CLOUD_DELETE_FAILED", 500);
   }
 
-  const response: CloudTaskGroupSuccessResponse = { success: true };
+  const response = {
+    success: true,
+    archivedCount: data?.length ?? 0,
+  };
 
   return NextResponse.json(response);
 }

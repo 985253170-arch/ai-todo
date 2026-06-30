@@ -22,6 +22,11 @@ interface ExistingTaskGroupOwnerRow {
   device_id: string | null;
 }
 
+interface ExistingTaskRow {
+  id: string;
+  completed_at: string | null;
+}
+
 function errorResponse(code: CloudTaskGroupErrorCode, status: number) {
   const messages: Record<CloudTaskGroupErrorCode, string> = {
     INVALID_DEVICE_ID: ERROR_MESSAGES.INVALID_DEVICE_ID,
@@ -148,6 +153,20 @@ export async function POST(request: NextRequest) {
     return errorResponse("CLOUD_SAVE_FAILED", 500);
   }
 
+  const { data: existingTasks, error: existingTasksError } = await supabase
+    .from("tasks")
+    .select("id, completed_at")
+    .eq("task_group_id", taskGroup.id)
+    .returns<ExistingTaskRow[]>();
+
+  if (existingTasksError) {
+    return errorResponse("CLOUD_SAVE_FAILED", 500);
+  }
+
+  const oldCompletedAtMap = new Map<string, string | null>(
+    (existingTasks ?? []).map((task) => [task.id, task.completed_at]),
+  );
+
   const { error: deleteTasksError } = await supabase
     .from("tasks")
     .delete()
@@ -158,14 +177,25 @@ export async function POST(request: NextRequest) {
   }
 
   if (taskGroup.tasks.length > 0) {
-    const taskRows = taskGroup.tasks.map((task) => ({
-      id: task.id,
-      task_group_id: taskGroup.id,
-      title: task.title,
-      completed: task.completed,
-      created_at: task.createdAt,
-      updated_at: task.updatedAt,
-    }));
+    const completedAtNow = new Date().toISOString();
+    const taskRows = taskGroup.tasks.map((task) => {
+      const oldCompletedAt = oldCompletedAtMap.get(task.id);
+      const completedAt = task.completed
+        ? oldCompletedAt === undefined || oldCompletedAt === null
+          ? completedAtNow
+          : oldCompletedAt
+        : null;
+
+      return {
+        id: task.id,
+        task_group_id: taskGroup.id,
+        title: task.title,
+        completed: task.completed,
+        completed_at: completedAt,
+        created_at: task.createdAt,
+        updated_at: task.updatedAt,
+      };
+    });
     const { error: insertTasksError } = await supabase
       .from("tasks")
       .insert(taskRows);
