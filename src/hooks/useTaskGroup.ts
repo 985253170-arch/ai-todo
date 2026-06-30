@@ -91,6 +91,31 @@ async function deleteTaskGroupFromCloud(deviceId: string) {
   }
 }
 
+async function migrateDeviceTaskGroupsToUser(deviceId: string) {
+  try {
+    const response = await fetch("/api/task-group/migrate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId }),
+    });
+
+    if (!response.ok) {
+      reportCloudError("migrate", response.status);
+      return null;
+    }
+
+    const result = (await response.json()) as {
+      success: true;
+      migratedCount: number;
+    };
+
+    return result.migratedCount;
+  } catch (error) {
+    reportCloudError("migrate", error);
+    return null;
+  }
+}
+
 function getDeviceStorageScope(deviceId: string) {
   return `device:${deviceId}`;
 }
@@ -120,6 +145,7 @@ export function useTaskGroup() {
   const [showNewDayPrompt, setShowNewDayPrompt] = useState(false);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const storageScopeRef = useRef<string | null>(null);
+  const migratedScopeRef = useRef<Set<string>>(new Set());
 
   const isGenerateDisabled = useMemo(() => pageStatus === "loading", [pageStatus]);
   const tasks = taskGroup?.tasks ?? [];
@@ -136,9 +162,10 @@ export function useTaskGroup() {
       const currentRestoreRunId = ++restoreRunId;
       const deviceId = getOrCreateDeviceId();
       const authScope = userId ? "user" : "device";
+      const deviceStorageScope = getDeviceStorageScope(deviceId);
       const storageScope = userId
         ? getUserStorageScope(userId)
-        : getDeviceStorageScope(deviceId);
+        : deviceStorageScope;
 
       storageScopeRef.current = storageScope;
       setTaskGroup(null);
@@ -146,6 +173,27 @@ export function useTaskGroup() {
       setShowNewDayPrompt(false);
       removeTaskGroup();
       reportTaskGroupRestore(authScope, "start");
+
+      if (userId) {
+        const migratedScopeKey = `${userId}:${deviceId}`;
+
+        if (!migratedScopeRef.current.has(migratedScopeKey)) {
+          migratedScopeRef.current.add(migratedScopeKey);
+
+          const migratedCount = await migrateDeviceTaskGroupsToUser(deviceId);
+
+          if (isCancelled || currentRestoreRunId !== restoreRunId) {
+            reportTaskGroupRestore(authScope, "stale");
+            return;
+          }
+
+          removeTaskGroup(deviceStorageScope);
+
+          if (migratedCount && migratedCount > 0) {
+            removeTaskGroup(storageScope);
+          }
+        }
+      }
 
       const savedTaskGroup = loadTaskGroup(storageScope);
 
