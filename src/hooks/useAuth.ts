@@ -15,6 +15,14 @@ function toAuthUser(user: { id: string; email?: string } | null): AuthUser | nul
   };
 }
 
+function logSafeAuthError(error: { message?: string; name?: string; status?: number }) {
+  console.error("Supabase auth error", {
+    message: error.message,
+    name: error.name,
+    status: error.status,
+  });
+}
+
 export function useAuth() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -58,10 +66,15 @@ export function useAuth() {
       email,
       options: {
         shouldCreateUser: true,
+        emailRedirectTo:
+          typeof window === "undefined"
+            ? undefined
+            : `${window.location.origin}/auth/callback?next=/`,
       },
     });
 
     if (error) {
+      logSafeAuthError(error);
       throw error;
     }
   }

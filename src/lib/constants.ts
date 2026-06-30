@@ -52,3 +52,20 @@ export const ERROR_MESSAGES = {
   AUTH_NOT_CONFIGURED: "登录服务暂未配置。",
   AUTH_OPERATION_FAILED: "登录操作失败，请稍后重试。",
 } as const;
+
+export const AUTH_TEXT = {
+  LOGIN: "登录",
+  LOGGED_IN: "已登录",
+  LOGGING_STATUS: "登录状态...",
+  LOGOUT: "登出",
+  MODAL_TITLE: "登录 AI Todo",
+  MODAL_DESCRIPTION: "发送登录链接后，请前往邮箱点击链接完成登录。",
+  EMAIL_LABEL: "邮箱",
+  EMAIL_PLACEHOLDER: "you@example.com",
+  SEND_LINK: "发送登录链接",
+  SENDING_LINK: "发送中...",
+  MAGIC_LINK_SENT: "请前往邮箱点击登录链接。",
+  EMAIL_REQUIRED: "请先输入邮箱。",
+  EMAIL_RATE_LIMITED: "邮件发送过于频繁，请稍后再试。",
+  CLOSE: "关闭登录弹窗",
+} as const;

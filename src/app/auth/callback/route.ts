@@ -15,6 +15,10 @@ function getRedirectUrl(request: NextRequest) {
   return new URL(nextPath, request.url);
 }
 
+function setAuthCallbackError(redirectUrl: URL, authError: string) {
+  redirectUrl.searchParams.set("auth_error", authError);
+}
+
 function getSafeAuthError(error: { name?: string; status?: number } | null) {
   if (error?.name) {
     return error.name.replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 80);
@@ -54,12 +58,12 @@ export async function GET(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!code && !tokenHash) {
-    redirectUrl.searchParams.set("auth_error", "no_code");
+    setAuthCallbackError(redirectUrl, "no_code");
     return NextResponse.redirect(redirectUrl);
   }
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    redirectUrl.searchParams.set("auth_error", "not_configured");
+    setAuthCallbackError(redirectUrl, "not_configured");
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -81,7 +85,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-      redirectUrl.searchParams.set("auth_error", getSafeAuthError(error));
+      setAuthCallbackError(redirectUrl, getSafeAuthError(error));
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -90,7 +94,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!tokenHash || !otpType) {
-    redirectUrl.searchParams.set("auth_error", "invalid_token_type");
+    setAuthCallbackError(redirectUrl, "invalid_token_type");
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -100,7 +104,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    redirectUrl.searchParams.set("auth_error", getSafeAuthError(error));
+    setAuthCallbackError(redirectUrl, getSafeAuthError(error));
     return NextResponse.redirect(redirectUrl);
   }
 
