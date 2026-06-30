@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ERROR_MESSAGES } from "@/lib/constants";
-import { getSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  getAuthenticatedUserId,
+  getSupabaseServerClient,
+} from "@/lib/supabase-server";
 import type {
   CloudTaskGroupErrorCode,
   CloudTaskGroupErrorResponse,
@@ -47,23 +50,31 @@ function errorResponse(code: CloudTaskGroupErrorCode, status: number) {
 export async function GET(request: NextRequest) {
   const deviceId = request.nextUrl.searchParams.get("deviceId")?.trim();
 
-  if (!deviceId) {
-    return errorResponse("INVALID_DEVICE_ID", 400);
-  }
-
   const supabase = getSupabaseServerClient();
 
   if (!supabase) {
     return errorResponse("NOT_CONFIGURED", 500);
   }
 
-  const { data: taskGroupRow, error: taskGroupError } = await supabase
+  const userId = await getAuthenticatedUserId();
+  let taskGroupQuery = supabase
     .from("task_groups")
     .select("id, goal, created_at, updated_at")
-    .eq("device_id", deviceId)
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle<TaskGroupRow>();
+    .limit(1);
+
+  if (userId) {
+    taskGroupQuery = taskGroupQuery.eq("user_id", userId);
+  } else {
+    if (!deviceId) {
+      return errorResponse("INVALID_DEVICE_ID", 400);
+    }
+
+    taskGroupQuery = taskGroupQuery.eq("device_id", deviceId).is("user_id", null);
+  }
+
+  const { data: taskGroupRow, error: taskGroupError } =
+    await taskGroupQuery.maybeSingle<TaskGroupRow>();
 
   if (taskGroupError) {
     return errorResponse("CLOUD_LOAD_FAILED", 500);

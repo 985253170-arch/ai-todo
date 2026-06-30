@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ERROR_MESSAGES } from "@/lib/constants";
-import { getSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  getAuthenticatedUserId,
+  getSupabaseServerClient,
+} from "@/lib/supabase-server";
 import type {
   CloudTaskGroupErrorCode,
   CloudTaskGroupErrorResponse,
@@ -12,6 +15,11 @@ import type {
 interface SaveTaskGroupRequest {
   deviceId: string;
   taskGroup: TaskGroup;
+}
+
+interface ExistingTaskGroupOwnerRow {
+  user_id: string | null;
+  device_id: string | null;
 }
 
 function errorResponse(code: CloudTaskGroupErrorCode, status: number) {
@@ -82,10 +90,6 @@ export async function POST(request: NextRequest) {
     return errorResponse("INVALID_TASK_GROUP", 400);
   }
 
-  if (!isValidDeviceId(body.deviceId)) {
-    return errorResponse("INVALID_DEVICE_ID", 400);
-  }
-
   if (!isValidTaskGroup(body.taskGroup)) {
     return errorResponse("INVALID_TASK_GROUP", 400);
   }
@@ -96,10 +100,41 @@ export async function POST(request: NextRequest) {
     return errorResponse("NOT_CONFIGURED", 500);
   }
 
+  const userId = await getAuthenticatedUserId();
   const { deviceId, taskGroup } = body;
+  const normalizedDeviceId =
+    typeof deviceId === "string" ? deviceId.trim() : "";
+
+  if (!userId && !isValidDeviceId(normalizedDeviceId)) {
+    return errorResponse("INVALID_DEVICE_ID", 400);
+  }
+
+  const { data: existingTaskGroup, error: existingTaskGroupError } =
+    await supabase
+      .from("task_groups")
+      .select("user_id, device_id")
+      .eq("id", taskGroup.id)
+      .maybeSingle<ExistingTaskGroupOwnerRow>();
+
+  if (existingTaskGroupError) {
+    return errorResponse("CLOUD_SAVE_FAILED", 500);
+  }
+
+  if (existingTaskGroup) {
+    const canSave = userId
+      ? existingTaskGroup.user_id === userId
+      : existingTaskGroup.user_id === null &&
+        existingTaskGroup.device_id === normalizedDeviceId;
+
+    if (!canSave) {
+      return errorResponse("CLOUD_SAVE_FAILED", 403);
+    }
+  }
+
   const taskGroupRow = {
     id: taskGroup.id,
-    device_id: deviceId.trim(),
+    device_id: userId ? null : normalizedDeviceId,
+    user_id: userId,
     goal: taskGroup.goal,
     created_at: taskGroup.createdAt,
     updated_at: taskGroup.updatedAt,

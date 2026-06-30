@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ERROR_MESSAGES } from "@/lib/constants";
-import { getSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  getAuthenticatedUserId,
+  getSupabaseServerClient,
+} from "@/lib/supabase-server";
 import type {
   CloudTaskGroupErrorCode,
   CloudTaskGroupErrorResponse,
@@ -40,22 +43,27 @@ export async function POST(request: NextRequest) {
     return errorResponse("INVALID_DEVICE_ID", 400);
   }
 
-  const deviceId = typeof body.deviceId === "string" ? body.deviceId.trim() : "";
-
-  if (!deviceId) {
-    return errorResponse("INVALID_DEVICE_ID", 400);
-  }
-
   const supabase = getSupabaseServerClient();
 
   if (!supabase) {
     return errorResponse("NOT_CONFIGURED", 500);
   }
 
-  const { error } = await supabase
-    .from("task_groups")
-    .delete()
-    .eq("device_id", deviceId);
+  const userId = await getAuthenticatedUserId();
+  const deviceId = typeof body.deviceId === "string" ? body.deviceId.trim() : "";
+  let deleteQuery = supabase.from("task_groups").delete();
+
+  if (userId) {
+    deleteQuery = deleteQuery.eq("user_id", userId);
+  } else {
+    if (!deviceId) {
+      return errorResponse("INVALID_DEVICE_ID", 400);
+    }
+
+    deleteQuery = deleteQuery.eq("device_id", deviceId).is("user_id", null);
+  }
+
+  const { error } = await deleteQuery;
 
   if (error) {
     return errorResponse("CLOUD_DELETE_FAILED", 500);

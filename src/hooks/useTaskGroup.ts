@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ERROR_MESSAGES } from "@/lib/constants";
 import { getOrCreateDeviceId } from "@/lib/device-id";
+import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import {
   checkRiskInput,
   validateGoalInput,
@@ -90,6 +91,27 @@ async function deleteTaskGroupFromCloud(deviceId: string) {
   }
 }
 
+function getDeviceStorageScope(deviceId: string) {
+  return `device:${deviceId}`;
+}
+
+function getUserStorageScope(userId: string) {
+  return `user:${userId}`;
+}
+
+function reportTaskGroupRestore(
+  authScope: "user" | "device",
+  source: "local" | "cloud" | "empty" | "start" | "stale",
+) {
+  if (process.env.NODE_ENV === "development") {
+    console.info("Task group restore", {
+      authScope,
+      storageScopePrefix: authScope,
+      source,
+    });
+  }
+}
+
 export function useTaskGroup() {
   const [inputGoal, setInputGoal] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -97,6 +119,7 @@ export function useTaskGroup() {
   const [taskGroup, setTaskGroup] = useState<TaskGroup | null>(null);
   const [showNewDayPrompt, setShowNewDayPrompt] = useState(false);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const storageScopeRef = useRef<string | null>(null);
 
   const isGenerateDisabled = useMemo(() => pageStatus === "loading", [pageStatus]);
   const tasks = taskGroup?.tasks ?? [];
@@ -106,37 +129,96 @@ export function useTaskGroup() {
 
   useEffect(() => {
     let isCancelled = false;
+    let restoreRunId = 0;
+    const supabase = createSupabaseBrowserClient();
 
-    const restoreTimer = window.setTimeout(() => {
-      const savedTaskGroup = loadTaskGroup();
+    async function restoreForAuthUser(userId: string | null) {
+      const currentRestoreRunId = ++restoreRunId;
+      const deviceId = getOrCreateDeviceId();
+      const authScope = userId ? "user" : "device";
+      const storageScope = userId
+        ? getUserStorageScope(userId)
+        : getDeviceStorageScope(deviceId);
+
+      storageScopeRef.current = storageScope;
+      setTaskGroup(null);
+      setPageStatus("idle");
+      setShowNewDayPrompt(false);
+      removeTaskGroup();
+      reportTaskGroupRestore(authScope, "start");
+
+      const savedTaskGroup = loadTaskGroup(storageScope);
 
       if (savedTaskGroup) {
-        setTaskGroup(savedTaskGroup);
-        setPageStatus("success");
-        setShowNewDayPrompt(!isTaskGroupFromToday(savedTaskGroup));
-        return;
-      }
-
-      void (async () => {
-        const deviceId = getOrCreateDeviceId();
-        const cloudTaskGroup = await loadTaskGroupFromCloud(deviceId);
-
-        if (!cloudTaskGroup || isCancelled) {
+        if (isCancelled || currentRestoreRunId !== restoreRunId) {
+          reportTaskGroupRestore(authScope, "stale");
           return;
         }
 
-        setTaskGroup(cloudTaskGroup);
-        saveTaskGroup(cloudTaskGroup);
+        setTaskGroup(savedTaskGroup);
         setPageStatus("success");
-        setShowNewDayPrompt(!isTaskGroupFromToday(cloudTaskGroup));
-      })();
+        setShowNewDayPrompt(!isTaskGroupFromToday(savedTaskGroup));
+        reportTaskGroupRestore(authScope, "local");
+        return;
+      }
+
+      const cloudTaskGroup = await loadTaskGroupFromCloud(deviceId);
+
+      if (isCancelled || currentRestoreRunId !== restoreRunId) {
+        reportTaskGroupRestore(authScope, "stale");
+        return;
+      }
+
+      if (!cloudTaskGroup) {
+        setTaskGroup(null);
+        setPageStatus("idle");
+        setShowNewDayPrompt(false);
+        reportTaskGroupRestore(authScope, "empty");
+        return;
+      }
+
+      setTaskGroup(cloudTaskGroup);
+      saveTaskGroup(cloudTaskGroup, storageScope);
+      setPageStatus("success");
+      setShowNewDayPrompt(!isTaskGroupFromToday(cloudTaskGroup));
+      reportTaskGroupRestore(authScope, "cloud");
+    }
+
+    const restoreTimer = window.setTimeout(() => {
+      if (!supabase) {
+        void restoreForAuthUser(null);
+        return;
+      }
+
+      void supabase.auth.getUser().then(({ data }) => {
+        void restoreForAuthUser(data.user?.id ?? null);
+      });
     }, 0);
+
+    const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
+      void restoreForAuthUser(session?.user.id ?? null);
+    }).data.subscription;
 
     return () => {
       isCancelled = true;
       window.clearTimeout(restoreTimer);
+      subscription?.unsubscribe();
     };
   }, []);
+
+  function getCurrentStorageScope() {
+    const deviceId = getOrCreateDeviceId();
+
+    return storageScopeRef.current ?? getDeviceStorageScope(deviceId);
+  }
+
+  function saveCurrentTaskGroup(taskGroupToSave: TaskGroup) {
+    saveTaskGroup(taskGroupToSave, getCurrentStorageScope());
+  }
+
+  function removeCurrentTaskGroup() {
+    removeTaskGroup(getCurrentStorageScope());
+  }
 
   function handleInputGoalChange(goal: string) {
     setInputGoal(goal);
@@ -197,7 +279,7 @@ export function useTaskGroup() {
       }
 
       setTaskGroup(result.data);
-      saveTaskGroup(result.data);
+      saveCurrentTaskGroup(result.data);
       void saveTaskGroupToCloud(getOrCreateDeviceId(), result.data);
       setShowNewDayPrompt(false);
       setPageStatus("success");
@@ -241,7 +323,7 @@ export function useTaskGroup() {
       }
 
       setTaskGroup(result.data);
-      saveTaskGroup(result.data);
+      saveCurrentTaskGroup(result.data);
       void saveTaskGroupToCloud(getOrCreateDeviceId(), result.data);
       setShowNewDayPrompt(false);
       setPageStatus("success");
@@ -268,7 +350,7 @@ export function useTaskGroup() {
         updatedAt: now,
       };
 
-      saveTaskGroup(updatedTaskGroup);
+      saveCurrentTaskGroup(updatedTaskGroup);
       void saveTaskGroupToCloud(getOrCreateDeviceId(), updatedTaskGroup);
       return updatedTaskGroup;
     });
@@ -276,7 +358,7 @@ export function useTaskGroup() {
 
   function handleClearTasks() {
     setTaskGroup(null);
-    removeTaskGroup();
+    removeCurrentTaskGroup();
     void deleteTaskGroupFromCloud(getOrCreateDeviceId());
     setPageStatus("idle");
     setShowNewDayPrompt(false);
@@ -292,7 +374,7 @@ export function useTaskGroup() {
 
   function handleStartNewDay() {
     setTaskGroup(null);
-    removeTaskGroup();
+    removeCurrentTaskGroup();
     void deleteTaskGroupFromCloud(getOrCreateDeviceId());
     setInputGoal("");
     setErrorMessage(null);

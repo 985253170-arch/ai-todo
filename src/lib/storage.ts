@@ -1,8 +1,61 @@
 import { STORAGE_KEY } from "@/lib/constants";
 import type { Task, TaskGroup } from "@/lib/types";
 
+type TaskGroupStorageScope = string;
+type TaskGroupStorageScopeType = "user" | "device";
+
+interface TaskGroupStorageEnvelope {
+  scopeType: TaskGroupStorageScopeType;
+  scopeKey: string;
+  taskGroup: TaskGroup;
+}
+
 function isBrowser() {
   return typeof window !== "undefined";
+}
+
+function getStorageKey(scope?: TaskGroupStorageScope | null) {
+  return scope ? `${STORAGE_KEY}:${scope}` : STORAGE_KEY;
+}
+
+function parseStorageScope(
+  scope?: TaskGroupStorageScope | null,
+): { scopeType: TaskGroupStorageScopeType; scopeKey: string } | null {
+  if (!scope) {
+    return null;
+  }
+
+  const separatorIndex = scope.indexOf(":");
+
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const scopeType = scope.slice(0, separatorIndex);
+  const scopeKey = scope.slice(separatorIndex + 1);
+
+  if ((scopeType !== "user" && scopeType !== "device") || !scopeKey) {
+    return null;
+  }
+
+  return {
+    scopeType,
+    scopeKey,
+  };
+}
+
+function reportStorageScope(
+  action: "ignored" | "loaded" | "removed",
+  reason: "missing_scope" | "scope_mismatch" | "invalid_data" | "valid",
+  scopeType?: TaskGroupStorageScopeType,
+) {
+  if (process.env.NODE_ENV === "development") {
+    console.info("Task group storage", {
+      action,
+      reason,
+      scopeType,
+    });
+  }
 }
 
 function isTask(value: unknown): value is Task {
@@ -38,13 +91,42 @@ function isTaskGroup(value: unknown): value is TaskGroup {
   );
 }
 
-export function saveTaskGroup(taskGroup: TaskGroup) {
+function isTaskGroupStorageEnvelope(
+  value: unknown,
+): value is TaskGroupStorageEnvelope {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const envelope = value as Partial<TaskGroupStorageEnvelope>;
+
+  return (
+    (envelope.scopeType === "user" || envelope.scopeType === "device") &&
+    typeof envelope.scopeKey === "string" &&
+    envelope.scopeKey.length > 0 &&
+    isTaskGroup(envelope.taskGroup)
+  );
+}
+
+export function saveTaskGroup(taskGroup: TaskGroup, scope?: TaskGroupStorageScope | null) {
   if (!isBrowser()) {
     return false;
   }
 
+  const parsedScope = parseStorageScope(scope);
+
+  if (!parsedScope) {
+    return false;
+  }
+
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(taskGroup));
+    const value: TaskGroupStorageEnvelope = {
+      scopeType: parsedScope.scopeType,
+      scopeKey: parsedScope.scopeKey,
+      taskGroup,
+    };
+
+    window.localStorage.setItem(getStorageKey(scope), JSON.stringify(value));
     return true;
   } catch (error) {
     console.warn("Failed to save task group.", error);
@@ -52,13 +134,21 @@ export function saveTaskGroup(taskGroup: TaskGroup) {
   }
 }
 
-export function loadTaskGroup() {
+export function loadTaskGroup(scope?: TaskGroupStorageScope | null) {
   if (!isBrowser()) {
     return null;
   }
 
+  const parsedScope = parseStorageScope(scope);
+
+  if (!parsedScope) {
+    removeTaskGroup(scope);
+    reportStorageScope("ignored", "missing_scope");
+    return null;
+  }
+
   try {
-    const rawTaskGroup = window.localStorage.getItem(STORAGE_KEY);
+    const rawTaskGroup = window.localStorage.getItem(getStorageKey(scope));
 
     if (!rawTaskGroup) {
       return null;
@@ -66,26 +156,38 @@ export function loadTaskGroup() {
 
     const parsedTaskGroup: unknown = JSON.parse(rawTaskGroup);
 
-    if (!isTaskGroup(parsedTaskGroup)) {
-      removeTaskGroup();
+    if (!isTaskGroupStorageEnvelope(parsedTaskGroup)) {
+      removeTaskGroup(scope);
+      reportStorageScope("removed", "invalid_data", parsedScope.scopeType);
       return null;
     }
 
-    return parsedTaskGroup;
+    if (
+      parsedTaskGroup.scopeType !== parsedScope.scopeType ||
+      parsedTaskGroup.scopeKey !== parsedScope.scopeKey
+    ) {
+      removeTaskGroup(scope);
+      reportStorageScope("ignored", "scope_mismatch", parsedScope.scopeType);
+      return null;
+    }
+
+    reportStorageScope("loaded", "valid", parsedScope.scopeType);
+    return parsedTaskGroup.taskGroup;
   } catch (error) {
     console.warn("Failed to load task group.", error);
-    removeTaskGroup();
+    removeTaskGroup(scope);
+    reportStorageScope("removed", "invalid_data", parsedScope.scopeType);
     return null;
   }
 }
 
-export function removeTaskGroup() {
+export function removeTaskGroup(scope?: TaskGroupStorageScope | null) {
   if (!isBrowser()) {
     return;
   }
 
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(getStorageKey(scope));
   } catch (error) {
     console.warn("Failed to remove task group.", error);
   }
