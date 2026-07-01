@@ -14,6 +14,15 @@ import type {
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
 
+const HISTORY_ERROR_MESSAGES: Record<HistoryTaskGroupsErrorCode, string> = {
+  INVALID_DEVICE_ID: "设备 ID 无效。",
+  INVALID_LIMIT: "分页参数无效。",
+  INVALID_CURSOR: "分页游标无效。",
+  NOT_CONFIGURED: "云端服务暂未配置。",
+  CLOUD_LOAD_FAILED: "历史记录加载失败。",
+  UNKNOWN_ERROR: "未知错误。",
+};
+
 interface TaskGroupRow {
   id: string;
   goal: string;
@@ -33,7 +42,10 @@ interface TaskRow {
 function errorResponse(code: HistoryTaskGroupsErrorCode, status: number) {
   const body: HistoryTaskGroupsErrorResponse = {
     success: false,
-    error: code,
+    error: {
+      code,
+      message: HISTORY_ERROR_MESSAGES[code],
+    },
   };
 
   return NextResponse.json(body, { status });

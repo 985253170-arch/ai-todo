@@ -41,9 +41,11 @@ export type CloudTaskGroupErrorCode =
 
 export type HistoryTaskGroupsErrorCode =
   | "INVALID_DEVICE_ID"
+  | "INVALID_LIMIT"
   | "INVALID_CURSOR"
   | "NOT_CONFIGURED"
-  | "CLOUD_LOAD_FAILED";
+  | "CLOUD_LOAD_FAILED"
+  | "UNKNOWN_ERROR";
 
 export interface GenerateTasksRequest {
   goal: string;
@@ -91,7 +93,10 @@ export interface HistoryTaskGroupsSuccessResponse {
 
 export interface HistoryTaskGroupsErrorResponse {
   success: false;
-  error: HistoryTaskGroupsErrorCode;
+  error: {
+    code: HistoryTaskGroupsErrorCode;
+    message: string;
+  };
 }
 
 export type HistoryTaskGroupsResponse =
