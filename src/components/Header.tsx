@@ -6,7 +6,17 @@ import { UI_TEXT } from "@/lib/constants";
 import { AUTH_TEXT } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 
-export function Header() {
+interface HeaderProps {
+  historyPanelId: string;
+  isHistoryOpen: boolean;
+  onToggleHistory: () => void;
+}
+
+export function Header({
+  historyPanelId,
+  isHistoryOpen,
+  onToggleHistory,
+}: HeaderProps) {
   const { user, isLoading, signIn, signOut } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -23,6 +33,19 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            aria-controls={historyPanelId}
+            aria-pressed={isHistoryOpen}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition duration-150 hover:-translate-y-px ${
+              isHistoryOpen
+                ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                : "border-slate-200 bg-white/80 text-slate-600 hover:border-indigo-100 hover:text-indigo-700"
+            }`}
+            onClick={onToggleHistory}
+            type="button"
+          >
+            历史
+          </button>
           {isLoading ? (
             <span className="rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs font-medium text-slate-500">
               {AUTH_TEXT.LOGGING_STATUS}
