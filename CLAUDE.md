@@ -46,6 +46,25 @@ Next.js API Route · DeepSeek API（OpenAI-compatible） · localStorage deviceI
 - 每个 Phase 只能修改执行方案中明确列出的文件
 - 如果发现执行方案和代码不一致，先汇报，不要自行扩大修改范围
 
+## 文件写入规则
+
+- 不要在根目录创建新的 .md 文件，除非是 CLAUDE.md 或 README.md。
+- 项目长期上下文写入 docs/PROJECT-CONTEXT.md。
+- 项目索引写入 docs/PROJECT-INDEX.md。
+- 产品文档、架构文档、执行方案统一放入 docs/。
+- 架构文档命名：docs/Architecture-PhaseXX.md。
+- 执行方案命名：docs/Execution-Plan-PhaseXX.md。
+- 前端组件放入 src/components/。
+- 前端 hook 放入 src/hooks/。
+- API Route 放入 src/app/api/。
+- 通用工具放入 src/lib/。
+- AI Prompt 放入 src/prompts/。
+- 不要创建 AGENTS.md，本项目使用 CLAUDE.md 管理 Claude Code 项目规则。
+- 不要创建重复文档；如果已有文档覆盖同一主题，优先更新已有文档。
+- 不要在 src/ 外创建 .ts / .tsx 文件。
+- 不要擅自移动 Next.js 约定文件，例如 src/app/page.tsx、src/app/api、package.json、next.config.ts。
+- 如果需要移动已有文件，必须先输出迁移方案，等 ChatGPT 审查通过后再执行。
+
 ## 修改后必做
 ```bash
 npm run lint
