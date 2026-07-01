@@ -8,10 +8,13 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { LoadingState } from "@/components/LoadingState";
 import { NewDayPrompt } from "@/components/NewDayPrompt";
 import { StatsBar } from "@/components/StatsBar";
+import { TaskReviewPanel } from "@/components/TaskReviewPanel";
 import { TaskList } from "@/components/TaskList";
 import { useTaskHistory } from "@/hooks/useTaskHistory";
 import { useTaskGroup } from "@/hooks/useTaskGroup";
+import { useTaskReview } from "@/hooks/useTaskReview";
 import { useTaskStats } from "@/hooks/useTaskStats";
+import { getOrCreateDeviceId } from "@/lib/device-id";
 
 export default function Home() {
   const historyPanelRef = useRef<HTMLDivElement>(null);
@@ -25,6 +28,7 @@ export default function Home() {
     totalCount,
     isGenerateDisabled,
     pageStatus,
+    taskGroup,
     showNewDayPrompt,
     regenerateError,
     isAllCompleted,
@@ -38,6 +42,13 @@ export default function Home() {
   } = useTaskGroup();
   const taskHistory = useTaskHistory();
   const taskStats = useTaskStats();
+  const taskReview = useTaskReview({
+    taskGroupId: taskGroup?.id,
+    taskGroupUpdatedAt: taskGroup?.updatedAt,
+    taskCount: totalCount,
+    deviceId: getOrCreateDeviceId(),
+    timezoneOffset: new Date().getTimezoneOffset(),
+  });
 
   function scheduleStatsRefresh(delay = 500, followUpDelay = 2500) {
     if (statsRefreshTimerRef.current !== null) {
@@ -149,6 +160,17 @@ export default function Home() {
             tasks={tasks}
             totalCount={totalCount}
           />
+          {taskGroup ? (
+            <TaskReviewPanel
+              taskCount={totalCount}
+              error={taskReview.error}
+              isLoading={taskReview.isLoading}
+              isStale={taskReview.isStale}
+              onGenerate={taskReview.generateReview}
+              onReset={taskReview.resetReview}
+              review={taskReview.review}
+            />
+          ) : null}
           <div id="history-panel" ref={historyPanelRef}>
             <HistoryPanel
               error={taskHistory.error}
