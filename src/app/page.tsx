@@ -16,6 +16,7 @@ import { useTaskStats } from "@/hooks/useTaskStats";
 export default function Home() {
   const historyPanelRef = useRef<HTMLDivElement>(null);
   const statsRefreshTimerRef = useRef<number | null>(null);
+  const statsFollowUpRefreshTimerRef = useRef<number | null>(null);
   const {
     inputGoal,
     errorMessage,
@@ -38,15 +39,23 @@ export default function Home() {
   const taskHistory = useTaskHistory();
   const taskStats = useTaskStats();
 
-  function scheduleStatsRefresh(delay = 0) {
+  function scheduleStatsRefresh(delay = 500, followUpDelay = 2500) {
     if (statsRefreshTimerRef.current !== null) {
       window.clearTimeout(statsRefreshTimerRef.current);
+    }
+    if (statsFollowUpRefreshTimerRef.current !== null) {
+      window.clearTimeout(statsFollowUpRefreshTimerRef.current);
     }
 
     statsRefreshTimerRef.current = window.setTimeout(() => {
       statsRefreshTimerRef.current = null;
       void taskStats.refreshStats();
     }, delay);
+
+    statsFollowUpRefreshTimerRef.current = window.setTimeout(() => {
+      statsFollowUpRefreshTimerRef.current = null;
+      void taskStats.refreshStats();
+    }, followUpDelay);
   }
 
   async function handleGenerateWithStats() {
@@ -95,6 +104,9 @@ export default function Home() {
     return () => {
       if (statsRefreshTimerRef.current !== null) {
         window.clearTimeout(statsRefreshTimerRef.current);
+      }
+      if (statsFollowUpRefreshTimerRef.current !== null) {
+        window.clearTimeout(statsFollowUpRefreshTimerRef.current);
       }
     };
   }, []);
