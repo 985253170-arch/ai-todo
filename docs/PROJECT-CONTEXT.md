@@ -127,25 +127,36 @@ created_at, updated_at
 
 关键设计：手动触发、温和语气 (120-180 字)、不持久化复盘结果、rate limit 3次/分钟
 
-## 12. Phase 14B — AI 复盘 UI 🔜
+## 12. Phase 14B — AI 复盘 UI ✅
 
-**当前下一步**：Codex 实现 AI 复盘前端 UI。执行方案已提交（c287ac1）。
+**提交**：`ed68e1d feat: add AI review UI`（2026-07-02）
 
-**允许修改仅 3 个文件**：
+**交付物（3 个文件，262 行新增）**：
 
-| 文件 | 操作 | 行数 |
-|------|------|:---:|
-| `src/hooks/useTaskReview.ts` | 新建 | ~130 |
-| `src/components/TaskReviewPanel.tsx` | 新建 | ~150 |
-| `src/app/page.tsx` | 修改 | +25 |
+| 文件 | 操作 | 行数 | 说明 |
+|------|:---:|:---:|------|
+| `src/hooks/useTaskReview.ts` | 新建 | 141 | 复盘状态管理：review / isLoading / error / isStale |
+| `src/components/TaskReviewPanel.tsx` | 新建 | 99 | 复盘 UI：ready / loading / success / stale / error / empty |
+| `src/app/page.tsx` | 修改 | +22 | 胶水层集成，TaskList 下方、HistoryPanel 上方 |
 
-核心验收：
-1. 有活跃 task_group + tasks > 0 → 显示"生成今日复盘"按钮
-2. 点击 → loading → 展示 feedbackText
-3. 任务 toggle 后 → stale 标记（半透明遮罩 + "重新生成"）
-4. 错误 → 温和文案 + 重试
-5. 清空/重新生成/登录登出 → 复盘自动重置
-6. 不持久化复盘（刷新丢失）
+**关键设计**：
+- 调用 `POST /api/task-groups/review`，显式传 `deviceId`、`taskGroupId`、`timezoneOffset`，不传 userId/tasks/stats
+- inflightRef 防重复请求（与 useTaskStats 模式一致）
+- taskGroupId 变化 → resetReview；taskGroupUpdatedAt 变化 → isStale = true
+- 首版只展示 `review.feedbackText`，不展示 sections / suggestedDifficulty / suggestedTaskCountRange
+- 不自动生成复盘（手动点击），不持久化复盘（React state，刷新丢失）
+- 错误使用 amber 色调（非 red），不弹窗不 toast
+- 移动端全宽，按钮 min-h-11（≥44px）
+
+**验收结果**：功能 16/16 ✅ | 安全 8/8 ✅ | lint ✅ | build ✅
+
+**遗留 P2（不阻塞，建议 Phase 14C 处理）**：
+1. useTaskReview 未实现 REVIEW_ERROR_MESSAGES 映射表，透传 API error.message
+2. loading opacity-70 vs 方案 opacity-60
+3. stale 提示栏 rounded-2xl vs 方案 rounded-t-2xl
+4. stale 提示栏 px-4 vs 方案 px-5
+
+**当前下一步**：建议先进入 Phase 14C（集成刷新 + 边界 Cases）或 Phase 14B Follow-up，处理上述 P2 + 复盘 UI 边界 case + 集成刷新细节，不直接跳 Phase 15。
 
 ## 13. 高风险基础文件（不能随便改）
 
@@ -165,10 +176,13 @@ created_at, updated_at
 ## 14. 最新提交
 
 ```
+ed68e1d feat: add AI review UI
+67fa54d docs: add project index and file writing rules
+8f8a2db docs: add project long-term context file
 6ff1ad3 docs: add ai-todo Claude project rules
 ```
 
-前一个：`c287ac1 docs: add Phase 14B execution plan`
+Phase 14B 已完成，当前 HEAD = `ed68e1d`。
 
 ## 15. 工作区路径
 
