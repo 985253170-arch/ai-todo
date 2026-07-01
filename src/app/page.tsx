@@ -7,12 +7,15 @@ import { HeroSection } from "@/components/HeroSection";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { LoadingState } from "@/components/LoadingState";
 import { NewDayPrompt } from "@/components/NewDayPrompt";
+import { StatsBar } from "@/components/StatsBar";
 import { TaskList } from "@/components/TaskList";
 import { useTaskHistory } from "@/hooks/useTaskHistory";
 import { useTaskGroup } from "@/hooks/useTaskGroup";
+import { useTaskStats } from "@/hooks/useTaskStats";
 
 export default function Home() {
   const historyPanelRef = useRef<HTMLDivElement>(null);
+  const statsRefreshTimerRef = useRef<number | null>(null);
   const {
     inputGoal,
     errorMessage,
@@ -33,6 +36,43 @@ export default function Home() {
     handleStartNewDay,
   } = useTaskGroup();
   const taskHistory = useTaskHistory();
+  const taskStats = useTaskStats();
+
+  function scheduleStatsRefresh(delay = 0) {
+    if (statsRefreshTimerRef.current !== null) {
+      window.clearTimeout(statsRefreshTimerRef.current);
+    }
+
+    statsRefreshTimerRef.current = window.setTimeout(() => {
+      statsRefreshTimerRef.current = null;
+      void taskStats.refreshStats();
+    }, delay);
+  }
+
+  async function handleGenerateWithStats() {
+    await handleGenerate();
+    scheduleStatsRefresh(500);
+  }
+
+  function handleToggleTaskWithStats(taskId: string) {
+    handleToggleTask(taskId);
+    scheduleStatsRefresh(500);
+  }
+
+  function handleClearTasksWithStats() {
+    handleClearTasks();
+    scheduleStatsRefresh(500);
+  }
+
+  async function handleRegenerateWithStats() {
+    await handleRegenerate();
+    scheduleStatsRefresh(500);
+  }
+
+  function handleStartNewDayWithStats() {
+    handleStartNewDay();
+    scheduleStatsRefresh(500);
+  }
 
   useEffect(() => {
     if (!taskHistory.isOpen) {
@@ -51,6 +91,14 @@ export default function Home() {
     };
   }, [taskHistory.isOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (statsRefreshTimerRef.current !== null) {
+        window.clearTimeout(statsRefreshTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#F8FAFF] bg-gradient-to-b from-indigo-50 via-white to-sky-50 px-4 py-6 pb-[env(safe-area-inset-bottom,1rem)] text-slate-950 sm:px-6 sm:py-10">
       <div className="mx-auto flex max-w-[720px] flex-col gap-6 sm:gap-7">
@@ -66,19 +114,25 @@ export default function Home() {
             isLoading={isGenerateDisabled}
             onChange={setInputGoal}
             onExampleClick={handleExampleClick}
-            onSubmit={handleGenerate}
+            onSubmit={handleGenerateWithStats}
             value={inputGoal}
           />
+          <StatsBar
+            error={taskStats.error}
+            isLoading={taskStats.isLoading}
+            onRetry={taskStats.refreshStats}
+            stats={taskStats.stats}
+          />
           {showNewDayPrompt ? (
-            <NewDayPrompt onStartNewDay={handleStartNewDay} />
+            <NewDayPrompt onStartNewDay={handleStartNewDayWithStats} />
           ) : null}
           {pageStatus === "loading" ? <LoadingState /> : null}
           <TaskList
             completedCount={completedCount}
             isAllCompleted={isAllCompleted}
-            onClearTasks={handleClearTasks}
-            onRegenerate={handleRegenerate}
-            onToggleTask={handleToggleTask}
+            onClearTasks={handleClearTasksWithStats}
+            onRegenerate={handleRegenerateWithStats}
+            onToggleTask={handleToggleTaskWithStats}
             regenerateError={regenerateError}
             tasks={tasks}
             totalCount={totalCount}
