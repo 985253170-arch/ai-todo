@@ -26,7 +26,7 @@ export function TaskReviewPanel({
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:p-6">
         <button
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-indigo-50 px-5 text-sm font-semibold text-indigo-700 opacity-70"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-indigo-50 px-5 text-sm font-semibold text-indigo-700 opacity-60"
           disabled
           type="button"
         >
@@ -72,7 +72,7 @@ export function TaskReviewPanel({
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:p-6">
       {isStale ? (
-        <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+        <div className="mb-4 rounded-t-2xl border border-amber-100 bg-amber-50 px-5 py-3">
           <p className="text-sm font-medium text-amber-800">
             任务状态已变化，可重新生成复盘
           </p>

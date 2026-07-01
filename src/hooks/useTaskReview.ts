@@ -23,6 +23,15 @@ interface UseTaskReviewReturn {
 const DEFAULT_ERROR_MESSAGE = "复盘生成失败，请稍后重试。";
 const NETWORK_ERROR_MESSAGE = "网络连接失败，请检查网络后重试。";
 
+const REVIEW_ERROR_MESSAGES: Record<string, string> = {
+  NO_ACTIVE_TASK_GROUP: "还没有今天的任务，先生成任务再让 AI 复盘。",
+  NO_TASKS_TO_REVIEW: "还没有任务内容，无法生成复盘。",
+  AI_REVIEW_FAILED: "AI 复盘生成失败，请稍后重试。",
+  AI_RESPONSE_INVALID: "AI 回复格式异常，请重试。",
+  RATE_LIMITED: "请求过于频繁，请稍后再试。",
+  INTERNAL_ERROR: "服务异常，请稍后重试。",
+};
+
 export function useTaskReview({
   taskGroupId,
   taskGroupUpdatedAt,
@@ -76,9 +85,9 @@ export function useTaskReview({
         const result = (await response.json()) as ReviewResponse;
 
         if (!response.ok || !result.success) {
-          throw new Error(
-            result.success ? DEFAULT_ERROR_MESSAGE : result.error.message,
-          );
+          const errorCode = result.success ? "INTERNAL_ERROR" : result.error.code;
+          const message = REVIEW_ERROR_MESSAGES[errorCode] ?? DEFAULT_ERROR_MESSAGE;
+          throw new Error(message);
         }
 
         if (taskGroupIdRef.current !== requestTaskGroupId) {
