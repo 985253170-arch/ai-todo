@@ -47,6 +47,42 @@ export type HistoryTaskGroupsErrorCode =
   | "CLOUD_LOAD_FAILED"
   | "UNKNOWN_ERROR";
 
+export type StatsErrorCode =
+  | "INVALID_DEVICE_ID"
+  | "INVALID_TIMEZONE_OFFSET"
+  | "NOT_CONFIGURED"
+  | "STATS_LOAD_FAILED"
+  | "UNKNOWN_ERROR";
+
+export interface TodayStats {
+  completedCount: number;
+  totalCount: number;
+  completionRate: number | null;
+}
+
+export interface SevenDayStats {
+  completedCount: number;
+  totalCount: number;
+  completionRate: number | null;
+}
+
+export interface TotalStats {
+  totalCompleted: number;
+  activeDayStreak: number;
+}
+
+export type PerformanceLabel = "稳定行动" | "有点吃力" | "刚刚开始";
+
+export interface StatsData {
+  today: TodayStats;
+  sevenDay: SevenDayStats;
+  total: TotalStats;
+  recentTaskGroupCount: number;
+  recentAverageTaskCount: number;
+  recentIncompleteTaskCount: number;
+  performanceLabel: PerformanceLabel;
+}
+
 export interface GenerateTasksRequest {
   goal: string;
 }
@@ -102,6 +138,21 @@ export interface HistoryTaskGroupsErrorResponse {
 export type HistoryTaskGroupsResponse =
   | HistoryTaskGroupsSuccessResponse
   | HistoryTaskGroupsErrorResponse;
+
+export interface StatsSuccessResponse {
+  success: true;
+  data: StatsData;
+}
+
+export interface StatsErrorResponse {
+  success: false;
+  error: {
+    code: StatsErrorCode;
+    message: string;
+  };
+}
+
+export type StatsResponse = StatsSuccessResponse | StatsErrorResponse;
 
 export interface AuthUser {
   id: string;
