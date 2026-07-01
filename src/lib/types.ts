@@ -165,3 +165,46 @@ export interface AuthMeResponse {
   success: true;
   user: AuthUser | null;
 }
+
+export type ReviewErrorCode =
+  | "INVALID_REQUEST_BODY"
+  | "INVALID_DEVICE_ID"
+  | "INVALID_TASK_GROUP_ID"
+  | "TASK_GROUP_NOT_FOUND"
+  | "UNAUTHORIZED_TASK_GROUP"
+  | "NO_ACTIVE_TASK_GROUP"
+  | "NO_TASKS_TO_REVIEW"
+  | "AI_REVIEW_FAILED"
+  | "AI_RESPONSE_INVALID"
+  | "RATE_LIMITED"
+  | "INTERNAL_ERROR";
+
+export type SuggestedDifficulty = "lighter" | "normal" | "deeper";
+
+export interface ReviewSections {
+  summary: string;
+  encouragement: string;
+  nextStep: string;
+}
+
+export interface ReviewData {
+  feedbackText: string;
+  sections: ReviewSections;
+  suggestedDifficulty: SuggestedDifficulty;
+  suggestedTaskCountRange: [number, number];
+}
+
+export interface ReviewSuccessResponse {
+  success: true;
+  data: ReviewData;
+}
+
+export interface ReviewErrorResponse {
+  success: false;
+  error: {
+    code: ReviewErrorCode;
+    message: string;
+  };
+}
+
+export type ReviewResponse = ReviewSuccessResponse | ReviewErrorResponse;

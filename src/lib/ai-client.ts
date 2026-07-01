@@ -96,3 +96,73 @@ export async function callAIService(options: AIClientOptions) {
     }
   }
 }
+
+interface CallAIWithPromptsOptions {
+  apiKey: string;
+  baseUrl?: string;
+  model?: string;
+  systemPrompt: string;
+  userPrompt: string;
+  maxTokens?: number;
+  temperature?: number;
+  timeoutMs?: number;
+}
+
+async function requestChatCompletionWithPrompts(
+  options: CallAIWithPromptsOptions,
+  responseFormat: Record<string, unknown> | undefined,
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? 30000,
+  );
+
+  try {
+    const response = await fetch(`${normalizeBaseUrl(options.baseUrl)}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${options.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: options.model ?? "gpt-4o-mini",
+        messages: [
+          { role: "system", content: options.systemPrompt },
+          { role: "user", content: options.userPrompt },
+        ],
+        temperature: options.temperature ?? 0.3,
+        max_tokens: options.maxTokens ?? 400,
+        ...(responseFormat ? { response_format: responseFormat } : {}),
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI request failed with status ${response.status}.`);
+    }
+
+    const data = (await response.json()) as ChatCompletionResponse;
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("AI response content is empty.");
+    }
+
+    return content;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function callAIWithPrompts(
+  options: CallAIWithPromptsOptions,
+): Promise<string> {
+  try {
+    return await requestChatCompletionWithPrompts(options, {
+      type: "json_object",
+    });
+  } catch {
+    return requestChatCompletionWithPrompts(options, undefined);
+  }
+}
