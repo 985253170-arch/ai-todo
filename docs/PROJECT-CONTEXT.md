@@ -150,13 +150,27 @@ created_at, updated_at
 
 **验收结果**：功能 16/16 ✅ | 安全 8/8 ✅ | lint ✅ | build ✅
 
-**遗留 P2（不阻塞，建议 Phase 14C 处理）**：
-1. useTaskReview 未实现 REVIEW_ERROR_MESSAGES 映射表，透传 API error.message
-2. loading opacity-70 vs 方案 opacity-60
-3. stale 提示栏 rounded-2xl vs 方案 rounded-t-2xl
-4. stale 提示栏 px-4 vs 方案 px-5
+## 12B. Phase 14B-Follow-up — P2 修复 ✅
 
-**当前下一步**：建议先进入 Phase 14C（集成刷新 + 边界 Cases）或 Phase 14B Follow-up，处理上述 P2 + 复盘 UI 边界 case + 集成刷新细节，不直接跳 Phase 15。
+**执行方案**：`3620e10 docs: add Phase 14B follow-up execution plan`
+**代码提交**：`39117c5 fix: apply Phase 14B follow-up fixes`（2026-07-02）
+
+**修复内容（2 个文件，14 行新增，5 行删除）**：
+
+| 文件 | 修复 |
+|------|------|
+| `src/hooks/useTaskReview.ts` | 新增 `REVIEW_ERROR_MESSAGES` 前端错误码映射表（6 个错误码 → 中文文案），错误抛出改为 `errorCode → REVIEW_ERROR_MESSAGES[errorCode] ?? DEFAULT_ERROR_MESSAGE` |
+| `src/components/TaskReviewPanel.tsx` | loading `opacity-70` → `opacity-60`；stale 提示栏 `rounded-2xl` → `rounded-t-2xl`；stale 提示栏 `px-4` → `px-5` |
+
+**边界 Case 确认**（不需改代码，已有逻辑覆盖）：
+- 网络失败后可重试 ✅
+- taskGroup 切换后旧 review 不残留 ✅
+- 请求期间 taskGroup 改变不污染新状态 ✅
+- stale → 重新生成 → 成功 UI 正确过渡 ✅
+
+**验收结果**：P0=0 | P1=0 | P2=0 | lint ✅ | build ✅
+
+**当前下一步**：Phase 14B 及其 Follow-up 全部完成。建议进入 **Phase 14C**（集成刷新 + 边界 Cases 稳定化），或由 Claude Code 先写 **Phase 15 架构方案**（AI 智能调整任务）。Phase 15 必须先有架构方案，不能直接让 Codex 写代码。
 
 ## 13. 高风险基础文件（不能随便改）
 
@@ -176,13 +190,14 @@ created_at, updated_at
 ## 14. 最新提交
 
 ```
+39117c5 fix: apply Phase 14B follow-up fixes
+3620e10 docs: add Phase 14B follow-up execution plan
+741c94e docs: update project context for Phase 14B completion
 ed68e1d feat: add AI review UI
 67fa54d docs: add project index and file writing rules
-8f8a2db docs: add project long-term context file
-6ff1ad3 docs: add ai-todo Claude project rules
 ```
 
-Phase 14B 已完成，当前 HEAD = `ed68e1d`。
+Phase 14B + Follow-up 全部完成，当前 HEAD = `39117c5`。
 
 ## 15. 工作区路径
 
