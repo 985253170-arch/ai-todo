@@ -39,6 +39,12 @@ export type CloudTaskGroupErrorCode =
   | "CLOUD_LOAD_FAILED"
   | "CLOUD_DELETE_FAILED";
 
+export type HistoryTaskGroupsErrorCode =
+  | "INVALID_DEVICE_ID"
+  | "INVALID_CURSOR"
+  | "NOT_CONFIGURED"
+  | "CLOUD_LOAD_FAILED";
+
 export interface GenerateTasksRequest {
   goal: string;
 }
@@ -76,6 +82,21 @@ export interface CloudTaskGroupErrorResponse {
 export type CloudTaskGroupResponse =
   | CloudTaskGroupSuccessResponse
   | CloudTaskGroupErrorResponse;
+
+export interface HistoryTaskGroupsSuccessResponse {
+  success: true;
+  data: TaskGroup[];
+  hasMore: boolean;
+}
+
+export interface HistoryTaskGroupsErrorResponse {
+  success: false;
+  error: HistoryTaskGroupsErrorCode;
+}
+
+export type HistoryTaskGroupsResponse =
+  | HistoryTaskGroupsSuccessResponse
+  | HistoryTaskGroupsErrorResponse;
 
 export interface AuthUser {
   id: string;
