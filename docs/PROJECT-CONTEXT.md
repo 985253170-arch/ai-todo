@@ -170,7 +170,38 @@ created_at, updated_at
 
 **验收结果**：P0=0 | P1=0 | P2=0 | lint ✅ | build ✅
 
-**当前下一步**：Phase 14B 及其 Follow-up 全部完成。建议进入 **Phase 14C**（集成刷新 + 边界 Cases 稳定化），或由 Claude Code 先写 **Phase 15 架构方案**（AI 智能调整任务）。Phase 15 必须先有架构方案，不能直接让 Codex 写代码。
+**当前下一步**：Phase 14B 及其 Follow-up 全部完成，已进入 Phase 14C 人工验收。
+
+## 12C. Phase 14C — 人工验收 ✅
+
+**执行方案**：`9433337 docs: add Phase 14C execution plan`
+
+Phase 14C 定位为纯人工验证阶段，不修改任何代码。基于 36 项测试清单 (功能 8 + 状态转换 9 + 边界 7 + 认证隔离 4 + 回归 6 + 移动端 2) 进行人工验收。
+
+**已测试通过（核心闭环验证）**：
+- 无任务状态清空后复盘按钮消失 / 重新生成后按钮重新出现
+- 生成任务后显示"💬 生成今日复盘"按钮
+- 点击 → loading spinner + "正在生成复盘…"
+- 成功后展示 ReviewCard（"💬 今日复盘" + feedbackText）
+- 仅展示 feedbackText，不展示 sections / suggestedDifficulty / suggestedTaskCountRange
+- 勾选任务 → stale（amber 提示栏 + 内容 opacity-50 + "重新生成"按钮）
+- stale → 重新生成 → loading → 新复盘替换旧内容
+- 复盘卡片位置正确（TaskList 下方、HistoryPanel 上方）
+- stale 提示样式正常，无前端报错
+- TaskList 勾选 / generate-tasks / 清空任务均正常
+
+**建议补测项（不阻塞 Phase 15）**：
+- 网络断连后重试（DevTools Offline 模拟）
+- 登录 / 登出 / 匿名 deviceId / user_id 切换（需 Supabase Auth 环境）
+- 全部完成 / 部分完成 / 零完成三类 AI 文案差异
+- 移动端长文案换行和触控区域
+- HistoryPanel 回归
+
+**验收结论**：P0=0 | P1=0 | P2=0（代码层面）| 不需要 Codex 修复 | 允许关闭 Phase 14 | 建议进入 Phase 15 架构设计
+
+**Phase 14 整体关闭**：14A (API) → 14B (UI) → 14B-Follow-up (P2 修复) → 14C (人工验收) 完整链路走完 ✅
+
+**当前下一步**：先让 Claude Code 写 `docs/Architecture-Phase15.md`（AI 智能调整任务架构设计）。Phase 15 必须先做架构设计（涉及 `generate-tasks` 策略调整），不能直接让 Codex 写代码。
 
 ## 13. 高风险基础文件（不能随便改）
 
@@ -190,6 +221,7 @@ created_at, updated_at
 ## 14. 最新提交
 
 ```
+9433337 docs: add Phase 14C execution plan
 39117c5 fix: apply Phase 14B follow-up fixes
 3620e10 docs: add Phase 14B follow-up execution plan
 741c94e docs: update project context for Phase 14B completion
@@ -197,7 +229,7 @@ ed68e1d feat: add AI review UI
 67fa54d docs: add project index and file writing rules
 ```
 
-Phase 14B + Follow-up 全部完成，当前 HEAD = `39117c5`。
+Phase 14 整体关闭，当前 HEAD = `9433337`。
 
 ## 15. 工作区路径
 
