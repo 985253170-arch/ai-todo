@@ -17,7 +17,7 @@ export function Header({
   isHistoryOpen,
   onToggleHistory,
 }: HeaderProps) {
-  const { user, isLoading, signIn, signOut } = useAuth();
+  const { user, isLoading, signIn, signUp, signOut } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   return (
@@ -82,6 +82,7 @@ export function Header({
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSignIn={signIn}
+        onSignUp={signUp}
       />
     </>
   );

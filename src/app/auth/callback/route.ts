@@ -32,24 +32,14 @@ function getSafeAuthError(error: { name?: string; status?: number } | null) {
 }
 
 function getOtpType(type: string | null): EmailOtpType | null {
-  const allowedTypes: EmailOtpType[] = [
-    "signup",
-    "invite",
-    "magiclink",
-    "recovery",
-    "email_change",
-    "email",
-  ];
-
-  if (!type || !allowedTypes.includes(type as EmailOtpType)) {
-    return null;
+  if (type === "email") {
+    return "email";
   }
 
-  return type as EmailOtpType;
+  return null;
 }
 
 export async function GET(request: NextRequest) {
-  const code = request.nextUrl.searchParams.get("code");
   const tokenHash = request.nextUrl.searchParams.get("token_hash");
   const otpType = getOtpType(request.nextUrl.searchParams.get("type"));
   const redirectUrl = getRedirectUrl(request);
@@ -57,8 +47,8 @@ export async function GET(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!code && !tokenHash) {
-    setAuthCallbackError(redirectUrl, "no_code");
+  if (!tokenHash || !otpType) {
+    setAuthCallbackError(redirectUrl, "invalid_token_type");
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -80,23 +70,6 @@ export async function GET(request: NextRequest) {
       },
     },
   });
-
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (error) {
-      setAuthCallbackError(redirectUrl, getSafeAuthError(error));
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    response.headers.set("Location", redirectUrl.toString());
-    return response;
-  }
-
-  if (!tokenHash || !otpType) {
-    setAuthCallbackError(redirectUrl, "invalid_token_type");
-    return NextResponse.redirect(redirectUrl);
-  }
 
   const { error } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,

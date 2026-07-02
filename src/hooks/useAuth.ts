@@ -57,20 +57,14 @@ export function useAuth() {
     };
   }, [supabase]);
 
-  async function signIn(email: string) {
+  async function signUp(email: string, password: string) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signUp({
       email,
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo:
-          typeof window === "undefined"
-            ? undefined
-            : `${window.location.origin}/auth/callback?next=/`,
-      },
+      password,
     });
 
     if (error) {
@@ -79,18 +73,18 @@ export function useAuth() {
     }
   }
 
-  async function verifyOtp(email: string, token: string) {
+  async function signIn(email: string, password: string) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
     }
 
-    const { data, error } = await supabase.auth.verifyOtp({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      token,
-      type: "email",
+      password,
     });
 
     if (error) {
+      logSafeAuthError(error);
       throw error;
     }
 
@@ -114,8 +108,8 @@ export function useAuth() {
   return {
     user,
     isLoading,
+    signUp,
     signIn,
-    verifyOtp,
     signOut,
   };
 }
