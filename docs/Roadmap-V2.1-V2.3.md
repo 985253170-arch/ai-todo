@@ -1,6 +1,6 @@
-# Roadmap V2.1–V2.3 — AI Todo 后续升级路线
+﻿# Roadmap V2.1–V2.3 — AI Todo 后续升级路线
 
-> **状态**：规划文档，非执行方案
+> **状态**：V2.1 ✅ 已完成，V2.1-Follow-up SMTP 🔜 下一阶段
 > **依赖**：V2.0 主线 Phase 12-15 已关闭
 > **上一文档**：[Roadmap-Phase12-15.md](Roadmap-Phase12-15.md)（Phase 12-15 中期路线图）
 > **关联文档**：[PRD-V2.0.md](PRD-V2.0.md) · [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) · [Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md)
@@ -12,6 +12,7 @@
 
 - [一、路线总览](#一路线总览)
 - [二、V2.1：账号系统稳定化](#二v21账号系统稳定化)
+- [2.5、V2.1-Follow-up：自定义 SMTP 与邮件确认稳定化](#二点五v21-follow-up自定义-smtp-与邮件确认稳定化)
 - [三、V2.2：页面美观升级 / 产品体验升级](#三v22页面美观升级--产品体验升级)
 - [四、V2.3：安全增强](#四v23安全增强)
 - [五、为什么不跳过 V2.1 直接做 V2.2](#五为什么不跳过-v21-直接做-v22)
@@ -35,9 +36,10 @@ V2.0 主线（Phase 12-15）已完成并关闭，核心闭环打通：
 
 | 版本 | 定位 | 核心内容 | 依赖 |
 |:---:|------|------|------|
-| **V2.1** | 账号系统稳定化 | Magic Link → Email+Password | V2.0 闭环 |
-| **V2.2** | 页面美观 / 产品体验升级 | 整体 UI 美化、组件打磨、移动端细节 | V2.1 |
-| **V2.3** | 安全增强 | Turnstile 防机器人、忘记密码、安全优化 | V2.1 |
+| **V2.1** | 账号系统稳定化 | Magic Link → Email+Password | ✅ 已完成 |
+| **V2.1-Follow-up** | 自定义 SMTP 与邮件确认稳定化 | 自定义 SMTP、邮件模板编辑、发送稳定性 | 🔜 下一阶段 |
+| **V2.2** | 页面美观 / 产品体验升级 | 整体 UI 美化、组件打磨、移动端细节 | ⏭️ V2.1-Follow-up 后 |
+| **V2.3** | 安全增强 | Turnstile 防机器人、忘记密码、安全优化 | ⏭️ V2.2 后 |
 
 **推荐顺序：V2.1 → V2.2 → V2.3，顺序执行，不并行。**
 
@@ -79,19 +81,71 @@ V2.0 主线（Phase 12-15）已完成并关闭，核心闭环打通：
 
 ### 2.4 文件变更面
 
-仅 5 个文件（详见 [Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md)）：
+已实施，仅 5 个文件（详见 [Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md)）：
 
-| # | 文件 | 操作 |
+| # | 文件 | 操作 | 状态 |
 |---|------|:---:|
-| 1 | `src/hooks/useAuth.ts` | 修改（signIn → email+password，新增 signUp，移除 verifyOtp） |
-| 2 | `src/components/AuthModal.tsx` | 重写（双模式：登录/注册） |
-| 3 | `src/app/auth/callback/route.ts` | 简化（移除 Magic Link 处理，保留邮箱确认回调） |
-| 4 | `src/lib/constants.ts` | 修改（AUTH_TEXT 更新） |
-| 5 | `src/components/Header.tsx` | 微调（AuthModal props 适配） |
+| 1 | `src/hooks/useAuth.ts` | 修改（signIn → email+password，新增 signUp，移除 verifyOtp） | ✅ |
+| 2 | `src/components/AuthModal.tsx` | 重写（双模式：登录/注册） | ✅ |
+| 3 | `src/app/auth/callback/route.ts` | 简化（移除 Magic Link 处理，保留邮箱确认回调） | ✅ |
+| 4 | `src/lib/constants.ts` | 修改（AUTH_TEXT 更新） | ✅ |
+| 5 | `src/components/Header.tsx` | 微调（AuthModal props 适配） | ✅ |
 
-### 2.5 架构文档
+### 2.5 已完成配置
 
-已有：[docs/Architecture-V2.1-Auth.md](docs/Architecture-V2.1-Auth.md)（826 行，覆盖 18 个设计章节）
+Supabase Dashboard 已配置：Email provider 已启用、Allow new users to sign up 已开启、Confirm email 已开启。Site URL: `https://ai-todo-kappa-drab.vercel.app`。Redirect URLs: 生产域名 + `http://localhost:3000/**`。
+
+### 2.6 已知待处理（V2.1-Follow-up / V2.3）
+
+- **Confirm signup 邮件模板未自定义**：Supabase 新版要求先配置自定义 SMTP 才能编辑邮件模板。当前使用 Supabase 默认确认邮件。自定义 SMTP 留到 V2.1-Follow-up 或 V2.3 处理。
+- **忘记密码**：留到 V2.3。
+
+### 2.7 架构与执行文档
+
+- [docs/Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md) — 架构方案
+- [docs/Execution-Plan-V2.1-Auth.md](Execution-Plan-V2.1-Auth.md) — 执行方案
+
+---
+
+## 二点五、V2.1-Follow-up：自定义 SMTP 与邮件确认稳定化
+
+### 2.5.1 定位
+
+这是 V2.1 Auth 的 Follow-up 收尾阶段，**不是 V2.2，不是 V2.3**。
+
+目标是提高注册确认邮件的稳定性和可控性，补齐 V2.1 Auth 主流程中遗留的邮件配置短板。
+
+### 2.5.2 背景
+
+1. **Supabase 默认邮件服务发送额度很低**，生产环境需要可靠的自定义 SMTP。
+2. **新版 Supabase 要求先配置自定义 SMTP 才能编辑邮件模板**，当前 Confirm signup 邮件模板暂未自定义。
+3. **这属于 V2.1 账号系统的收尾增强**，不应混入 V2.2 UI 美化。
+4. **V2.2 UI 美化应在邮件确认稳定化之后再进入**。
+
+### 2.5.3 范围
+
+| # | 事项 | 说明 |
+|---|------|------|
+| 1 | 自定义 SMTP 配置 | 替换 Supabase 默认邮件服务，提高发送额度和稳定性 |
+| 2 | Confirm signup 邮件模板可编辑 | SMTP 配置后即可编辑邮件模板 |
+| 3 | 确认注册链接改为标准回调格式 | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email` |
+| 4 | 邮件发送限额和发件稳定性验证 | 确保注册流程不被邮件发送限制阻塞 |
+
+### 2.5.4 不做
+
+| # | 不做 | 原因 |
+|---|------|------|
+| 1 | 不改 Auth 业务代码 | 除非测试发现 callback 与自定义邮件模板不兼容 |
+| 2 | 不改 UI | 不变更任何组件或样式 |
+| 3 | 不改数据库 | 无 schema 变更 |
+| 4 | 不进入 V2.2 | V2.1-Follow-up 完成后再进入 V2.2 |
+
+### 2.5.5 完成标准
+
+- 自定义 SMTP 配置完成并验证发送正常
+- Confirm signup 邮件模板已自定义，使用标准回调 URL 格式
+- 注册 → 邮件确认 → 登录 完整链路在自定义 SMTP 下测试通过
+- 生产环境邮件发送稳定，无额度限制问题
 
 ---
 
@@ -211,21 +265,30 @@ V2.3 涉及 Supabase Dashboard 配置变更（开启 rate limit、自定义 SMTP
 ## 八、推荐执行顺序
 
 ```
-V2.1 Auth（当前）
+V2.1 Auth（✅ 已完成）
   │
-  ├── 1. ChatGPT 审查 Architecture-V2.1-Auth.md        ← 当前步骤
-  ├── 2. Claude Code 写 Execution-Plan-V2.1-Auth.md
-  ├── 3. ChatGPT 审查执行方案
-  ├── 4. Codex 按执行方案实现（仅 5 个文件）
-  ├── 5. Claude Code Code Review
-  ├── 6. ChatGPT 最终把关
-  ├── 7. 提交 + Vercel 部署
-  └── 8. 生产环境验证（登录/注册/登出/迁移）
+  ├── 1. ChatGPT 审查 Architecture-V2.1-Auth.md        ✅
+  ├── 2. Claude Code 写 Execution-Plan-V2.1-Auth.md    ✅
+  ├── 3. ChatGPT 审查执行方案                           ✅
+  ├── 4. Codex 按执行方案实现（仅 5 个文件）            ✅
+  ├── 5. Claude Code Code Review                       ✅
+  ├── 6. ChatGPT 最终把关                               ✅
+  ├── 7. 提交 + Vercel 部署                             ✅
+  └── 8. 生产环境验证（登录/注册/登出/迁移）             ✅
   │
   ▼
-V2.2 UI 升级
+V2.1-Follow-up SMTP（🔜 下一阶段）
   │
-  ├── 1. Claude Code 写 Architecture-V2.2-UI.md
+  ├── 1. 配置自定义 SMTP 服务
+  ├── 2. 编辑 Confirm signup 邮件模板（回调 URL 格式）
+  ├── 3. 验证注册 → 邮件确认 → 登录完整链路
+  ├── 4. 确认邮件发送稳定性和额度
+  └── 5. 完成 V2.1 收尾
+  │
+  ▼
+V2.2 UI 升级（⏭️ V2.1-Follow-up 后）
+  │
+  ├── 1. Claude Code 写 Architecture-V2.2-UI.md        ← 待开始
   ├── 2. ChatGPT 审查
   ├── 3. Claude Code 写 Execution-Plan-V2.2-UI.md
   ├── 4. ChatGPT 审查
@@ -235,7 +298,7 @@ V2.2 UI 升级
   └── 8. 提交 + 部署
   │
   ▼
-V2.3 安全增强
+V2.3 安全增强（⏭️ V2.2 后）
   │
   ├── 1. Claude Code 写 Architecture-V2.3-Security.md
   ├── 2. ... （同 V2.1 流程）
@@ -248,16 +311,17 @@ V2.3 安全增强
 
 ## 九、风险矩阵
 
-| # | 风险 | 等级 | 影响 | 版本 | 缓解措施 |
-|---|------|:---:|------|:---:|------|
-| 1 | V2.1 Auth 改造可能影响匿名 → 登录任务迁移 | **P1** | 用户登录后任务丢失 | 迁移逻辑不变（`getAuthenticatedUserId()` 返回值与 Magic Link 完全一致），V2.1 验收必须覆盖迁移场景 |
-| 2 | V2.1 `signInWithPassword` 在 Vercel Serverless 中 cookie 写入失败 | **P1** | 登录后 session 丢失 | 使用 `@supabase/ssr` 的 `createBrowserClient`（已用于 Magic Link 验证过），不同于 callback route 的重定向 cookie 写入 |
-| 3 | V2.1 现有 Magic Link 老用户无法登录 | **P2** | 需重新注册 | 当前用户量极少（测试阶段），可提示"如之前使用过链接登录，请重新注册" |
-| 4 | V2.2 UI 美化可能误伤功能逻辑 | **P1** | 任务勾选、清空、生成等功能异常 | 严格限定只改 CSS 和组件渲染层，不改 hook/API。每步 lint+build 门禁 |
-| 5 | V2.2 移动端适配可能在不同设备/浏览器上表现不一致 | **P2** | 部分用户视觉异常 | Tailwind CSS 响应式 class + safe-area-inset 已在 V1.0 验证；V2.2 不改布局结构 |
-| 6 | V2.2 改动面大（18 个组件文件），可能引入回归 bug | **P2** | 功能回归 | 拆分 V2.2 为子阶段（A:视觉系统 → B:组件打磨 → C:移动端 → D:产品细节），每步独立验收 |
-| 7 | V2.3 Cloudflare Turnstile 引入部署配置复杂度 | **P2** | 环境变量、第三方依赖 | V2.3 独立阶段，不阻塞 V2.1/V2.2。Turnstile 失败时降级为无 CAPTCHA 模式 |
-| 8 | V2.3 忘记密码依赖 Supabase 邮件模板配置 | **P2** | 邮件模板未配置时用户体验差 | 在 V2.1 阶段提前配置 Supabase SMTP 和邮件模板（V2.1 就需要邮箱确认邮件） |
+| # | 风险 | 等级 | 影响 | 版本 | 状态 |
+|---|------|:---:|------|:---:|:--:|
+| 1 | V2.1 Auth 改造可能影响匿名 → 登录任务迁移 | **P1** | 用户登录后任务丢失 | V2.1 | ✅ 已验证（迁移逻辑不变） |
+| 2 | V2.1 `signInWithPassword` 在 Vercel Serverless 中 cookie 写入失败 | **P1** | 登录后 session 丢失 | V2.1 | ✅ 已验证（生产环境测试通过） |
+| 3 | V2.1 现有 Magic Link 老用户无法登录 | **P2** | 需重新注册 | V2.1 | ✅ 已接受（用户量极少） |
+| 4 | V2.2 UI 美化可能误伤功能逻辑 | **P1** | 任务勾选、清空、生成等功能异常 | V2.2 | 严格限定只改 CSS 和组件渲染层，不改 hook/API。每步 lint+build 门禁 |
+| 5 | V2.2 移动端适配可能在不同设备/浏览器上表现不一致 | **P2** | 部分用户视觉异常 | V2.2 | Tailwind CSS 响应式 class + safe-area-inset 已在 V1.0 验证；V2.2 不改布局结构 |
+| 6 | V2.2 改动面大（18 个组件文件），可能引入回归 bug | **P2** | 功能回归 | V2.2 | 拆分 V2.2 为子阶段（A:视觉系统 → B:组件打磨 → C:移动端 → D:产品细节），每步独立验收 |
+| 7 | V2.3 Cloudflare Turnstile 引入部署配置复杂度 | **P2** | 环境变量、第三方依赖 | V2.3 | V2.3 独立阶段，不阻塞 V2.1/V2.2。Turnstile 失败时降级为无 CAPTCHA 模式 |
+| 8 | Confirm signup 邮件模板未自定义 | **P2** | 邮件确认体验不完整，依赖 Supabase 默认模板 | V2.1 | 已纳入 V2.1-Follow-up SMTP 阶段，不阻塞 V2.1 主流程关闭，但会作为下一阶段处理 |
+| 9 | V2.3 忘记密码依赖 Supabase 邮件模板配置 | **P2** | 邮件模板未配置时用户体验差 | V2.3 | 自定义 SMTP 在 V2.1-Follow-up 中配置完成后，忘记密码邮件模板即可编辑 |
 
 ---
 
@@ -265,28 +329,36 @@ V2.3 安全增强
 
 ```
 当前下一步：
-  ── 不是 V2.2 UI 美化
+  ── 不是 V2.2 UI 升级
   ── 不是 V2.3 安全增强
   ── 不是 Phase 16
-  ── 是 V2.1 Auth 架构设计 → ChatGPT 审查
+  ── 是 V2.1-Follow-up：自定义 SMTP 与邮件确认稳定化
+
+V2.1 Auth ✅ 已完成（代码 + Supabase Dashboard 配置 + 生产环境测试）。
+
+路线：
+  V2.1 Auth ✅ → V2.1-Follow-up SMTP 🔜 → V2.2 UI ⏭️ → V2.3 Security ⏭️
 
 具体动作：
-  1. ChatGPT 审查 docs/Architecture-V2.1-Auth.md
-  2. 审查通过后，Claude Code 写 docs/Execution-Plan-V2.1-Auth.md
-  3. Codex 按执行方案实现（仅 5 个文件）
+  1. 配置自定义 SMTP 服务（替换 Supabase 默认邮件服务）
+  2. 编辑 Confirm signup 邮件模板为：
+     {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email
+  3. 验证注册 → 邮件确认 → 登录完整链路
+  4. 确认邮件发送稳定后，关闭 V2.1-Follow-up，再进入 V2.2
 ```
 
-**当前禁止**：修改 `src/` 任何文件、提交 git commit、修改数据库 schema、新增 npm 依赖。
+**当前禁止**：修改 `src/` 任何文件、提交 git commit、修改数据库 schema、新增 npm 依赖。不要进入 V2.2 实现，直到 V2.1-Follow-up SMTP 完成。不要修改 Auth 业务代码，除非测试发现 callback 不兼容自定义邮件模板。
 
 ---
 
 > **文档结束**
 >
-> **下一文档**：`docs/Execution-Plan-V2.1-Auth.md`（待 ChatGPT 审查 Architecture-V2.1-Auth.md 通过后编写）
+> **下一文档**：V2.1-Follow-up SMTP 配置完成后 → `docs/Architecture-V2.2-UI.md`（V2.2 UI 升级架构方案，待编写）
 >
 > **关联文档**：
 > - [PRD-V2.0.md](PRD-V2.0.md) — V2.0 产品规划
 > - [Roadmap-Phase12-15.md](Roadmap-Phase12-15.md) — Phase 12-15 中期路线图（已完成）
-> - [Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md) — V2.1 Auth 架构方案（当前活跃）
+> - [Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md) — V2.1 Auth 架构方案（✅ 已完成）
+> - [Execution-Plan-V2.1-Auth.md](Execution-Plan-V2.1-Auth.md) — V2.1 Auth 执行方案（✅ 已完成）
 > - [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) — 项目长期上下文
 > - [PROJECT-INDEX.md](PROJECT-INDEX.md) — 项目文件索引

@@ -16,7 +16,7 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 | 语言 | TypeScript |
 | 样式 | Tailwind CSS |
 | 数据库 | Supabase PostgreSQL |
-| 认证 | Supabase Auth（V2.1 改造中：Magic Link → Email+Password） |
+| 认证 | Supabase Auth（V2.1 ✅ Email+Password 注册/登录） |
 | AI | DeepSeek API（OpenAI-compatible） |
 | 客户端 ID | localStorage deviceId |
 | 部署 | Vercel |
@@ -38,7 +38,7 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 - 输入目标 → AI 生成 3-8 条当日可执行任务
 - 任务勾选完成/取消 · 重新生成/清空/开始新一天
 - localStorage 本地保存 + Supabase 云端同步
-- Magic Link OTP 登录/登出（V2.1 将改造为 Email+Password）
+- Email+Password 注册/登录/登出（V2.1 已替代 Magic Link）
 - 匿名 device_id → 登录 user_id 任务迁移
 
 ## 5. 核心 API
@@ -120,8 +120,14 @@ created_at, updated_at
 ```
 Phase 12-15 完整链路全部完成并验证通过。
 
-### 当前：V2.1 Auth 🔜
-架构文档 `docs/Architecture-V2.1-Auth.md` 已完成。方案：Magic Link → Email+Password。仅改 5 个文件。等待 ChatGPT 审查。
+### V2.1 Auth ✅
+Magic Link → Email+Password 改造完成。仅改 5 个文件（useAuth / AuthModal / Header / callback / constants）。注册后邮箱确认已启用。Supabase Dashboard 已配置（Site URL: `https://ai-todo-kappa-drab.vercel.app`）。自定义 SMTP 邮件模板待 V2.1-Follow-up 或 V2.3 处理（Supabase 新版要求配置 SMTP 才能编辑模板）。用户已完成生产环境测试。
+→ 详见 `docs/Architecture-V2.1-Auth.md` · `docs/Execution-Plan-V2.1-Auth.md`
+
+### 下一阶段：V2.1-Follow-up SMTP 🔜
+V2.1 Auth 主流程已完成，但 Confirm signup 邮件模板暂未自定义（Supabase 新版要求先配置自定义 SMTP 才能编辑模板）。下一阶段 V2.1-Follow-up 处理自定义 SMTP 与邮件确认稳定化，属于 V2.1 收尾增强，不是 V2.2。V2.1-Follow-up 完成后再进入 V2.2 UI 升级。
+
+路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP 🔜 → V2.2 UI ⏭️ → V2.3 Security ⏭️
 
 ## 10. 高风险文件
 
@@ -133,12 +139,14 @@ Phase 12-15 完整链路全部完成并验证通过。
 ## 11. 最新提交
 
 ```
-d48ad45 feat: add intelligent task adjustment
-47e5fee docs: add Phase 15 execution plan
-6f30d7e docs: add Phase 15 architecture
+e607d9d feat: add V2.1 email password auth
+1c12916 docs: add V2.1 Auth execution plan
+bf6cee3 docs: add V2.1 Auth architecture and V2.1-V2.3 roadmap
+881af19 docs: archive closed phases and trim project docs
+71030e0 docs: update project context for Phase 15 completion
 ```
 
-V2.0 主线 Phase 12-15 已关闭。当前 HEAD = `d48ad45`。
+V2.0 主线 Phase 12-15 已关闭。V2.1 Auth 已完成。当前 HEAD = `e607d9d`。
 
 ## 12. 工作区路径
 
