@@ -1,22 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAIService } from "@/lib/ai-client";
+import { computeAdjustment } from "@/lib/adjust-task-strategy";
 import { ERROR_MESSAGES } from "@/lib/constants";
 import {
   checkRiskInput,
   validateGoalInput,
 } from "@/lib/input-validator";
+import { computeAllStats } from "@/lib/stats-calculator";
+import {
+  getAuthenticatedUserId,
+  getSupabaseServerClient,
+} from "@/lib/supabase-server";
 import {
   parseAIResponse,
   ParseAIResponseError,
 } from "@/lib/task-parser";
+import { buildPrompt } from "@/prompts/task-generation";
 import type {
   ApiErrorCode,
   GenerateTasksErrorResponse,
   GenerateTasksRequest,
   GenerateTasksSuccessResponse,
+  StatsData,
   Task,
   TaskGroup,
 } from "@/lib/types";
+
+const DEFAULT_TIMEZONE_OFFSET = -480;
 
 function errorResponse(code: ApiErrorCode, status: number) {
   const messages: Record<ApiErrorCode, string> = {
@@ -59,6 +69,18 @@ function createTaskGroup(goal: string, taskTitles: string[]): TaskGroup {
   };
 }
 
+function parseTimezoneOffset(value: unknown) {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return DEFAULT_TIMEZONE_OFFSET;
+  }
+
+  if (value < -720 || value > 720) {
+    return DEFAULT_TIMEZONE_OFFSET;
+  }
+
+  return value;
+}
+
 export async function POST(request: NextRequest) {
   let body: GenerateTasksRequest;
 
@@ -85,12 +107,38 @@ export async function POST(request: NextRequest) {
     return errorResponse("AI_GENERATION_FAILED", 500);
   }
 
+  const timezoneOffset = parseTimezoneOffset(body.timezoneOffset);
+  const supabase = getSupabaseServerClient();
+  const userId = await getAuthenticatedUserId();
+  const deviceId = typeof body.deviceId === "string" ? body.deviceId.trim() : "";
+
+  let stats: StatsData | undefined;
+  let userPrompt: string | undefined;
+
+  if (supabase && (userId || deviceId)) {
+    try {
+      const computedStats = await computeAllStats(
+        supabase,
+        { userId, deviceId },
+        timezoneOffset,
+      );
+
+      if (computedStats.total.totalCompleted > 0) {
+        stats = computedStats;
+        userPrompt = buildPrompt(goal, stats, computeAdjustment(stats));
+      }
+    } catch {
+      // Stats failures should not block task generation.
+    }
+  }
+
   try {
     const rawAIResponse = await callAIService({
       apiKey,
       baseUrl: process.env.AI_API_BASE_URL,
       model: process.env.AI_MODEL,
       goal,
+      userPrompt,
     });
     const taskTitles = parseAIResponse(rawAIResponse);
     const response: GenerateTasksSuccessResponse = {

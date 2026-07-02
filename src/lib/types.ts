@@ -85,6 +85,14 @@ export interface StatsData {
 
 export interface GenerateTasksRequest {
   goal: string;
+  deviceId?: string;
+  timezoneOffset?: number;
+}
+
+export interface AdjustmentResult {
+  difficulty: "lighter" | "normal" | "deeper";
+  countRange: [number, number];
+  reason: string;
 }
 
 export interface GenerateTasksSuccessResponse {

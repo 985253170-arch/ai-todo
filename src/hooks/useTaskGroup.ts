@@ -279,7 +279,11 @@ export function useTaskGroup() {
     const response = await fetch("/api/generate-tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goal: goal.trim() }),
+      body: JSON.stringify({
+        goal: goal.trim(),
+        deviceId: getOrCreateDeviceId(),
+        timezoneOffset: new Date().getTimezoneOffset(),
+      }),
     });
     const result = (await response.json()) as GenerateTasksResponse;
 

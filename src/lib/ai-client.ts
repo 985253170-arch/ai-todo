@@ -5,6 +5,8 @@ interface AIClientOptions {
   baseUrl?: string;
   model?: string;
   goal: string;
+  systemPrompt?: string;
+  userPrompt?: string;
 }
 
 interface ChatCompletionResponse {
@@ -53,8 +55,8 @@ async function requestChatCompletion(
     body: JSON.stringify({
       model: options.model ?? "gpt-4o-mini",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildPrompt(options.goal) },
+        { role: "system", content: options.systemPrompt ?? SYSTEM_PROMPT },
+        { role: "user", content: options.userPrompt ?? buildPrompt(options.goal) },
       ],
       temperature: 0.2,
       max_tokens: 700,
