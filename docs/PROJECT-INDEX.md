@@ -1,12 +1,12 @@
 # AI Todo 项目索引
 
-> 让 Claude Code / Codex 快速找到需要的东西，不用全项目乱翻。
+> 让 Claude Code / Codex 快速找到需要的东西。条目指向活跃文档和归档文档两部分。
 
 ## 1. 项目入口
 
 | 文件 | 用途 |
 |------|------|
-| [CLAUDE.md](../CLAUDE.md) | Claude Code 项目规则、工作流、强制规则 |
+| [CLAUDE.md](../CLAUDE.md) | Claude Code 项目规则、工作流、Memory 读取顺序 |
 | [docs/PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) | 长期项目上下文，恢复记忆用 |
 | [README.md](../README.md) | 项目说明和运行方式 |
 
@@ -14,36 +14,51 @@
 
 | 文件 | 用途 |
 |------|------|
-| [PRD.md](../PRD.md) | V1.0 产品需求文档，历史参考 |
 | [docs/PRD-V2.0.md](PRD-V2.0.md) | V2.0 产品规划，当前方向 |
 | [docs/Roadmap-Phase12-15.md](Roadmap-Phase12-15.md) | Phase 12-15 路线图 |
 
+### 路线总览
+
+| 版本 | 内容 | 状态 |
+|------|------|:--:|
+| V1.0 | 基础 Todo + AI 生成 + Supabase 同步 + Magic Link 登录 | ✅ 已归档 |
+| V2.0 | Phase 12-15：历史 → 统计 → AI 复盘 → 智能调整 | ✅ 闭环 |
+| V2.1 | Auth 改造：Magic Link → Email + Password | 🔜 架构设计中 |
+| V2.2 | 通知系统 | 规划中 |
+| V2.3 | 目标管理 | 规划中 |
+
 ## 3. 架构文档
+
+### 活跃（主 docs 区域，按需读取）
 
 | 文件 | 用途 |
 |------|------|
-| [Architecture.md](../Architecture.md) | V1.0 通用架构（组件拆分、状态管理、数据流、localStorage） |
-| [Architecture-Phase10.md](../Architecture-Phase10.md) | Phase 10：数据库与云端保存 |
-| [Architecture-Phase11.md](../Architecture-Phase11.md) | Phase 11：登录注册与多设备同步 |
-| [docs/Architecture-Phase12.md](Architecture-Phase12.md) | Phase 12：历史记录 |
-| [docs/Architecture-Phase13.md](Architecture-Phase13.md) | Phase 13：统计 |
-| [docs/Architecture-Phase14.md](Architecture-Phase14.md) | Phase 14：AI 复盘 |
+| [docs/Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md) | V2.1 Auth 架构（**当前 Phase**） |
+
+### 归档（`docs/archive/`，不默认读取）
+
+| 目录 | 内容 |
+|------|------|
+| [docs/archive/phase-12/](archive/phase-12/) | Phase 12 历史记录 |
+| [docs/archive/phase-13/](archive/phase-13/) | Phase 13 统计 |
+| [docs/archive/phase-14/](archive/phase-14/) | Phase 14 AI 复盘（含 Execution Plans） |
+| [docs/archive/phase-15/](archive/phase-15/) | Phase 15 智能调整（含 Execution Plan + 历史笔记） |
+| [docs/archive/v1/](archive/v1/) | V1.0 架构 + PRD + Phase 10/11 |
 
 ## 4. 执行方案
 
 | 文件 | 用途 |
 |------|------|
-| [docs/Execution-Plan-Phase14A.md](Execution-Plan-Phase14A.md) | Phase 14A：AI 复盘 API 执行方案 |
-| [docs/Execution-Plan-Phase14B.md](Execution-Plan-Phase14B.md) | Phase 14B：AI 复盘 UI 执行方案 |
+| （当前无活跃执行方案。V2.1 Auth 执行方案待 ChatGPT 审查架构后编写。） |
+
+已完成的执行方案已归档到对应 Phase 的 archive 目录。
 
 ## 5. 当前开发重点
 
-- **当前阶段**：Phase 14B
-- **当前目标**：实现 AI 复盘 UI
-- **只允许修改 3 个文件**：
-  - `src/hooks/useTaskReview.ts`
-  - `src/components/TaskReviewPanel.tsx`
-  - `src/app/page.tsx`
+- **当前阶段**：V2.1 Auth（架构设计完成，等待 ChatGPT 审查）
+- **当前活跃文档**：`docs/Architecture-V2.1-Auth.md`
+- **下一步**：ChatGPT 审查 → 写 Execution Plan → Codex 实现
+- **当前禁止**：不要修改 src/ 任何文件
 
 ## 6. 核心代码入口
 
@@ -54,22 +69,24 @@
 | [src/hooks/useAuth.ts](../src/hooks/useAuth.ts) | 登录状态 |
 | [src/hooks/useTaskStats.ts](../src/hooks/useTaskStats.ts) | 统计 hook |
 | [src/hooks/useTaskHistory.ts](../src/hooks/useTaskHistory.ts) | 历史 hook |
+| [src/hooks/useTaskReview.ts](../src/hooks/useTaskReview.ts) | 复盘 hook |
 | [src/components/TaskList.tsx](../src/components/TaskList.tsx) | 任务列表 |
 | [src/components/StatsBar.tsx](../src/components/StatsBar.tsx) | 统计栏 |
 | [src/components/HistoryPanel.tsx](../src/components/HistoryPanel.tsx) | 历史面板 |
+| [src/components/TaskReviewPanel.tsx](../src/components/TaskReviewPanel.tsx) | 复盘面板 |
 
 ## 7. API 路由
 
-| 路由 | 文件 | 功能 |
-|------|------|------|
-| `POST /api/generate-tasks` | [route.ts](../src/app/api/generate-tasks/route.ts) | AI 生成任务 |
-| `POST /api/task-group/save` | [route.ts](../src/app/api/task-group/save/route.ts) | 保存任务组 |
-| `GET /api/task-group/load` | [route.ts](../src/app/api/task-group/load/route.ts) | 读取活跃任务组 |
-| `POST /api/task-group/delete` | [route.ts](../src/app/api/task-group/delete/route.ts) | 归档任务组 |
-| `POST /api/task-group/migrate` | [route.ts](../src/app/api/task-group/migrate/route.ts) | 匿名任务迁移到登录用户 |
-| `GET /api/task-groups/history` | [route.ts](../src/app/api/task-groups/history/route.ts) | 历史记录 |
-| `GET /api/task-groups/stats` | [route.ts](../src/app/api/task-groups/stats/route.ts) | 统计 |
-| `POST /api/task-groups/review` | [route.ts](../src/app/api/task-groups/review/route.ts) | AI 复盘 |
+| 路由 | 文件 | 功能 | Session-Aware |
+|------|------|------|:--:|
+| `POST /api/generate-tasks` | [route.ts](../src/app/api/generate-tasks/route.ts) | AI 生成任务（含智能调整） | ✅ |
+| `POST /api/task-group/save` | [route.ts](../src/app/api/task-group/save/route.ts) | 保存任务组 | ✅ |
+| `GET /api/task-group/load` | [route.ts](../src/app/api/task-group/load/route.ts) | 读取活跃任务组 | ✅ |
+| `POST /api/task-group/delete` | [route.ts](../src/app/api/task-group/delete/route.ts) | 归档任务组 | ✅ |
+| `POST /api/task-group/migrate` | [route.ts](../src/app/api/task-group/migrate/route.ts) | 匿名任务迁移到登录用户 | ✅ |
+| `GET /api/task-groups/history` | [route.ts](../src/app/api/task-groups/history/route.ts) | 历史记录 | ✅ |
+| `GET /api/task-groups/stats` | [route.ts](../src/app/api/task-groups/stats/route.ts) | 统计 | ✅ |
+| `POST /api/task-groups/review` | [route.ts](../src/app/api/task-groups/review/route.ts) | AI 复盘 | ✅ |
 
 ## 8. 核心工具
 
@@ -80,6 +97,7 @@
 | [src/lib/task-parser.ts](../src/lib/task-parser.ts) | 任务生成 AI 响应解析 |
 | [src/lib/review-parser.ts](../src/lib/review-parser.ts) | 复盘 AI 响应解析 |
 | [src/lib/stats-calculator.ts](../src/lib/stats-calculator.ts) | 统计计算（computeAllStats 等） |
+| [src/lib/adjust-task-strategy.ts](../src/lib/adjust-task-strategy.ts) | 智能调整策略（computeAdjustment） |
 | [src/lib/supabase-server.ts](../src/lib/supabase-server.ts) | 服务端 Supabase + Auth |
 | [src/lib/supabase-client.ts](../src/lib/supabase-client.ts) | 客户端 Supabase |
 | [src/lib/device-id.ts](../src/lib/device-id.ts) | 匿名 deviceId 生成与持久化 |
@@ -91,29 +109,21 @@
 | [src/prompts/task-generation.ts](../src/prompts/task-generation.ts) | 任务生成 System Prompt + buildPrompt |
 | [src/prompts/task-review.ts](../src/prompts/task-review.ts) | AI 复盘 System Prompt + buildReviewUserPrompt |
 
-## 10. 不要随便改的高风险文件
+## 10. 高风险文件
 
-修改以下文件前必须确认影响范围并获 ChatGPT 审查通过：
+> 详细清单见 Memory `high-risk-files.md`。修改前必须确认影响范围并获 ChatGPT 审查。
 
-- `src/hooks/useTaskGroup.ts` — 核心状态管理，所有操作依赖
-- `src/lib/types.ts` — 全局类型定义，全项目依赖
-- `src/lib/ai-client.ts` — AI 调用底层，三个 API 共用
-- `src/lib/task-parser.ts` — AI 响应解析
+- `src/hooks/useTaskGroup.ts` — 核心状态管理
+- `src/lib/types.ts` — 全局类型定义
+- `src/lib/ai-client.ts` — AI 调用底层
 - `src/lib/supabase-server.ts` — 服务端 Supabase + Auth
 - `src/app/api/generate-tasks/route.ts` — 核心生成 API
 - `src/app/api/task-group/save/route.ts` — 保存 API
-- `src/app/api/task-group/load/route.ts` — 加载 API
 - `src/app/api/task-group/delete/route.ts` — 归档 API
+- `src/app/api/task-group/load/route.ts` — 加载 API
 - `src/app/api/task-group/migrate/route.ts` — 迁移 API
+- `src/lib/task-parser.ts` — AI 响应解析
 
-## 11. 后续整理计划
+## 11. 归档说明
 
-> ⚠️ 以下操作**等 Phase 14B 完成后再单独整理**，现在不要动：
-
-| 当前位置 | 计划迁移 | 原因 |
-|------|------|------|
-| `PRD.md` | `docs/PRD-V1.0.md` | 与 V2.0 区分版本，统一放入 docs/ |
-| `Architecture.md` | `docs/Architecture.md` | 与其他 Architecture 文档集中管理 |
-| `Architecture-Phase10.md` | `docs/Architecture-Phase10.md` | 同上 |
-| `Architecture-Phase11.md` | `docs/Architecture-Phase11.md` | 同上 |
-| `docs/Future-Architecture-Notes-Phase13-15.md` | `docs/archive/` | 已完成历史使命，归档 |
+`docs/archive/` 目录保存已关闭 Phase 的完整原始文档。**普通任务不默认读取**，仅在需要完整历史上下文时按需查阅。已关闭 Phase 摘要信息在 `PROJECT-CONTEXT.md` §Phase 历史中。

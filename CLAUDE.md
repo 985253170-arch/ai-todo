@@ -10,17 +10,49 @@ Next.js API Route · DeepSeek API（OpenAI-compatible） · localStorage deviceI
 ## 项目阶段状态
 - Phase 12 ✅ 历史记录基础
 - Phase 13 ✅ 统计 API + 统计 UI
-- Phase 14A ✅ POST /api/task-groups/review AI 复盘 API
-- Phase 14B 🔜 Codex 实现 AI 复盘 UI（执行方案已提交 c287ac1）
+- Phase 14 ✅ AI 复盘（14A API + 14B UI + 14C 人工验收）
+- Phase 15 ✅ 智能任务调整
+- V2.0 主线 Phase 12-15 ✅ 闭环
+- V2.1 Auth 🔜 架构文档已完成（`docs/Architecture-V2.1-Auth.md`），等待 ChatGPT 审查
+
+## Memory 系统
+
+项目使用 Claude Code Memory 缓存高频事实。**每次会话启动后优先读取：**
+
+1. `memory/MEMORY.md` — Memory 索引（确认有哪些 memory）
+2. `memory/current-phase-status.md` — 当前阶段
+3. `memory/high-risk-files.md` — 高风险文件
+4. `memory/mandatory-workflow.md` — 工作流与强制规则
+5. `memory/docs-loading-policy.md` — 文档读取策略
+6. `memory/memory-governance.md` — Memory 治理规则（写入前必读）
+
+Memory 写入规则：严格遵守 `memory-governance.md`。
+
+## 文档读取优先级
+
+按以下顺序读取，禁止默认加载全部文档：
+
+1. `CLAUDE.md`（本文件，系统自动注入）
+2. `memory/MEMORY.md` → 按需读取具体 memory 条目
+3. `docs/PROJECT-CONTEXT.md` — 长期项目记忆
+4. `docs/PROJECT-INDEX.md` — 项目文件索引
+5. 当前活跃 Phase 文档 → **仅在相关任务时读取**
+6. `docs/archive/` → **仅在需要完整历史上下文时读取，普通任务不读**
 
 ## 关键文档
-- docs/Architecture-Phase14.md
-- docs/Execution-Plan-Phase14A.md
-- docs/Execution-Plan-Phase14B.md
-- docs/Architecture-Phase13.md
-- docs/Architecture-Phase12.md
-- docs/Roadmap-Phase12-15.md
-- docs/PRD-V2.0.md
+
+### 活跃文档（可能被修改）
+- `docs/Architecture-V2.1-Auth.md` — V2.1 Auth 架构（当前 Phase）
+- `docs/PROJECT-CONTEXT.md` — 长期项目记忆
+- `docs/PROJECT-INDEX.md` — 项目文件索引
+
+### 参考文档（只读）
+- `docs/PRD-V2.0.md` — V2.0 产品规划
+- `docs/Roadmap-Phase12-15.md` — Phase 12-15 路线图
+
+### 归档文档（`docs/archive/`，不默认读取）
+已关闭 Phase 的完整架构文档和执行方案已归档到 `docs/archive/phase-{12,13,14,15}/`。
+V1.0 旧文档归档到 `docs/archive/v1/`。
 
 ## 角色分工
 | 角色 | 职责 |
@@ -54,6 +86,7 @@ Next.js API Route · DeepSeek API（OpenAI-compatible） · localStorage deviceI
 - 产品文档、架构文档、执行方案统一放入 docs/。
 - 架构文档命名：docs/Architecture-PhaseXX.md。
 - 执行方案命名：docs/Execution-Plan-PhaseXX.md。
+- **已关闭 Phase 文档归档到 `docs/archive/phase-XX/`，不在主 docs 区域保留。**
 - 前端组件放入 src/components/。
 - 前端 hook 放入 src/hooks/。
 - API Route 放入 src/app/api/。
