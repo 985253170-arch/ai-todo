@@ -49,7 +49,7 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 
 | API Route | 方法 | 功能 | Session-Aware |
 |-----------|------|------|:---:|
-| `/api/generate-tasks` | POST | AI 生成任务 | ❌ |
+| `/api/generate-tasks` | POST | AI 生成任务（含智能调整） | ✅ (Phase 15) |
 | `/api/task-group/save` | POST | 保存/更新任务组（upsert + replace tasks） | ✅ |
 | `/api/task-group/load` | GET | 读取当前活跃任务组 | ✅ |
 | `/api/task-group/delete` | POST | 归档任务组（SET archived_at） | ✅ |
@@ -201,7 +201,79 @@ Phase 14C 定位为纯人工验证阶段，不修改任何代码。基于 36 项
 
 **Phase 14 整体关闭**：14A (API) → 14B (UI) → 14B-Follow-up (P2 修复) → 14C (人工验收) 完整链路走完 ✅
 
-**当前下一步**：先让 Claude Code 写 `docs/Architecture-Phase15.md`（AI 智能调整任务架构设计）。Phase 15 必须先做架构设计（涉及 `generate-tasks` 策略调整），不能直接让 Codex 写代码。
+## 12D. Phase 15 — 智能任务调整 ✅
+
+**架构方案**：`6f30d7e docs: add Phase 15 architecture`
+**执行方案**：`47e5fee docs: add Phase 15 execution plan`
+**代码提交**：`d48ad45 feat: add intelligent task adjustment`（2026-07-02）
+
+**交付物（6 个文件，176 行新增，8 行删除）**：
+
+| 文件 | 操作 | 行数 | 说明 |
+|------|:---:|:---:|------|
+| `src/lib/types.ts` | 修改 | +8 | 新增 `AdjustmentResult` 接口；`GenerateTasksRequest` 新增 `deviceId?` + `timezoneOffset?` |
+| `src/lib/adjust-task-strategy.ts` | 新建 | 52 | `computeAdjustment(stats)` — 5 级阈值纯函数 |
+| `src/prompts/task-generation.ts` | 修改 | +61/-3 | `buildPrompt(goal, stats?, adjustment?)` — 有历史时追加上下文和调整建议 |
+| `src/lib/ai-client.ts` | 修改 | +3/-3 | `callAIService` 支持可选 `systemPrompt` / `userPrompt` 覆盖 |
+| `src/app/api/generate-tasks/route.ts` | 修改 | +48 | 变为 session-aware；服务端读取 stats → computeAdjustment → 增强 Prompt |
+| `src/hooks/useTaskGroup.ts` | 修改 | +4/-2 | fetch body 新增 `deviceId` + `timezoneOffset` |
+
+**核心设计**：
+
+- **stats-driven，非 review-driven**：不调用 `/api/task-groups/review`，直接服务端读取 stats
+- **零持久化**：调整结果不存数据库，纯运行时计算
+- **静默回退**：stats 读取失败 → 回退 V1.0 行为，不阻断任务生成
+- **userId 来自服务端**：`getAuthenticatedUserId()`，不信任前端传入
+- **JSON Schema 不变**：`minItems: 3, maxItems: 8` 硬约束保持不变
+- **API 响应格式不变**：`{ success: true, data: TaskGroup }` 完全兼容
+
+**5 级调整阈值**：
+
+| 条件 | difficulty | countRange | 场景 |
+|------|:---:|:---:|------|
+| `totalCompleted===0` 或 `rate===null` | normal | [3,5] | 新用户 / 无数据 |
+| `rate < 30%` | lighter | [3,3] | 完成率极低，降门槛 |
+| `30% ≤ rate < 50%` | lighter | [3,4] | 完成率偏低，减少任务 |
+| `50% ≤ rate < 70%` | normal | [3,5] | 正常节奏 |
+| `70% ≤ rate < 80%` | normal | [4,6] | 完成率不错，稍微增量 |
+| `rate ≥ 80% && streak ≥ 7` | deeper | [5,7] | 高完成率+稳定，适度挑战 |
+
+**不影响 Phase 14**：`callAIWithPrompts` 及其 `CallAIWithPromptsOptions` 完全未被修改，AI 复盘 API 不受影响。
+
+**验收结果**：P0=0 | P1=0 | P2=3（非阻断）| lint ✅ | build ✅
+
+**P2 维护项（不阻塞，不要求现在修）**：
+- `rate===null` 但 `totalCompleted>0` 时 reason 文案可更精确（功能行为正确，仅措辞）
+- `parseTimezoneOffset` 后续可抽取为共享工具（当前与 review API 各有一份）
+- `rateDisplay` null check 属于防御性冗余，可保留
+
+---
+
+## 12E. V2.0 主线 Phase 12-15 闭环 ✅
+
+**Phase 12-15 完整链路**：
+
+| Phase | 内容 | 状态 |
+|-------|------|:--:|
+| Phase 12 | 历史记录基础 | ✅ |
+| Phase 13 | 统计 API + 统计 UI | ✅ |
+| Phase 14A | AI 复盘 API | ✅ |
+| Phase 14B | AI 复盘 UI | ✅ |
+| Phase 14B-Follow-up | P2 修复 | ✅ |
+| Phase 14C | 人工验收 | ✅ |
+| Phase 15 | 智能任务调整 | ✅ |
+
+**核心闭环 7 环节全部完成**：
+
+```
+目标 → AI 拆解 → 执行 → 记录 → 统计 → 复盘 → 智能调整
+```
+
+V2.0 主线（Phase 12-15）正式关闭。
+
+**下一步**：
+1. 先做 V2.0 整体回归测试 / 部署验证
+2. 再由 Claude Code 设计后续 Phase 16 或 V2.1 路线图
 
 ## 13. 高风险基础文件（不能随便改）
 
@@ -221,15 +293,17 @@ Phase 14C 定位为纯人工验证阶段，不修改任何代码。基于 36 项
 ## 14. 最新提交
 
 ```
+d48ad45 feat: add intelligent task alignment
+47e5fee docs: add Phase 15 execution plan
+6f30d7e docs: add Phase 15 architecture
+9143bb5 docs: update project context for Phase 14 completion
 9433337 docs: add Phase 14C execution plan
+37b35af docs: update project context for Phase 14B follow-up completion
 39117c5 fix: apply Phase 14B follow-up fixes
 3620e10 docs: add Phase 14B follow-up execution plan
-741c94e docs: update project context for Phase 14B completion
-ed68e1d feat: add AI review UI
-67fa54d docs: add project index and file writing rules
 ```
 
-Phase 14 整体关闭，当前 HEAD = `9433337`。
+V2.0 主线 Phase 12-15 已关闭，当前 HEAD = `d48ad45`。
 
 ## 15. 工作区路径
 
@@ -241,9 +315,9 @@ Phase 14 整体关闭，当前 HEAD = `9433337`。
 2. `docs/PROJECT-CONTEXT.md` — 本文档，长期项目记忆
 3. `docs/PRD-V2.0.md` — 产品规划（含 will-do / will-not-do）
 4. `docs/Roadmap-Phase12-15.md` — 中期路线图 + Phase 边界红线
-5. `docs/Architecture-Phase14.md` — Phase 14 完整架构
-6. `docs/Execution-Plan-Phase14B.md` — 当前 Phase 执行方案
-7. `git log --oneline -8` — 最近提交历史
+5. `docs/Architecture-Phase15.md` — Phase 15 智能调整架构
+6. `docs/Architecture-Phase14.md` — Phase 14 AI 复盘架构
+7. `git log --oneline -10` — 最近提交历史
 8. `git status --short` — 工作区状态
 
 ## 强制规则（来自 CLAUDE.md）
