@@ -25,7 +25,7 @@
 | V2.0 | Phase 12-15：历史 → 统计 → AI 复盘 → 智能调整 | ✅ 闭环 |
 | V2.1 | Auth 改造：Magic Link → Email + Password | ✅ 已完成 |
 | V2.1-Follow-up | 自定义 SMTP 与邮件确认稳定化 | 🔜 下一阶段 |
-| V2.2 | 页面美观 / 产品体验升级 | ⏭️ V2.1-Follow-up 后 |
+| V2.2 | 页面结构与产品体验升级（路由分离 + UI 美化） | ⏭️ V2.1-Follow-up 后 |
 | V2.3 | 安全增强（Turnstile / 忘记密码） | ⏭️ V2.2 后 |
 
 ## 3. 架构文档
@@ -53,14 +53,14 @@
 |------|------|
 | [docs/Execution-Plan-V2.1-Auth.md](Execution-Plan-V2.1-Auth.md) | V2.1 Auth 执行方案（已完成） |
 
-V2.1 Auth 执行方案已完成并实施。下一阶段 V2.1-Follow-up SMTP（自定义 SMTP 与邮件确认稳定化）。V2.2 UI 升级排在 V2.1-Follow-up 之后。
+V2.1 Auth 执行方案已完成并实施。下一阶段 V2.1-Follow-up SMTP（自定义 SMTP 与邮件确认稳定化）。V2.2 页面结构与产品体验升级排在 V2.1-Follow-up 之后。
 
 ## 5. 当前开发重点
 
 - **当前阶段**：V2.1-Follow-up SMTP（V2.1 Auth ✅ 已完成）
 - **当前活跃文档**：`docs/Architecture-V2.1-Auth.md`（参考，已完成）
 - **下一步**：配置自定义 SMTP → 编辑 Confirm signup 邮件模板 → 验证邮件确认链路
-- **之后**：V2.2 UI 升级（Claude Code 写 `docs/Architecture-V2.2-UI.md`）
+- **之后**：V2.2 页面结构与产品体验升级（Claude Code 写 `docs/Architecture-V2.2-UI.md`，含路由分离 / 登录页独立设计 / UI 美化 / 移动端优化）
 - **当前禁止**：不要修改 src/ 任何文件，不要进入 V2.2 实现
 
 ## 6. 核心代码入口

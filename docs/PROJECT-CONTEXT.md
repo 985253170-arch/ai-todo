@@ -127,7 +127,7 @@ Magic Link → Email+Password 改造完成。仅改 5 个文件（useAuth / Auth
 ### 下一阶段：V2.1-Follow-up SMTP 🔜
 V2.1 Auth 主流程已完成，但 Confirm signup 邮件模板暂未自定义（Supabase 新版要求先配置自定义 SMTP 才能编辑模板）。下一阶段 V2.1-Follow-up 处理自定义 SMTP 与邮件确认稳定化，属于 V2.1 收尾增强，不是 V2.2。V2.1-Follow-up 完成后再进入 V2.2 UI 升级。
 
-路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP 🔜 → V2.2 UI ⏭️ → V2.3 Security ⏭️
+路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP 🔜 → V2.2 页面结构与产品体验升级 ⏭️ → V2.3 Security ⏭️
 
 ## 10. 高风险文件
 
