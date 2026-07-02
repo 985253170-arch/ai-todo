@@ -801,7 +801,7 @@ package.json
 | # | 验收项 | 方法 |
 |---|--------|------|
 | 16 | 前端请求体不含 userId | DevTools Network → generate-tasks/save/load 请求 → 无 userId |
-| 17 | 前端请求体不含 password | DevTools Network → 所有请求 body → 不含 password（密码直连 Supabase） |
+| 17 | 应用自有 API 请求体不含 password | DevTools Network 检查 `/api/*` 请求 → 不含 password。Supabase Auth 请求中出现 password 属于正常行为（密码直接发送到 Supabase Auth HTTPS 接口，不经过应用 API） |
 | 18 | Service Role Key 不出现在前端 | DevTools Sources → 搜索 `sb_secret` → 无结果 |
 | 19 | 登出后 API 不能访问 user_id 数据 | 登出 → curl 测试 → 回退 device_id |
 
