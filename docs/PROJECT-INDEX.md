@@ -25,8 +25,9 @@
 | V2.0 | Phase 12-15：历史 → 统计 → AI 复盘 → 智能调整 | ✅ 闭环 |
 | V2.1 | Auth 改造：Magic Link → Email + Password | ✅ 已完成 |
 | V2.1-Follow-up | 自定义 SMTP 与邮件确认稳定化（阿里云邮件推送） | ✅ 已完成 |
-| V2.1B | 邮箱验证码 + 密码混合账号体系 | 🔜 下一阶段 |
-| V2.2 | 页面结构与产品体验升级（路由分离 + UI 美化） | ⏭️ V2.1B 后 |
+| V2.1B | 邮箱验证码 + 密码混合账号体系 | ✅ 已完成 |
+| V2.2A | 页面路由结构升级（`/` `/login` `/app` 三页面） | 🔜 下一阶段 |
+| V2.2B/C/D | 登录页设计 + 主工作台 UI 美化 + 移动端优化 | ⏭️ V2.2A 后 |
 | V2.3 | 安全增强（Turnstile / 忘记密码） | ⏭️ V2.2 后 |
 
 ## 3. 架构文档
@@ -39,7 +40,8 @@
 | [docs/Execution-Plan-V2.1-Auth.md](Execution-Plan-V2.1-Auth.md) | V2.1 Auth 执行方案（✅ 已完成） |
 | [docs/Architecture-V2.1-Follow-up-SMTP.md](Architecture-V2.1-Follow-up-SMTP.md) | V2.1-Follow-up SMTP 架构方案（✅ 已完成） |
 | [docs/Execution-Plan-V2.1-Follow-up-SMTP.md](Execution-Plan-V2.1-Follow-up-SMTP.md) | V2.1-Follow-up SMTP 执行方案（✅ 已完成） |
-| [docs/Architecture-V2.1B-OTP-Password.md](Architecture-V2.1B-OTP-Password.md) | V2.1B OTP + Password 混合账号体系架构方案（待编写） |
+| [docs/Architecture-V2.1B-OTP-Password.md](Architecture-V2.1B-OTP-Password.md) | V2.1B OTP + Password 混合账号体系架构方案（✅ 已完成） |
+| [docs/Execution-Plan-V2.1B-OTP-Password.md](Execution-Plan-V2.1B-OTP-Password.md) | V2.1B OTP + Password 混合账号体系执行方案（✅ 已完成） |
 
 ### 归档（`docs/archive/`，不默认读取）
 
@@ -57,16 +59,18 @@
 |------|------|
 | [docs/Execution-Plan-V2.1-Auth.md](Execution-Plan-V2.1-Auth.md) | V2.1 Auth 执行方案（已完成） |
 | [docs/Execution-Plan-V2.1-Follow-up-SMTP.md](Execution-Plan-V2.1-Follow-up-SMTP.md) | V2.1-Follow-up SMTP 执行方案（已完成，纯后台配置） |
+| [docs/Execution-Plan-V2.1B-OTP-Password.md](Execution-Plan-V2.1B-OTP-Password.md) | V2.1B OTP + Password 执行方案（已完成） |
 
-V2.1 Auth ✅ 已完成。V2.1-Follow-up SMTP ✅ 已完成（阿里云邮件推送 + Supabase 自定义 SMTP）。下一阶段 V2.1B OTP + Password 混合账号体系。V2.2 页面结构与产品体验升级排在 V2.1B 之后。
+V2.1 Auth ✅ 已完成。V2.1-Follow-up SMTP ✅ 已完成（阿里云邮件推送 + Supabase 自定义 SMTP）。V2.1B OTP + Password ✅ 已完成。下一阶段 V2.2A 页面路由结构升级。V2.2 页面结构与产品体验升级排在 V2.2A 之后。
 
 ## 5. 当前开发重点
 
-- **当前阶段**：V2.1B OTP + Password 混合账号体系（V2.1 Auth ✅ + V2.1-Follow-up SMTP ✅ 已完成）
-- **当前活跃文档**：`docs/Architecture-V2.1B-OTP-Password.md`（OTP + Password 架构方案，待编写）
-- **下一步**：Claude Code 写 OTP 架构方案 → ChatGPT 审查 → Claude Code 写执行方案 → Codex 实现
-- **之后**：V2.2 页面结构与产品体验升级（Claude Code 写 `docs/Architecture-V2.2-UI.md`，含路由分离 / 登录页独立设计 / UI 美化 / 移动端优化）
-- **当前禁止**：不要修改 src/ 任何文件，不要进入 V2.2 实现
+- **当前阶段**：V2.2A 页面路由结构升级（V2.1 Auth ✅ + V2.1-Follow-up SMTP ✅ + V2.1B OTP ✅ 已完成）
+- **当前活跃文档**：`docs/Architecture-V2.2A-Routing.md`（待编写）
+- **下一步**：Claude Code 写 `docs/Architecture-V2.2A-Routing.md`（页面路由结构升级架构方案）
+- **之后**：V2.2B 登录页独立设计 → V2.2C 主工作台 UI 美化 → V2.2D 移动端优化
+- **当前禁止**：不要修改 src/ 任何文件（除非进入 V2.2A 实现），不要修改 Auth 底层逻辑
+- **重要说明**：V2.1B 只完成了 Auth 混合账号体系，没有拆分页面（`/` `/login` `/app`）。页面拆分是 V2.2A 的工作。
 
 ## 6. 核心代码入口
 

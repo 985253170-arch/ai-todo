@@ -16,7 +16,7 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 | 语言 | TypeScript |
 | 样式 | Tailwind CSS |
 | 数据库 | Supabase PostgreSQL |
-| 认证 | Supabase Auth（V2.1 ✅ Email+Password 注册/登录 + SMTP ✅ 阿里云邮件推送） |
+| 认证 | Supabase Auth（V2.1 ✅ Email+Password + SMTP ✅ 阿里云邮件推送 + V2.1B ✅ OTP 验证码 + 密码混合登录） |
 | AI | DeepSeek API（OpenAI-compatible） |
 | 客户端 ID | localStorage deviceId |
 | 部署 | Vercel |
@@ -38,7 +38,7 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 - 输入目标 → AI 生成 3-8 条当日可执行任务
 - 任务勾选完成/取消 · 重新生成/清空/开始新一天
 - localStorage 本地保存 + Supabase 云端同步
-- Email+Password 注册/登录/登出（V2.1 已替代 Magic Link）
+- Email+Password 注册/登录/登出 + OTP 邮箱验证码登录（V2.1 + V2.1B 已替代 Magic Link）
 - 匿名 device_id → 登录 user_id 任务迁移
 
 ## 5. 核心 API
@@ -128,11 +128,29 @@ Magic Link → Email+Password 改造完成。仅改 5 个文件（useAuth / Auth
 自定义 SMTP 与邮件确认稳定化已完成。实际使用**阿里云邮件推送**作为 SMTP 服务商（架构方案原推荐 Resend，实施时改用阿里云）。Supabase 自定义 SMTP 已配置完成，Confirm signup 邮件模板已自定义为中文 + 标准回调 URL。本阶段为纯后台配置操作，零代码变更、零数据库变更、零 npm 依赖新增。
 → 详见 `docs/Architecture-V2.1-Follow-up-SMTP.md` · `docs/Execution-Plan-V2.1-Follow-up-SMTP.md`
 
-### 下一阶段：V2.1B OTP + Password 混合账号体系 🔜
-V2.1 Auth 主流程和 SMTP 邮件配置均已完成。下一阶段 V2.1B 将引入邮箱验证码（OTP）登录/注册作为 Email+Password 的补充，形成混合账号体系——用户可以选择输密码登录，也可以选择收验证码登录。V2.1B 完成后再进入 V2.2 UI 升级。
-→ 详见 `docs/Architecture-V2.1B-OTP-Password.md`（OTP + Password 混合账号体系架构方案，待编写）
+### V2.1B — OTP + Password 混合账号体系 ✅
 
-路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP ✅ → V2.1B OTP + Password 混合账号体系 🔜 → V2.2 页面结构与产品体验升级 ⏭️ → V2.3 Security ⏭️
+V2.1B 在 Email+Password 基础上增加了邮箱验证码（OTP）登录/注册能力，形成混合账号体系：
+- 默认邮箱验证码登录（新邮箱 OTP 自动创建账号）
+- 登录后强引导设置密码（允许"稍后再说"）
+- 设置密码后支持邮箱 + 密码登录
+- 旧 V2.1 密码登录继续兼容
+- 使用 `user_metadata.password_set` 标记密码状态
+- 零数据库变更、零 API Route 变更
+- Phase 14 AI 复盘 / Phase 15 智能调整不受影响
+- 生产环境手动验收 6 项全部通过
+
+→ 详见 `docs/Architecture-V2.1B-OTP-Password.md` · `docs/Execution-Plan-V2.1B-OTP-Password.md`
+
+### 下一阶段：V2.2A 页面路由结构升级 🔜
+
+V2.1B 只完成了 Auth 混合账号体系，没有拆分页面。V2.2A 将进行页面路由结构升级：
+- 拆分 `/` 产品首页、`/login` 登录注册页、`/app` 主工作台三页面结构
+- 增加 Auth 路由守卫
+- 重新确认匿名模式访问策略
+- **不做大规模 UI 美化**（UI 美化留给 V2.2B/C/D）
+
+路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP ✅ → V2.1B OTP + Password ✅ → V2.2A 页面路由结构升级 🔜 → V2.2B/C/D UI 美化 ⏭️ → V2.3 Security ⏭️
 
 ## 10. 高风险文件
 
