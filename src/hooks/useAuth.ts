@@ -1,10 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import type { AuthUser } from "@/lib/types";
 
-function toAuthUser(user: { id: string; email?: string } | null): AuthUser | null {
+function toAuthUser(
+  user: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null,
+): AuthUser | null {
   if (!user) {
     return null;
   }
@@ -12,6 +14,9 @@ function toAuthUser(user: { id: string; email?: string } | null): AuthUser | nul
   return {
     id: user.id,
     email: user.email ?? null,
+    metadata: {
+      password_set: Boolean(user.user_metadata?.password_set),
+    },
   };
 }
 
@@ -57,6 +62,41 @@ export function useAuth() {
     };
   }, [supabase]);
 
+  async function sendOtp(email: string) {
+    if (!supabase) {
+      throw new Error("AUTH_NOT_CONFIGURED");
+    }
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true },
+    });
+
+    if (error) {
+      logSafeAuthError(error);
+      throw error;
+    }
+  }
+
+  async function verifyOtp(email: string, token: string) {
+    if (!supabase) {
+      throw new Error("AUTH_NOT_CONFIGURED");
+    }
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    });
+
+    if (error) {
+      logSafeAuthError(error);
+      throw error;
+    }
+
+    setUser(toAuthUser(data.user));
+  }
+
   async function signUp(email: string, password: string) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
@@ -73,7 +113,7 @@ export function useAuth() {
     }
   }
 
-  async function signIn(email: string, password: string) {
+  async function signInWithPassword(email: string, password: string) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
     }
@@ -81,6 +121,45 @@ export function useAuth() {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+    });
+
+    if (error) {
+      logSafeAuthError(error);
+      throw error;
+    }
+
+    let signedInUser = data.user;
+
+    if (!data.user.user_metadata?.password_set) {
+      await supabase.auth
+        .updateUser({
+          data: { password_set: true },
+        })
+        .then(({ data: updateData }) => {
+          signedInUser = updateData.user ?? signedInUser;
+        })
+        .catch(() => {
+          signedInUser = {
+            ...signedInUser,
+            user_metadata: {
+              ...signedInUser.user_metadata,
+              password_set: true,
+            },
+          };
+        });
+    }
+
+    setUser(toAuthUser(signedInUser));
+  }
+
+  async function setPassword(password: string) {
+    if (!supabase) {
+      throw new Error("AUTH_NOT_CONFIGURED");
+    }
+
+    const { data, error } = await supabase.auth.updateUser({
+      password,
+      data: { password_set: true },
     });
 
     if (error) {
@@ -108,8 +187,12 @@ export function useAuth() {
   return {
     user,
     isLoading,
+    sendOtp,
+    verifyOtp,
+    signInWithPassword,
     signUp,
-    signIn,
+    setPassword,
     signOut,
   };
 }
+

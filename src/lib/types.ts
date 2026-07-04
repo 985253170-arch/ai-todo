@@ -165,6 +165,9 @@ export type StatsResponse = StatsSuccessResponse | StatsErrorResponse;
 export interface AuthUser {
   id: string;
   email: string | null;
+  metadata?: {
+    password_set?: boolean;
+  };
 }
 
 export type AuthErrorCode = "AUTH_NOT_CONFIGURED" | "AUTH_OPERATION_FAILED";

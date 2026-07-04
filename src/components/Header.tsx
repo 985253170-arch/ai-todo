@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { AuthModal } from "@/components/AuthModal";
+import { SetPasswordPrompt } from "@/components/SetPasswordPrompt";
 import { UI_TEXT } from "@/lib/constants";
 import { AUTH_TEXT } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,8 +18,23 @@ export function Header({
   isHistoryOpen,
   onToggleHistory,
 }: HeaderProps) {
-  const { user, isLoading, signIn, signUp, signOut } = useAuth();
+  const {
+    user,
+    isLoading,
+    sendOtp,
+    verifyOtp,
+    signInWithPassword,
+    setPassword,
+    signOut,
+  } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [skippedPasswordPromptUserId, setSkippedPasswordPromptUserId] =
+    useState<string | null>(null);
+
+  const shouldShowSetPasswordPrompt =
+    Boolean(user) &&
+    user?.metadata?.password_set !== true &&
+    skippedPasswordPromptUserId !== user?.id;
 
   return (
     <>
@@ -81,8 +97,24 @@ export function Header({
         isAuthenticated={Boolean(user)}
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onSignIn={signIn}
-        onSignUp={signUp}
+        onSendOtp={sendOtp}
+        onSignInWithPassword={signInWithPassword}
+        onVerifyOtp={verifyOtp}
+      />
+
+      <SetPasswordPrompt
+        isOpen={shouldShowSetPasswordPrompt}
+        onClose={() => {
+          if (user) {
+            setSkippedPasswordPromptUserId(user.id);
+          }
+        }}
+        onSetPassword={setPassword}
+        onSkip={() => {
+          if (user) {
+            setSkippedPasswordPromptUserId(user.id);
+          }
+        }}
       />
     </>
   );
