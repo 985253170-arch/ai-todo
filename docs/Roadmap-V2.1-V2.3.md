@@ -1,6 +1,6 @@
 ﻿# Roadmap V2.1–V2.3 — AI Todo 后续升级路线
 
-> **状态**：V2.1 ✅ 已完成，V2.1-Follow-up SMTP 🔜 下一阶段
+> **状态**：V2.1 ✅ 已完成，V2.1-Follow-up SMTP ✅ 已完成，V2.1B OTP + Password 🔜 下一阶段
 > **依赖**：V2.0 主线 Phase 12-15 已关闭
 > **上一文档**：[Roadmap-Phase12-15.md](Roadmap-Phase12-15.md)（Phase 12-15 中期路线图）
 > **关联文档**：[PRD-V2.0.md](PRD-V2.0.md) · [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) · [Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md)
@@ -13,6 +13,7 @@
 - [一、路线总览](#一路线总览)
 - [二、V2.1：账号系统稳定化](#二v21账号系统稳定化)
 - [2.5、V2.1-Follow-up：自定义 SMTP 与邮件确认稳定化](#二点五v21-follow-up自定义-smtp-与邮件确认稳定化)
+- [2.6、V2.1B：邮箱验证码 + 密码混合账号体系](#二点六v21b邮箱验证码--密码混合账号体系)
 - [三、V2.2：页面结构与产品体验升级](#三v22页面结构与产品体验升级)
 - [四、V2.3：安全增强](#四v23安全增强)
 - [五、为什么不跳过 V2.1 直接做 V2.2](#五为什么不跳过-v21-直接做-v22)
@@ -37,11 +38,12 @@ V2.0 主线（Phase 12-15）已完成并关闭，核心闭环打通：
 | 版本 | 定位 | 核心内容 | 依赖 |
 |:---:|------|------|------|
 | **V2.1** | 账号系统稳定化 | Magic Link → Email+Password | ✅ 已完成 |
-| **V2.1-Follow-up** | 自定义 SMTP 与邮件确认稳定化 | 自定义 SMTP、邮件模板编辑、发送稳定性 | 🔜 下一阶段 |
-| **V2.2** | 页面结构与产品体验升级 | 路由分离（/ /login /app）、登录页独立设计、主工作台 UI 美化、移动端优化 | ⏭️ V2.1-Follow-up 后 |
+| **V2.1-Follow-up** | 自定义 SMTP 与邮件确认稳定化 | 阿里云邮件推送 SMTP、Confirm signup 邮件模板 | ✅ 已完成 |
+| **V2.1B** | 邮箱验证码 + 密码混合账号体系 | Email OTP 登录/注册、混合 AuthModal（密码/验证码双模式） | 🔜 下一阶段 |
+| **V2.2** | 页面结构与产品体验升级 | 路由分离（/ /login /app）、登录页独立设计、主工作台 UI 美化、移动端优化 | ⏭️ V2.1B 后 |
 | **V2.3** | 安全增强 | Turnstile 防机器人、忘记密码、安全优化 | ⏭️ V2.2 后 |
 
-**推荐顺序：V2.1 → V2.1-Follow-up → V2.2 → V2.3，顺序执行，不并行。**
+**推荐顺序：V2.1 → V2.1-Follow-up → V2.1B → V2.2 → V2.3，顺序执行，不并行。**
 
 ---
 
@@ -95,9 +97,9 @@ V2.0 主线（Phase 12-15）已完成并关闭，核心闭环打通：
 
 Supabase Dashboard 已配置：Email provider 已启用、Allow new users to sign up 已开启、Confirm email 已开启。Site URL: `https://ai-todo-kappa-drab.vercel.app`。Redirect URLs: 生产域名 + `http://localhost:3000/**`。
 
-### 2.6 已知待处理（V2.1-Follow-up / V2.3）
+### 2.7 已知待处理（V2.1B / V2.3）
 
-- **Confirm signup 邮件模板未自定义**：Supabase 新版要求先配置自定义 SMTP 才能编辑邮件模板。当前使用 Supabase 默认确认邮件。自定义 SMTP 留到 V2.1-Follow-up 或 V2.3 处理。
+- **邮箱验证码（OTP）登录/注册**：已纳入 V2.1B，架构方案 `docs/Architecture-V2.1B-OTP-Password.md` 待编写。
 - **忘记密码**：留到 V2.3。
 
 ### 2.7 架构与执行文档
@@ -118,9 +120,16 @@ Supabase Dashboard 已配置：Email provider 已启用、Allow new users to sig
 ### 2.5.2 背景
 
 1. **Supabase 默认邮件服务发送额度很低**，生产环境需要可靠的自定义 SMTP。
-2. **新版 Supabase 要求先配置自定义 SMTP 才能编辑邮件模板**，当前 Confirm signup 邮件模板暂未自定义。
+2. **新版 Supabase 要求先配置自定义 SMTP 才能编辑邮件模板**。
 3. **这属于 V2.1 账号系统的收尾增强**，不应混入 V2.2 UI 美化。
-4. **V2.2 UI 美化应在邮件确认稳定化之后再进入**。
+
+**实施结果**：
+
+- ✅ 自定义 SMTP 已配置：实际使用**阿里云邮件推送**（架构方案原推荐 Resend，实施时根据用户实际情况改用阿里云）
+- ✅ Supabase SMTP 设置已配置：Host / Port / Username / Password 已填写，发送正常
+- ✅ Confirm signup 邮件模板已自定义为中文 + 标准回调 URL 格式
+- ✅ 注册 → 邮件确认 → 登录完整链路在自定义 SMTP 下测试通过
+- ✅ 零代码变更、零数据库变更、零 npm 依赖新增（纯 Supabase Dashboard 后台配置）
 
 ### 2.5.3 范围
 
@@ -140,12 +149,57 @@ Supabase Dashboard 已配置：Email provider 已启用、Allow new users to sig
 | 3 | 不改数据库 | 无 schema 变更 |
 | 4 | 不进入 V2.2 | V2.1-Follow-up 完成后再进入 V2.2 |
 
-### 2.5.5 完成标准
+### 2.5.5 完成标准（✅ 已全部达成）
 
-- 自定义 SMTP 配置完成并验证发送正常
-- Confirm signup 邮件模板已自定义，使用标准回调 URL 格式
-- 注册 → 邮件确认 → 登录 完整链路在自定义 SMTP 下测试通过
-- 生产环境邮件发送稳定，无额度限制问题
+- ✅ 自定义 SMTP 配置完成并验证发送正常
+- ✅ Confirm signup 邮件模板已自定义，使用标准回调 URL 格式
+- ✅ 注册 → 邮件确认 → 登录 完整链路在自定义 SMTP 下测试通过
+- ✅ 生产环境邮件发送稳定，无额度限制问题
+
+### 2.5.6 架构与执行文档
+
+- [docs/Architecture-V2.1-Follow-up-SMTP.md](Architecture-V2.1-Follow-up-SMTP.md) — 架构方案
+- [docs/Execution-Plan-V2.1-Follow-up-SMTP.md](Execution-Plan-V2.1-Follow-up-SMTP.md) — 执行方案（小白配置手册）
+
+---
+
+## 二点六、V2.1B：邮箱验证码 + 密码混合账号体系
+
+### 2.6.1 定位
+
+这是 V2.1 Auth 的增强阶段，在 Email+Password 基础上增加邮箱验证码（OTP）登录/注册能力。**不是 V2.2，不是 V2.3。**
+
+### 2.6.2 目标
+
+用户可以选择两种方式登录：
+1. **密码登录**（现有 V2.1 方式）：输入邮箱 + 密码 → 登录
+2. **验证码登录**（新增 V2.1B 方式）：输入邮箱 → 收 6 位验证码 → 输入验证码 → 登录（新邮箱自动注册）
+
+两种方式共存，用户在 AuthModal 中自由切换。
+
+### 2.6.3 范围
+
+| # | 事项 | 说明 |
+|---|------|------|
+| 1 | useAuth Hook 新增 `sendOtp` / `verifyOtp` | 保留现有 `signIn` / `signUp` / `signOut` |
+| 2 | AuthModal 增加"验证码登录"Tab 或切换入口 | 密码模式 ↔ 验证码模式 |
+| 3 | Supabase Magic Link 邮件模板改为 `{{ .Token }}` 验证码格式 | 发送 6 位数字验证码 |
+| 4 | 新邮箱验证码登录后自动注册 | `signInWithOtp({ shouldCreateUser: true })` |
+| 5 | 保留 callback route（兼容旧确认链接） | 不修改，不参与 OTP 主流程 |
+
+### 2.6.4 不做
+
+| # | 不做 | 原因 |
+|---|------|------|
+| 1 | 不删除 Email+Password 登录 | 混合体系，两种方式共存 |
+| 2 | 不修改数据库 schema | 无变更需求 |
+| 3 | 不修改业务 API | generate-tasks / stats / review / history 不变 |
+| 4 | 不修改 callback route | 保留兼容，不参与 OTP 流程 |
+| 5 | 不进入 V2.2 | V2.1B 完成后再进入 V2.2 |
+
+### 2.6.5 架构文档
+
+- [docs/Architecture-V2.1B-OTP-Password.md](Architecture-V2.1B-OTP-Password.md) — V2.1B OTP + Password 混合账号体系架构方案（待编写）
 
 ---
 
@@ -305,16 +359,29 @@ V2.1 Auth（✅ 已完成）
   └── 8. 生产环境验证（登录/注册/登出/迁移）             ✅
   │
   ▼
-V2.1-Follow-up SMTP（🔜 下一阶段）
+V2.1-Follow-up SMTP（✅ 已完成）
   │
-  ├── 1. 配置自定义 SMTP 服务
-  ├── 2. 编辑 Confirm signup 邮件模板（回调 URL 格式）
-  ├── 3. 验证注册 → 邮件确认 → 登录完整链路
-  ├── 4. 确认邮件发送稳定性和额度
-  └── 5. 完成 V2.1 收尾
+  ├── 1. 配置自定义 SMTP 服务（阿里云邮件推送）            ✅
+  ├── 2. 编辑 Confirm signup 邮件模板（回调 URL 格式）      ✅
+  ├── 3. 验证注册 → 邮件确认 → 登录完整链路                ✅
+  ├── 4. 确认邮件发送稳定性和额度                          ✅
+  └── 5. 完成 V2.1 收尾                                   ✅
   │
   ▼
-V2.2 UI 升级（⏭️ V2.1-Follow-up 后）
+V2.1B OTP + Password 混合账号体系（🔜 下一阶段）
+  │
+  ├── 1. Claude Code 写 Architecture-V2.1B-OTP-Password.md（OTP 架构方案）
+  ├── 2. ChatGPT 审查 Architecture-V2.1B-OTP-Password.md
+  ├── 3. Claude Code 写 Execution-Plan-V2.1B-OTP-Password.md
+  ├── 4. ChatGPT 审查执行方案
+  ├── 5. Codex 按执行方案实现（预计 4-5 个文件）
+  ├── 6. Claude Code Code Review
+  ├── 7. ChatGPT 最终把关
+  ├── 8. 提交 + Vercel 部署
+  └── 9. 生产环境验证（密码登录 / 验证码登录 / 登出 / 迁移）
+  │
+  ▼
+V2.2 UI 升级（⏭️ V2.1B 后）
   │
   ├── V2.2A 页面路由结构升级
   │   ├── 1. Claude Code 写 Architecture-V2.2-UI.md（含路由结构、匿名策略、Auth 守卫）
@@ -355,8 +422,10 @@ V2.3 安全增强（⏭️ V2.2 后）
 | 5 | V2.2 移动端适配可能在不同设备/浏览器上表现不一致 | **P2** | 部分用户视觉异常 | V2.2 | Tailwind CSS 响应式 class + safe-area-inset 已在 V1.0 验证；V2.2 不改布局结构 |
 | 6 | V2.2 改动面大（路由 + 组件 + CSS），可能引入回归 bug | **P2** | 功能回归 | V2.2 | 拆分 V2.2 为子阶段（A:路由结构 → B:登录页设计 → C:主工作台美化 → D:移动端优化），每步独立验收 |
 | 7 | V2.3 Cloudflare Turnstile 引入部署配置复杂度 | **P2** | 环境变量、第三方依赖 | V2.3 | V2.3 独立阶段，不阻塞 V2.1/V2.2。Turnstile 失败时降级为无 CAPTCHA 模式 |
-| 8 | Confirm signup 邮件模板未自定义 | **P2** | 邮件确认体验不完整，依赖 Supabase 默认模板 | V2.1 | 已纳入 V2.1-Follow-up SMTP 阶段，不阻塞 V2.1 主流程关闭，但会作为下一阶段处理 |
-| 9 | V2.3 忘记密码依赖 Supabase 邮件模板配置 | **P2** | 邮件模板未配置时用户体验差 | V2.3 | 自定义 SMTP 在 V2.1-Follow-up 中配置完成后，忘记密码邮件模板即可编辑 |
+| 8 | Confirm signup 邮件模板未自定义 | **P2** | 邮件确认体验不完整，依赖 Supabase 默认模板 | V2.1 | ✅ 已解决（V2.1-Follow-up SMTP 已完成，阿里云邮件推送 + 中文邮件模板） |
+| 9 | V2.1B OTP 验证码 SMTP 发送稳定性 | **P1** | 验证码收不到导致用户无法登录 | V2.1B | SMTP 已在 V2.1-Follow-up 中验证稳定；OTP 仅增加发送频率，不改变发送通道 |
+| 10 | V2.1B OTP + Password 双模式 AuthModal 复杂度 | **P2** | UI 状态机复杂度增加 | V2.1B | OTP 架构方案已明确状态机设计；保留密码模式作为回退 |
+| 11 | V2.3 忘记密码依赖 Supabase 邮件模板配置 | **P2** | 邮件模板未配置时用户体验差 | V2.3 | 自定义 SMTP 在 V2.1-Follow-up 中配置完成后，忘记密码邮件模板即可编辑 |
 
 ---
 
@@ -367,33 +436,44 @@ V2.3 安全增强（⏭️ V2.2 后）
   ── 不是 V2.2 UI 升级
   ── 不是 V2.3 安全增强
   ── 不是 Phase 16
-  ── 是 V2.1-Follow-up：自定义 SMTP 与邮件确认稳定化
+  ── 是 V2.1B：邮箱验证码 + 密码混合账号体系
 
-V2.1 Auth ✅ 已完成（代码 + Supabase Dashboard 配置 + 生产环境测试）。
+V2.1 Auth ✅ 已完成（Email+Password 注册/登录）。
+V2.1-Follow-up SMTP ✅ 已完成（阿里云邮件推送 + 中文邮件模板）。
 
 路线：
-  V2.1 Auth ✅ → V2.1-Follow-up SMTP 🔜 → V2.2 页面结构与产品体验升级 ⏭️ → V2.3 Security ⏭️
+  V2.1 Auth ✅
+  → V2.1-Follow-up SMTP ✅
+  → V2.1B OTP + Password 混合账号体系 🔜
+  → V2.2 页面结构与产品体验升级 ⏭️
+  → V2.3 Security ⏭️
 
 具体动作：
-  1. 配置自定义 SMTP 服务（替换 Supabase 默认邮件服务）
-  2. 编辑 Confirm signup 邮件模板为：
-     {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email
-  3. 验证注册 → 邮件确认 → 登录完整链路
-  4. 确认邮件发送稳定后，关闭 V2.1-Follow-up，再进入 V2.2
+  1. Claude Code 写 docs/Architecture-V2.1B-OTP-Password.md（OTP + Password 架构方案）
+  2. ChatGPT 审查 Architecture-V2.1B-OTP-Password.md
+  3. ChatGPT 审查通过后，Claude Code 写 docs/Execution-Plan-V2.1B-OTP-Password.md
+  4. ChatGPT 审查执行方案
+  5. Codex 按执行方案实现（预计 4-5 个文件）
+  6. Claude Code Code Review
+  7. ChatGPT 最终把关
+  8. 提交 + Vercel 部署 + 生产验证
 ```
 
-**当前禁止**：修改 `src/` 任何文件、提交 git commit、修改数据库 schema、新增 npm 依赖。不要进入 V2.2 实现，直到 V2.1-Follow-up SMTP 完成。不要修改 Auth 业务代码，除非测试发现 callback 不兼容自定义邮件模板。
+**当前禁止**：修改 `src/` 任何文件、提交 git commit、修改数据库 schema、新增 npm 依赖。不要进入 V2.2 实现，直到 V2.1B OTP + Password 完成。不要修改 Auth 业务代码，直到 OTP 架构方案经 ChatGPT 审查通过。
 
 ---
 
 > **文档结束**
 >
-> **下一文档**：V2.1-Follow-up SMTP 配置完成后 → `docs/Architecture-V2.2-UI.md`（V2.2 页面结构与产品体验升级架构方案，待编写）
+> **下一文档**：V2.1B OTP + Password 完成后 → `docs/Architecture-V2.2-UI.md`（V2.2 页面结构与产品体验升级架构方案，待编写）
 >
 > **关联文档**：
 > - [PRD-V2.0.md](PRD-V2.0.md) — V2.0 产品规划
 > - [Roadmap-Phase12-15.md](Roadmap-Phase12-15.md) — Phase 12-15 中期路线图（已完成）
 > - [Architecture-V2.1-Auth.md](Architecture-V2.1-Auth.md) — V2.1 Auth 架构方案（✅ 已完成）
 > - [Execution-Plan-V2.1-Auth.md](Execution-Plan-V2.1-Auth.md) — V2.1 Auth 执行方案（✅ 已完成）
+> - [Architecture-V2.1-Follow-up-SMTP.md](Architecture-V2.1-Follow-up-SMTP.md) — V2.1-Follow-up SMTP 架构方案（✅ 已完成）
+> - [Execution-Plan-V2.1-Follow-up-SMTP.md](Execution-Plan-V2.1-Follow-up-SMTP.md) — V2.1-Follow-up SMTP 执行方案（✅ 已完成）
+> - [Architecture-V2.1B-OTP-Password.md](Architecture-V2.1B-OTP-Password.md) — V2.1B OTP + Password 架构方案（待编写）
 > - [PROJECT-CONTEXT.md](PROJECT-CONTEXT.md) — 项目长期上下文
 > - [PROJECT-INDEX.md](PROJECT-INDEX.md) — 项目文件索引

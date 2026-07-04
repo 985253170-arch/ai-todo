@@ -16,7 +16,7 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 | 语言 | TypeScript |
 | 样式 | Tailwind CSS |
 | 数据库 | Supabase PostgreSQL |
-| 认证 | Supabase Auth（V2.1 ✅ Email+Password 注册/登录） |
+| 认证 | Supabase Auth（V2.1 ✅ Email+Password 注册/登录 + SMTP ✅ 阿里云邮件推送） |
 | AI | DeepSeek API（OpenAI-compatible） |
 | 客户端 ID | localStorage deviceId |
 | 部署 | Vercel |
@@ -121,13 +121,18 @@ created_at, updated_at
 Phase 12-15 完整链路全部完成并验证通过。
 
 ### V2.1 Auth ✅
-Magic Link → Email+Password 改造完成。仅改 5 个文件（useAuth / AuthModal / Header / callback / constants）。注册后邮箱确认已启用。Supabase Dashboard 已配置（Site URL: `https://ai-todo-kappa-drab.vercel.app`）。自定义 SMTP 邮件模板待 V2.1-Follow-up 或 V2.3 处理（Supabase 新版要求配置 SMTP 才能编辑模板）。用户已完成生产环境测试。
+Magic Link → Email+Password 改造完成。仅改 5 个文件（useAuth / AuthModal / Header / callback / constants）。注册后邮箱确认已启用。Supabase Dashboard 已配置（Site URL: `https://ai-todo-kappa-drab.vercel.app`）。用户已完成生产环境测试。
 → 详见 `docs/Architecture-V2.1-Auth.md` · `docs/Execution-Plan-V2.1-Auth.md`
 
-### 下一阶段：V2.1-Follow-up SMTP 🔜
-V2.1 Auth 主流程已完成，但 Confirm signup 邮件模板暂未自定义（Supabase 新版要求先配置自定义 SMTP 才能编辑模板）。下一阶段 V2.1-Follow-up 处理自定义 SMTP 与邮件确认稳定化，属于 V2.1 收尾增强，不是 V2.2。V2.1-Follow-up 完成后再进入 V2.2 UI 升级。
+### V2.1-Follow-up SMTP ✅
+自定义 SMTP 与邮件确认稳定化已完成。实际使用**阿里云邮件推送**作为 SMTP 服务商（架构方案原推荐 Resend，实施时改用阿里云）。Supabase 自定义 SMTP 已配置完成，Confirm signup 邮件模板已自定义为中文 + 标准回调 URL。本阶段为纯后台配置操作，零代码变更、零数据库变更、零 npm 依赖新增。
+→ 详见 `docs/Architecture-V2.1-Follow-up-SMTP.md` · `docs/Execution-Plan-V2.1-Follow-up-SMTP.md`
 
-路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP 🔜 → V2.2 页面结构与产品体验升级 ⏭️ → V2.3 Security ⏭️
+### 下一阶段：V2.1B OTP + Password 混合账号体系 🔜
+V2.1 Auth 主流程和 SMTP 邮件配置均已完成。下一阶段 V2.1B 将引入邮箱验证码（OTP）登录/注册作为 Email+Password 的补充，形成混合账号体系——用户可以选择输密码登录，也可以选择收验证码登录。V2.1B 完成后再进入 V2.2 UI 升级。
+→ 详见 `docs/Architecture-V2.1B-OTP-Password.md`（OTP + Password 混合账号体系架构方案，待编写）
+
+路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP ✅ → V2.1B OTP + Password 混合账号体系 🔜 → V2.2 页面结构与产品体验升级 ⏭️ → V2.3 Security ⏭️
 
 ## 10. 高风险文件
 
