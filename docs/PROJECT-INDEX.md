@@ -26,7 +26,7 @@
 | V2.1 | Auth 改造：Magic Link → Email + Password | ✅ 已完成 |
 | V2.1-Follow-up | 自定义 SMTP 与邮件确认稳定化（阿里云邮件推送） | ✅ 已完成 |
 | V2.1B | 邮箱验证码 + 密码混合账号体系 | ✅ 已完成 |
-| V2.2A | 页面路由结构升级（`/` `/login` `/app` 三页面） | 🔜 下一阶段 |
+| V2.2A | 页面路由结构升级（`/` `/login` `/app` 三页面，/app 必须登录） | 🔜 下一阶段 |
 | V2.2B/C/D | 登录页设计 + 主工作台 UI 美化 + 移动端优化 | ⏭️ V2.2A 后 |
 | V2.3 | 安全增强（Turnstile / 忘记密码） | ⏭️ V2.2 后 |
 
@@ -65,12 +65,12 @@ V2.1 Auth ✅ 已完成。V2.1-Follow-up SMTP ✅ 已完成（阿里云邮件推
 
 ## 5. 当前开发重点
 
-- **当前阶段**：V2.2A 页面路由结构升级（V2.1 Auth ✅ + V2.1-Follow-up SMTP ✅ + V2.1B OTP ✅ 已完成）
-- **当前活跃文档**：`docs/Architecture-V2.2A-Routing.md`（待编写）
-- **下一步**：Claude Code 写 `docs/Architecture-V2.2A-Routing.md`（页面路由结构升级架构方案）
+- **当前阶段**：V2.2A 页面路由结构升级（已实现，待提交；V2.1 Auth ✅ + V2.1-Follow-up SMTP ✅ + V2.1B OTP ✅ 已完成）
+- **当前活跃文档**：`docs/Architecture-V2.2A-Routing.md`（✅ 已编写，已同步产品策略变更）、`docs/Execution-Plan-V2.2A-Routing.md`（✅ 已编写）
+- **下一步**：ChatGPT 最终把关 → 提交 V2.2A 代码
 - **之后**：V2.2B 登录页独立设计 → V2.2C 主工作台 UI 美化 → V2.2D 移动端优化
-- **当前禁止**：不要修改 src/ 任何文件（除非进入 V2.2A 实现），不要修改 Auth 底层逻辑
-- **重要说明**：V2.1B 只完成了 Auth 混合账号体系，没有拆分页面（`/` `/login` `/app`）。页面拆分是 V2.2A 的工作。
+- **当前禁止**：不要修改 Auth 底层逻辑、不要扩大修改范围
+- **重要说明**：V2.2A 采用 **/app 必须登录** 策略，未登录自动跳转 `/login`。Landing Page 和 Header landing 的 CTA 统一指向 `/login`。
 
 ## 6. 核心代码入口
 

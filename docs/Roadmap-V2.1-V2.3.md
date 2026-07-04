@@ -241,7 +241,7 @@ V2.2 不只是 UI 美化，还包括页面路由结构升级：
 
 - `/login` 承载账号登录注册，聚焦 Auth 体验
 - `/app` 承载目标输入、AI 拆分、任务执行、统计、历史、复盘
-- 匿名模式策略需在 V2.2 架构阶段重新确认（匿名用户是否可访问 `/app`？是否需要 `/app` 自动重定向到 `/login`？）
+- **匿名模式策略已确认：`/app` 必须登录才能访问**，未登录自动跳转 `/login`
 - 页面拆分不在 V2.1-Follow-up SMTP 中进行
 
 ### 3.3 子阶段
@@ -479,9 +479,10 @@ V2.1B OTP + Password ✅ 已完成（邮箱验证码 + 密码混合登录）。
 V2.2A 目标：
   - 拆分 / 产品首页（Landing Page）
   - 拆分 /login 登录 / 注册页面
-  - 拆分 /app AI Todo 主工作台
-  - Auth 路由守卫
-  - 重新确认匿名访问策略
+  - 拆分 /app AI Todo 主工作台（必须登录）
+  - Auth 路由守卫（client-side useEffect + router.replace）
+  - 匿名访问策略已确认：/app 必须登录，未登录跳转 /login
+  - Landing Page / Header landing CTA 统一指向 /login
   - 不做大规模 UI 美化（UI 美化留给 V2.2B/C/D）
 
 具体动作：

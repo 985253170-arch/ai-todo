@@ -147,7 +147,9 @@ V2.1B 在 Email+Password 基础上增加了邮箱验证码（OTP）登录/注册
 V2.1B 只完成了 Auth 混合账号体系，没有拆分页面。V2.2A 将进行页面路由结构升级：
 - 拆分 `/` 产品首页、`/login` 登录注册页、`/app` 主工作台三页面结构
 - 增加 Auth 路由守卫
-- 重新确认匿名模式访问策略
+- **/app 必须登录才能访问**（未登录 client-side redirect 到 `/login`）
+- Landing Page 和 Header landing 的 CTA 统一指向 `/login`
+- 不使用 middleware，全部 client-side `useEffect` + `router.replace`
 - **不做大规模 UI 美化**（UI 美化留给 V2.2B/C/D）
 
 路线：V2.1 Auth ✅ → V2.1-Follow-up SMTP ✅ → V2.1B OTP + Password ✅ → V2.2A 页面路由结构升级 🔜 → V2.2B/C/D UI 美化 ⏭️ → V2.3 Security ⏭️
