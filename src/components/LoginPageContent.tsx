@@ -401,6 +401,13 @@ export function LoginPageContent() {
             </p>
           ) : null}
 
+          <a
+            className="text-right text-sm text-slate-500 transition hover:text-indigo-700"
+            href="/forgot-password"
+          >
+            {AUTH_TEXT.FORGOT_PASSWORD_LINK}
+          </a>
+
           <button
             className="min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-150 hover:-translate-y-px hover:shadow-lg hover:shadow-indigo-500/25 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
             disabled={isSubmitting}
@@ -428,5 +435,6 @@ export function LoginPageContent() {
     </>
   );
 }
+
 
 

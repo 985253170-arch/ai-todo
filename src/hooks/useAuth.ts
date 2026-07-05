@@ -184,6 +184,29 @@ export function useAuth() {
     setUser(null);
   }
 
+  async function sendResetPasswordEmail(email: string) {
+    if (!supabase) {
+      throw new Error("AUTH_NOT_CONFIGURED");
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      logSafeAuthError(error);
+
+      if (
+        error.message?.toLowerCase().includes("rate limit") ||
+        error.message?.toLowerCase().includes("too many requests")
+      ) {
+        throw error;
+      }
+
+      return;
+    }
+  }
+
   return {
     user,
     isLoading,
@@ -193,6 +216,8 @@ export function useAuth() {
     signUp,
     setPassword,
     signOut,
+    sendResetPasswordEmail,
   };
 }
+
 
