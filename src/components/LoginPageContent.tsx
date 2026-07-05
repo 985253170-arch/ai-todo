@@ -232,7 +232,8 @@ export function LoginPageContent() {
   const isOtpMode = mode === "otp";
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-6">
+    <>
+      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-xl shadow-indigo-500/5 sm:p-6">
       <div className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
           {AUTH_TEXT.MODAL_TITLE}
@@ -242,9 +243,9 @@ export function LoginPageContent() {
         </p>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 rounded-full bg-slate-100 p-1">
+      <div className="mb-5 grid grid-cols-2 rounded-full bg-slate-100 p-1">
         <button
-          className={`min-h-10 rounded-full text-sm font-semibold transition ${
+          className={`min-h-[42px] rounded-full text-sm font-semibold transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed ${
             isOtpMode
               ? "bg-white text-indigo-700 shadow-sm"
               : "text-slate-500 hover:text-slate-700"
@@ -255,7 +256,7 @@ export function LoginPageContent() {
           {AUTH_TEXT.OTP_LOGIN_TAB}
         </button>
         <button
-          className={`min-h-10 rounded-full text-sm font-semibold transition ${
+          className={`min-h-[42px] rounded-full text-sm font-semibold transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed ${
             !isOtpMode
               ? "bg-white text-indigo-700 shadow-sm"
               : "text-slate-500 hover:text-slate-700"
@@ -274,7 +275,7 @@ export function LoginPageContent() {
               {AUTH_TEXT.EMAIL_LABEL}
             </span>
             <input
-              className="min-h-12 rounded-xl border border-slate-200 px-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              className="min-h-[48px] rounded-xl border border-slate-200 px-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
               onChange={(event) => {
                 setEmail(event.target.value);
                 setToken("");
@@ -295,7 +296,7 @@ export function LoginPageContent() {
                 {AUTH_TEXT.OTP_LABEL}
               </span>
               <input
-                className="min-h-12 rounded-xl border border-slate-200 px-4 text-center text-lg font-semibold tracking-[0.35em] text-slate-950 outline-none placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                className="min-h-[48px] rounded-xl border border-slate-200 px-4 text-center text-lg font-semibold tracking-[0.35em] text-slate-950 outline-none placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                 inputMode="numeric"
                 maxLength={6}
                 onChange={(event) => handleTokenChange(event.target.value)}
@@ -306,19 +307,19 @@ export function LoginPageContent() {
           ) : null}
 
           {message ? (
-            <p className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-700">
+            <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
               {message}
             </p>
           ) : null}
 
           {errorMessage ? (
-            <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
               {errorMessage}
             </p>
           ) : null}
 
           <button
-            className="min-h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-[0_4px_12px_rgba(79,70,229,0.2)] transition duration-150 hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(79,70,229,0.26)] active:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none"
+            className="min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-150 hover:-translate-y-px hover:shadow-lg hover:shadow-indigo-500/25 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
             disabled={isSubmitting}
             type="submit"
           >
@@ -333,7 +334,7 @@ export function LoginPageContent() {
 
           {otpSent ? (
             <button
-              className="min-h-11 rounded-full px-4 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-[44px] rounded-full px-4 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting || resendSeconds > 0}
               onClick={() => {
                 void handleSendOtp();
@@ -361,7 +362,7 @@ export function LoginPageContent() {
               {AUTH_TEXT.EMAIL_LABEL}
             </span>
             <input
-              className="min-h-12 rounded-xl border border-slate-200 px-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              className="min-h-[48px] rounded-xl border border-slate-200 px-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
               onChange={(event) => setEmail(event.target.value)}
               placeholder={AUTH_TEXT.EMAIL_PLACEHOLDER}
               type="email"
@@ -373,9 +374,9 @@ export function LoginPageContent() {
             <span className="text-sm font-medium text-slate-700">
               {AUTH_TEXT.PASSWORD_LABEL}
             </span>
-            <div className="flex min-h-12 items-center rounded-xl border border-slate-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100">
+            <div className="flex min-h-[48px] items-center rounded-xl border border-slate-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10">
               <input
-                className="min-h-12 min-w-0 flex-1 rounded-xl px-4 text-base text-slate-950 outline-none placeholder:text-slate-400"
+                className="min-h-[48px] min-w-0 flex-1 rounded-xl px-4 text-base text-slate-950 outline-none placeholder:text-slate-400"
                 minLength={6}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder={AUTH_TEXT.PASSWORD_PLACEHOLDER}
@@ -383,7 +384,7 @@ export function LoginPageContent() {
                 value={password}
               />
               <button
-                className="min-h-12 px-4 text-sm font-semibold text-slate-500 transition hover:text-indigo-700"
+                className="min-h-[48px] px-4 text-sm font-semibold text-slate-500 transition hover:text-indigo-700"
                 onClick={() =>
                   setIsPasswordVisible((currentValue) => !currentValue)
                 }
@@ -395,13 +396,13 @@ export function LoginPageContent() {
           </label>
 
           {errorMessage ? (
-            <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
               {errorMessage}
             </p>
           ) : null}
 
           <button
-            className="min-h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-[0_4px_12px_rgba(79,70,229,0.2)] transition duration-150 hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(79,70,229,0.26)] active:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none"
+            className="min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-150 hover:-translate-y-px hover:shadow-lg hover:shadow-indigo-500/25 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
             disabled={isSubmitting}
             type="submit"
           >
@@ -419,6 +420,13 @@ export function LoginPageContent() {
           </button>
         </form>
       )}
-    </section>
+      </section>
+
+      <p className="mt-6 text-center text-xs text-slate-400">
+        登录后即可同步你的任务记录与行动数据
+      </p>
+    </>
   );
 }
+
+
