@@ -62,14 +62,14 @@ export function useAuth() {
     };
   }, [supabase]);
 
-  async function sendOtp(email: string) {
+  async function sendOtp(email: string, captchaToken?: string) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
     }
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: true, captchaToken },
     });
 
     if (error) {
@@ -113,7 +113,11 @@ export function useAuth() {
     }
   }
 
-  async function signInWithPassword(email: string, password: string) {
+  async function signInWithPassword(
+    email: string,
+    password: string,
+    captchaToken?: string,
+  ) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
     }
@@ -121,6 +125,7 @@ export function useAuth() {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken },
     });
 
     if (error) {
@@ -184,13 +189,14 @@ export function useAuth() {
     setUser(null);
   }
 
-  async function sendResetPasswordEmail(email: string) {
+  async function sendResetPasswordEmail(email: string, captchaToken?: string) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     });
 
     if (error) {
@@ -219,5 +225,6 @@ export function useAuth() {
     sendResetPasswordEmail,
   };
 }
+
 
 

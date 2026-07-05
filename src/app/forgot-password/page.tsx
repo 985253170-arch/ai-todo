@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Header } from "@/components/Header";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { useAuth } from "@/hooks/useAuth";
 import { AUTH_TEXT } from "@/lib/constants";
 
@@ -16,6 +17,7 @@ export default function ForgotPasswordPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   function validateEmail(trimmedEmail: string) {
     if (!trimmedEmail) {
@@ -46,7 +48,7 @@ export default function ForgotPasswordPage() {
     setErrorMessage(null);
 
     try {
-      await sendResetPasswordEmail(trimmedEmail);
+      await sendResetPasswordEmail(trimmedEmail, turnstileToken ?? undefined);
       setIsSuccess(true);
       setMessage(AUTH_TEXT.FORGOT_PASSWORD_SUCCESS);
     } catch (error) {
@@ -117,6 +119,8 @@ export default function ForgotPasswordPage() {
                 </p>
               ) : null}
 
+              <TurnstileWidget onTokenChange={setTurnstileToken} />
+
               <button
                 className="min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-150 hover:-translate-y-px hover:shadow-lg hover:shadow-indigo-500/25 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
                 disabled={isSubmitting}
@@ -144,3 +148,4 @@ export default function ForgotPasswordPage() {
     </main>
   );
 }
+

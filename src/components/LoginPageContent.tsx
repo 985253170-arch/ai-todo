@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { AUTH_TEXT, ERROR_MESSAGES } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -59,6 +60,7 @@ export function LoginPageContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [resendSeconds, setResendSeconds] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -117,7 +119,7 @@ export function LoginPageContent() {
     setErrorMessage(null);
 
     try {
-      await sendOtp(trimmedEmail);
+      await sendOtp(trimmedEmail, turnstileToken ?? undefined);
       setOtpSent(true);
       setToken("");
       setMessage(AUTH_TEXT.OTP_SENT_MESSAGE);
@@ -205,7 +207,11 @@ export function LoginPageContent() {
     setErrorMessage(null);
 
     try {
-      await signInWithPassword(trimmedEmail, password);
+      await signInWithPassword(
+        trimmedEmail,
+        password,
+        turnstileToken ?? undefined,
+      );
       setPassword("");
       router.replace("/app");
     } catch (error) {
@@ -318,6 +324,8 @@ export function LoginPageContent() {
             </p>
           ) : null}
 
+          <TurnstileWidget onTokenChange={setTurnstileToken} />
+
           <button
             className="min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-150 hover:-translate-y-px hover:shadow-lg hover:shadow-indigo-500/25 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
             disabled={isSubmitting}
@@ -408,6 +416,8 @@ export function LoginPageContent() {
             {AUTH_TEXT.FORGOT_PASSWORD_LINK}
           </a>
 
+          <TurnstileWidget onTokenChange={setTurnstileToken} />
+
           <button
             className="min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 px-5 text-base font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-150 hover:-translate-y-px hover:shadow-lg hover:shadow-indigo-500/25 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
             disabled={isSubmitting}
@@ -435,6 +445,7 @@ export function LoginPageContent() {
     </>
   );
 }
+
 
 
 
