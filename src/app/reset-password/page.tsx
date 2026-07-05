@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { getSafeAuthErrorMessage, logAuthError } from "@/lib/auth-errors";
 import { AUTH_TEXT } from "@/lib/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 
@@ -103,25 +104,8 @@ export default function ResetPasswordPage() {
       setMessage(AUTH_TEXT.RESET_PASSWORD_SUCCESS);
       await supabase.auth.signOut();
     } catch (error) {
-      if (error instanceof Error) {
-        const messageText = error.message.toLowerCase();
-
-        if (
-          messageText.includes("rate limit") ||
-          messageText.includes("too many requests")
-        ) {
-          setErrorMessage(AUTH_TEXT.EMAIL_RATE_LIMITED);
-        } else if (
-          messageText.includes("token") ||
-          messageText.includes("expired")
-        ) {
-          setErrorMessage(AUTH_TEXT.RESET_PASSWORD_TOKEN_EXPIRED);
-        } else {
-          setErrorMessage(AUTH_TEXT.RESET_PASSWORD_TOKEN_INVALID);
-        }
-      } else {
-        setErrorMessage(AUTH_TEXT.RESET_PASSWORD_TOKEN_INVALID);
-      }
+      setErrorMessage(getSafeAuthErrorMessage(error, "reset_password"));
+      logAuthError(error, "reset_password");
     } finally {
       setIsSubmitting(false);
     }
@@ -246,4 +230,8 @@ export default function ResetPasswordPage() {
     </main>
   );
 }
+
+
+
+
 

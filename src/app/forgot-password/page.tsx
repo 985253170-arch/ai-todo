@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Header } from "@/components/Header";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { useAuth } from "@/hooks/useAuth";
+import { getSafeAuthErrorMessage, logAuthError } from "@/lib/auth-errors";
 import { AUTH_TEXT } from "@/lib/constants";
 
 function isValidEmail(email: string) {
@@ -52,12 +53,14 @@ export default function ForgotPasswordPage() {
       setIsSuccess(true);
       setMessage(AUTH_TEXT.FORGOT_PASSWORD_SUCCESS);
     } catch (error) {
+      const safeMessage = getSafeAuthErrorMessage(error, "forgot_password");
+      logAuthError(error, "forgot_password");
+
       if (
-        error instanceof Error &&
-        (error.message.toLowerCase().includes("rate limit") ||
-          error.message.toLowerCase().includes("too many requests"))
+        safeMessage === AUTH_TEXT.EMAIL_RATE_LIMITED ||
+        safeMessage === "安全验证失败，请刷新页面后重试。"
       ) {
-        setErrorMessage(AUTH_TEXT.EMAIL_RATE_LIMITED);
+        setErrorMessage(safeMessage);
       } else {
         setIsSuccess(true);
         setMessage(AUTH_TEXT.FORGOT_PASSWORD_SUCCESS);
@@ -148,4 +151,8 @@ export default function ForgotPasswordPage() {
     </main>
   );
 }
+
+
+
+
 

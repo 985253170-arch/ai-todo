@@ -3,45 +3,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
-import { AUTH_TEXT, ERROR_MESSAGES } from "@/lib/constants";
+import { getSafeAuthErrorMessage, logAuthError } from "@/lib/auth-errors";
+import { AUTH_TEXT } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 
 type AuthMode = "otp" | "password";
 
-function getSafeErrorMessage(error: unknown, mode: AuthMode) {
-  if (error instanceof Error && error.message) {
-    const message = error.message.toLowerCase();
-
-    if (
-      message.includes("email rate limit exceeded") ||
-      message.includes("rate limit")
-    ) {
-      return AUTH_TEXT.EMAIL_RATE_LIMITED;
-    }
-
-    if (message.includes("invalid login credentials")) {
-      return AUTH_TEXT.PASSWORD_LOGIN_ERROR;
-    }
-
-    if (
-      message.includes("token") ||
-      message.includes("otp") ||
-      message.includes("expired")
-    ) {
-      return AUTH_TEXT.OTP_INVALID;
-    }
-
-    if (message.includes("unable to validate email address")) {
-      return AUTH_TEXT.EMAIL_INVALID;
-    }
-
-    return mode === "password"
-      ? AUTH_TEXT.PASSWORD_LOGIN_ERROR
-      : AUTH_TEXT.OTP_INVALID;
-  }
-
-  return ERROR_MESSAGES.AUTH_OPERATION_FAILED;
-}
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -125,7 +92,8 @@ export function LoginPageContent() {
       setMessage(AUTH_TEXT.OTP_SENT_MESSAGE);
       setResendSeconds(60);
     } catch (error) {
-      setErrorMessage(getSafeErrorMessage(error, "otp"));
+      setErrorMessage(getSafeAuthErrorMessage(error, "otp"));
+      logAuthError(error, "otp");
     } finally {
       setIsSubmitting(false);
     }
@@ -161,7 +129,8 @@ export function LoginPageContent() {
       setToken("");
       router.replace("/app");
     } catch (error) {
-      setErrorMessage(getSafeErrorMessage(error, "otp"));
+      setErrorMessage(getSafeAuthErrorMessage(error, "otp"));
+      logAuthError(error, "otp");
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +184,8 @@ export function LoginPageContent() {
       setPassword("");
       router.replace("/app");
     } catch (error) {
-      setErrorMessage(getSafeErrorMessage(error, "password"));
+      setErrorMessage(getSafeAuthErrorMessage(error, "password"));
+      logAuthError(error, "password");
     } finally {
       setIsSubmitting(false);
     }
@@ -445,6 +415,7 @@ export function LoginPageContent() {
     </>
   );
 }
+
 
 
 
