@@ -168,3 +168,9 @@ export async function callAIWithPrompts(
     return requestChatCompletionWithPrompts(options, undefined);
   }
 }
+
+export async function callAIWithPlainText(
+  options: CallAIWithPromptsOptions,
+): Promise<string> {
+  return requestChatCompletionWithPrompts(options, undefined);
+}

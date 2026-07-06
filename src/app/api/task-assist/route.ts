@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
-import { callAIWithPrompts } from "@/lib/ai-client";
+import { callAIWithPlainText } from "@/lib/ai-client";
 import { getAuthenticatedUserId } from "@/lib/supabase-server";
 import {
   ParseAssistAIResponseError,
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       taskTitle: taskTitle.trim().slice(0, MAX_TASK_TITLE_LENGTH),
     });
 
-    const aiResponse = await callAIWithPrompts({
+    const aiResponse = await callAIWithPlainText({
       apiKey,
       baseUrl: process.env.AI_API_BASE_URL,
       maxTokens: 300,
