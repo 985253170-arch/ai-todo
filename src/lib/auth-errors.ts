@@ -7,7 +7,7 @@ export type AuthOperation =
   | "reset_password";
 
 const CAPTCHA_ERROR_MESSAGE = "安全验证失败，请刷新页面后重试。";
-const RESET_PASSWORD_FALLBACK_MESSAGE = "重置失败，请重新申请重置链接。";
+const RESET_PASSWORD_FALLBACK_MESSAGE = "重置失败，请重新获取验证码后重试。";
 
 const FALLBACK_MESSAGES: Record<AuthOperation, string> = {
   otp: AUTH_TEXT.OTP_INVALID,
@@ -48,12 +48,28 @@ const AUTH_ERROR_PATTERNS: Array<{
     },
   },
   {
+    patterns: [
+      "invalid otp",
+      "invalid token",
+      "otp has expired",
+      "otp expired",
+      "token has expired",
+      "token expired",
+    ],
+    messages: {
+      otp: AUTH_TEXT.OTP_INVALID,
+      password: AUTH_TEXT.PASSWORD_LOGIN_ERROR,
+      forgot_password: AUTH_TEXT.FORGOT_PASSWORD_SUCCESS,
+      reset_password: AUTH_TEXT.RESET_PASSWORD_OTP_INVALID,
+    },
+  },
+  {
     patterns: ["token", "otp", "expired"],
     messages: {
       otp: AUTH_TEXT.OTP_INVALID,
       password: AUTH_TEXT.PASSWORD_LOGIN_ERROR,
       forgot_password: AUTH_TEXT.FORGOT_PASSWORD_SUCCESS,
-      reset_password: AUTH_TEXT.RESET_PASSWORD_TOKEN_EXPIRED,
+      reset_password: AUTH_TEXT.RESET_PASSWORD_OTP_INVALID,
     },
   },
   {
@@ -71,7 +87,7 @@ const AUTH_ERROR_PATTERNS: Array<{
       otp: AUTH_TEXT.OTP_INVALID,
       password: AUTH_TEXT.PASSWORD_LOGIN_ERROR,
       forgot_password: AUTH_TEXT.FORGOT_PASSWORD_SUCCESS,
-      reset_password: AUTH_TEXT.RESET_PASSWORD_TOKEN_EXPIRED,
+      reset_password: AUTH_TEXT.RESET_PASSWORD_OTP_INVALID,
     },
   },
   {

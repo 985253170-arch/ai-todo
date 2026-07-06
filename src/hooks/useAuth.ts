@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
@@ -189,13 +189,12 @@ export function useAuth() {
     setUser(null);
   }
 
-  async function sendResetPasswordEmail(email: string, captchaToken?: string) {
+  async function sendResetPasswordOtp(email: string, captchaToken?: string) {
     if (!supabase) {
       throw new Error("AUTH_NOT_CONFIGURED");
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
       captchaToken,
     });
 
@@ -213,6 +212,10 @@ export function useAuth() {
     }
   }
 
+  async function sendResetPasswordEmail(email: string, captchaToken?: string) {
+    return sendResetPasswordOtp(email, captchaToken);
+  }
+
   return {
     user,
     isLoading,
@@ -223,6 +226,7 @@ export function useAuth() {
     setPassword,
     signOut,
     sendResetPasswordEmail,
+    sendResetPasswordOtp,
   };
 }
 

@@ -117,5 +117,17 @@ export const AUTH_TEXT = {
   RESET_PASSWORD_TOKEN_INVALID: "重置链接无效，请重新申请。",
   RESET_PASSWORD_GO_LOGIN: "返回登录",
   RESET_PASSWORD_GO_FORGOT: "重新申请重置密码",
+  RESET_PASSWORD_CODE_LABEL: "验证码",
+  RESET_PASSWORD_CODE_PLACEHOLDER: "输入 6 位验证码",
+  RESET_PASSWORD_CODE_SEND_BUTTON: "发送验证码",
+  RESET_PASSWORD_CODE_SEND_LOADING: "发送中...",
+  RESET_PASSWORD_CODE_RESEND_BUTTON: "重新发送验证码",
+  RESET_PASSWORD_CODE_SENT: "验证码已发送，请查收邮箱。",
+  RESET_PASSWORD_SET_BUTTON: "设置新密码",
+  RESET_PASSWORD_SET_LOADING: "设置中...",
+  RESET_PASSWORD_SUCCESS_V2: "密码已重置，请用新密码登录。",
+  RESET_PASSWORD_OTP_INVALID: "验证码错误或已过期，请重新获取。",
+  RESET_PASSWORD_LEGACY_HINT:
+    "我们已支持验证码重置密码，也可以返回忘记密码页面重新获取验证码。",
 } as const;
 

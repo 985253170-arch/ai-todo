@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { getSafeAuthErrorMessage, logAuthError } from "@/lib/auth-errors";
@@ -124,6 +124,12 @@ export default function ResetPasswordPage() {
             </p>
           </div>
 
+          <p className="mb-5 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm leading-6 text-indigo-700">
+            {AUTH_TEXT.RESET_PASSWORD_LEGACY_HINT}
+            <a className="ml-1 font-semibold hover:text-indigo-900" href="/forgot-password">
+              {AUTH_TEXT.RESET_PASSWORD_GO_FORGOT}
+            </a>
+          </p>
           {isTokenInvalid ? (
             <div className="grid gap-4">
               <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
