@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GoalInput } from "@/components/GoalInput";
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/HeroSection";
@@ -40,6 +40,9 @@ export function MainWorkspace() {
     handleExampleClick,
     handleStartNewDay,
   } = useTaskGroup();
+  const [activeAssistTaskId, setActiveAssistTaskId] = useState<string | null>(
+    null,
+  );
   const taskHistory = useTaskHistory();
   const taskStats = useTaskStats();
   const taskReview = useTaskReview({
@@ -77,6 +80,12 @@ export function MainWorkspace() {
   function handleToggleTaskWithStats(taskId: string) {
     handleToggleTask(taskId);
     scheduleStatsRefresh(500);
+  }
+
+  function handleToggleAssist(taskId: string) {
+    setActiveAssistTaskId((currentTaskId) =>
+      currentTaskId === taskId ? null : taskId,
+    );
   }
 
   function handleClearTasksWithStats() {
@@ -152,10 +161,13 @@ export function MainWorkspace() {
           ) : null}
           {pageStatus === "loading" ? <LoadingState /> : null}
           <TaskList
+            activeAssistTaskId={activeAssistTaskId}
             completedCount={completedCount}
+            goal={taskGroup?.goal ?? ""}
             isAllCompleted={isAllCompleted}
             onClearTasks={handleClearTasksWithStats}
             onRegenerate={handleRegenerateWithStats}
+            onToggleAssist={handleToggleAssist}
             onToggleTask={handleToggleTaskWithStats}
             regenerateError={regenerateError}
             tasks={tasks}

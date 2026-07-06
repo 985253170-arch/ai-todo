@@ -219,3 +219,35 @@ export interface ReviewErrorResponse {
 }
 
 export type ReviewResponse = ReviewSuccessResponse | ReviewErrorResponse;
+
+export type AssistActionType =
+  | "how_to_start"
+  | "break_down"
+  | "five_minute"
+  | "im_stuck";
+
+export type AssistErrorCode =
+  | "UNAUTHORIZED"
+  | "INVALID_REQUEST_BODY"
+  | "INVALID_ACTION_TYPE"
+  | "AI_ASSIST_FAILED"
+  | "AI_RESPONSE_INVALID"
+  | "RATE_LIMITED"
+  | "INTERNAL_ERROR";
+
+export interface AssistSuccessResponse {
+  success: true;
+  data: {
+    result: string;
+  };
+}
+
+export interface AssistErrorResponse {
+  success: false;
+  error: {
+    code: AssistErrorCode;
+    message: string;
+  };
+}
+
+export type AssistResponse = AssistSuccessResponse | AssistErrorResponse;

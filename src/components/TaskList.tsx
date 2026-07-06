@@ -1,4 +1,4 @@
-import { CompleteAllPrompt } from "@/components/CompleteAllPrompt";
+﻿import { CompleteAllPrompt } from "@/components/CompleteAllPrompt";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { TaskItem } from "@/components/TaskItem";
@@ -15,6 +15,9 @@ interface TaskListProps {
   onToggleTask: (taskId: string) => void;
   onClearTasks: () => void;
   onRegenerate: () => void;
+  activeAssistTaskId: string | null;
+  onToggleAssist: (taskId: string) => void;
+  goal: string;
 }
 
 export function TaskList({
@@ -26,6 +29,9 @@ export function TaskList({
   onToggleTask,
   onClearTasks,
   onRegenerate,
+  activeAssistTaskId,
+  onToggleAssist,
+  goal,
 }: TaskListProps) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:p-6">
@@ -60,8 +66,11 @@ export function TaskList({
           <div className="space-y-2">
             {tasks.map((task) => (
               <TaskItem
+                goal={goal}
+                isAssistOpen={activeAssistTaskId === task.id}
                 key={task.id}
                 onToggle={onToggleTask}
+                onToggleAssist={onToggleAssist}
                 task={task}
               />
             ))}
