@@ -9,10 +9,19 @@ import type {
   CompanionUserSignal,
 } from "@/lib/types";
 
+interface TaskCompanionSequenceContext {
+  currentStepNumber: number;
+  totalSteps: number;
+  completedSteps?: number;
+  previousTaskTitle?: string;
+  nextTaskTitle?: string;
+}
+
 interface UseTaskCompanionOptions {
   taskId: string;
   taskTitle: string;
   goal: string;
+  sequenceContext?: TaskCompanionSequenceContext;
 }
 
 type TaskCompanionStatus = "idle" | "loading" | "active" | "done" | "error";
@@ -48,6 +57,7 @@ function keepRecentSteps(steps: string[]) {
 
 export function useTaskCompanion({
   goal,
+  sequenceContext,
   taskTitle,
 }: UseTaskCompanionOptions): UseTaskCompanionReturn {
   const [status, setStatus] = useState<TaskCompanionStatus>("idle");
@@ -91,10 +101,15 @@ export function useTaskCompanion({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            completedSteps: sequenceContext?.completedSteps,
             currentStep: currentStepMessage,
+            currentStepNumber: sequenceContext?.currentStepNumber,
             goal,
+            nextTaskTitle: sequenceContext?.nextTaskTitle,
+            previousTaskTitle: sequenceContext?.previousTaskTitle,
             stepHistory: historySnapshot,
             taskTitle,
+            totalSteps: sequenceContext?.totalSteps,
             userSignal,
           }),
         });
@@ -139,7 +154,7 @@ export function useTaskCompanion({
         }
       }
     },
-    [currentStep?.message, goal, stepHistory, taskTitle],
+    [currentStep?.message, goal, sequenceContext, stepHistory, taskTitle],
   );
 
   const startCompanion = useCallback(async () => {

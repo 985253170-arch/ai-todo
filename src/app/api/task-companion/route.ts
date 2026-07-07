@@ -27,6 +27,7 @@ const VALID_USER_SIGNALS = new Set<CompanionUserSignal>([
 const MAX_TASK_TITLE_LENGTH = 200;
 const MAX_GOAL_LENGTH = 200;
 const MAX_CURRENT_STEP_LENGTH = 500;
+const MAX_SEQUENCE_TASK_TITLE_LENGTH = 200;
 const MAX_STEP_HISTORY_ITEMS = 5;
 const MAX_STEP_HISTORY_ITEM_LENGTH = 300;
 const RATE_LIMIT_MAX = 10;
@@ -48,6 +49,19 @@ interface CompanionRequestBody {
   currentStep?: unknown;
   stepHistory?: unknown;
   userSignal?: unknown;
+  currentStepNumber?: unknown;
+  totalSteps?: unknown;
+  completedSteps?: unknown;
+  previousTaskTitle?: unknown;
+  nextTaskTitle?: unknown;
+}
+
+interface CompanionSequenceContext {
+  currentStepNumber: number;
+  totalSteps: number;
+  completedSteps?: number;
+  previousTaskTitle?: string;
+  nextTaskTitle?: string;
 }
 
 interface RateLimitEntry {
@@ -122,6 +136,47 @@ function normalizeStepHistory(value: unknown): string[] {
     .slice(-MAX_STEP_HISTORY_ITEMS);
 }
 
+function normalizePositiveInteger(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function normalizeNonNegativeInteger(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+function normalizeSequenceTaskTitle(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim().slice(0, MAX_SEQUENCE_TASK_TITLE_LENGTH);
+
+  return trimmedValue || undefined;
+}
+
+function normalizeSequenceContext(
+  body: CompanionRequestBody,
+): CompanionSequenceContext | undefined {
+  const currentStepNumber = normalizePositiveInteger(body.currentStepNumber);
+  const totalSteps = normalizePositiveInteger(body.totalSteps);
+
+  if (!currentStepNumber || !totalSteps) {
+    return undefined;
+  }
+
+  return {
+    completedSteps: normalizeNonNegativeInteger(body.completedSteps),
+    currentStepNumber,
+    nextTaskTitle: normalizeSequenceTaskTitle(body.nextTaskTitle),
+    previousTaskTitle: normalizeSequenceTaskTitle(body.previousTaskTitle),
+    totalSteps,
+  };
+}
+
 export async function POST(request: NextRequest) {
   const userId = await getAuthenticatedUserId();
 
@@ -163,6 +218,7 @@ export async function POST(request: NextRequest) {
         typeof body.goal === "string"
           ? body.goal.trim().slice(0, MAX_GOAL_LENGTH)
           : undefined,
+      sequenceContext: normalizeSequenceContext(body),
       stepHistory: normalizeStepHistory(body.stepHistory),
       taskTitle: body.taskTitle.trim().slice(0, MAX_TASK_TITLE_LENGTH),
       userSignal: body.userSignal,

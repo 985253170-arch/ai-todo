@@ -8,10 +8,19 @@ import type {
   AssistResponse,
 } from "@/lib/types";
 
+interface TaskAssistSequenceContext {
+  currentStepNumber: number;
+  totalSteps: number;
+  completedSteps?: number;
+  previousTaskTitle?: string;
+  nextTaskTitle?: string;
+}
+
 interface UseTaskAssistOptions {
   taskId: string;
   taskTitle: string;
   goal: string;
+  sequenceContext?: TaskAssistSequenceContext;
 }
 
 type TaskAssistStatus = "idle" | "loading" | "result" | "error";
@@ -57,6 +66,7 @@ const ASSIST_ERROR_MESSAGES: Record<TaskAssistErrorCode, string> = {
 
 export function useTaskAssist({
   goal,
+  sequenceContext,
   taskTitle,
 }: UseTaskAssistOptions): UseTaskAssistReturn {
   const [status, setStatus] = useState<TaskAssistStatus>("idle");
@@ -96,8 +106,13 @@ export function useTaskAssist({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             actionType,
+            completedSteps: sequenceContext?.completedSteps,
+            currentStepNumber: sequenceContext?.currentStepNumber,
             goal,
+            nextTaskTitle: sequenceContext?.nextTaskTitle,
+            previousTaskTitle: sequenceContext?.previousTaskTitle,
             taskTitle,
+            totalSteps: sequenceContext?.totalSteps,
           }),
         });
 
@@ -138,7 +153,7 @@ export function useTaskAssist({
         }
       }
     },
-    [goal, taskTitle],
+    [goal, sequenceContext, taskTitle],
   );
 
   return {

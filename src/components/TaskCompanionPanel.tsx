@@ -5,10 +5,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTaskCompanion } from "@/hooks/useTaskCompanion";
 import type { CompanionUserSignal } from "@/lib/types";
 
+interface TaskCompanionSequenceContext {
+  currentStepNumber: number;
+  totalSteps: number;
+  completedSteps?: number;
+  previousTaskTitle?: string;
+  nextTaskTitle?: string;
+}
+
 interface TaskCompanionPanelProps {
   taskId: string;
   taskTitle: string;
   goal: string;
+  sequenceContext?: TaskCompanionSequenceContext;
   onClose: () => void;
 }
 
@@ -27,6 +36,7 @@ const DEFAULT_ERROR_MESSAGE = "AI 陪伴生成失败，请稍后重试。";
 export function TaskCompanionPanel({
   goal,
   onClose,
+  sequenceContext,
   taskId,
   taskTitle,
 }: TaskCompanionPanelProps) {
@@ -40,6 +50,7 @@ export function TaskCompanionPanel({
     status,
   } = useTaskCompanion({
     goal,
+    sequenceContext,
     taskId,
     taskTitle,
   });

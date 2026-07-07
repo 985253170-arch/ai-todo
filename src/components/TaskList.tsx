@@ -84,6 +84,7 @@ export function TaskList({
                   onToggleCompanion={onToggleCompanion}
                   task={task}
                   taskIndex={index}
+                  tasks={tasks}
                 />
               );
             })}
@@ -99,3 +100,6 @@ export function TaskList({
     </section>
   );
 }
+
+
+

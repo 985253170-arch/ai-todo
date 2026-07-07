@@ -1,14 +1,23 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { TaskAssistPanel } from "@/components/TaskAssistPanel";
 import { TaskCompanionPanel } from "@/components/TaskCompanionPanel";
 import type { TaskExecutionStatus } from "@/lib/task-execution";
 import type { Task } from "@/lib/types";
 
+interface TaskItemSequenceContext {
+  currentStepNumber: number;
+  totalSteps: number;
+  completedSteps: number;
+  previousTaskTitle?: string;
+  nextTaskTitle?: string;
+}
+
 interface TaskItemProps {
   task: Task;
+  tasks: Task[];
   taskIndex: number;
   executionStatus: TaskExecutionStatus;
   onToggle: (taskId: string) => void;
@@ -32,12 +41,28 @@ export function TaskItem({
   onToggleCompanion,
   task,
   taskIndex,
+  tasks,
 }: TaskItemProps) {
   const [showLockedHint, setShowLockedHint] = useState(false);
   const isCompleted = executionStatus === "completed";
   const isCurrent = executionStatus === "current";
   const isLocked = executionStatus === "locked";
   const canUseAI = isCurrent;
+  const sequenceContext = useMemo<TaskItemSequenceContext | undefined>(() => {
+    if (!isCurrent) {
+      return undefined;
+    }
+
+    return {
+      completedSteps: tasks.filter((currentTask) => currentTask.completed)
+        .length,
+      currentStepNumber: taskIndex + 1,
+      nextTaskTitle:
+        taskIndex < tasks.length - 1 ? tasks[taskIndex + 1]?.title : undefined,
+      previousTaskTitle: taskIndex > 0 ? tasks[taskIndex - 1]?.title : undefined,
+      totalSteps: tasks.length,
+    };
+  }, [isCurrent, taskIndex, tasks]);
 
   useEffect(() => {
     if (!showLockedHint) {
@@ -52,7 +77,6 @@ export function TaskItem({
       window.clearTimeout(timerId);
     };
   }, [showLockedHint]);
-
 
   const handleLockedInteraction = () => {
     if (!isLocked) {
@@ -131,6 +155,7 @@ export function TaskItem({
             goal={goal}
             onClose={() => onToggleAssist(task.id)}
             onStartCompanion={() => onToggleCompanion(task.id)}
+            sequenceContext={sequenceContext}
             taskId={task.id}
             taskTitle={task.title}
           />
@@ -141,6 +166,7 @@ export function TaskItem({
           <TaskCompanionPanel
             goal={goal}
             onClose={() => onToggleCompanion(task.id)}
+            sequenceContext={sequenceContext}
             taskId={task.id}
             taskTitle={task.title}
           />

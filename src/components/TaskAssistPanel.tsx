@@ -5,10 +5,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useTaskAssist } from "@/hooks/useTaskAssist";
 import type { AssistActionType } from "@/lib/types";
 
+interface TaskAssistSequenceContext {
+  currentStepNumber: number;
+  totalSteps: number;
+  completedSteps?: number;
+  previousTaskTitle?: string;
+  nextTaskTitle?: string;
+}
+
 interface TaskAssistPanelProps {
   taskId: string;
   taskTitle: string;
   goal: string;
+  sequenceContext?: TaskAssistSequenceContext;
   onClose: () => void;
   onStartCompanion: () => void;
 }
@@ -46,12 +55,14 @@ export function TaskAssistPanel({
   goal,
   onClose,
   onStartCompanion,
+  sequenceContext,
   taskId,
   taskTitle,
 }: TaskAssistPanelProps) {
   const { activeActionType, error, fetchAssist, reset, result, status } =
     useTaskAssist({
       goal,
+      sequenceContext,
       taskId,
       taskTitle,
     });

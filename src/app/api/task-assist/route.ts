@@ -25,6 +25,7 @@ const VALID_ACTION_TYPES = new Set<AssistActionType>([
 
 const MAX_TASK_TITLE_LENGTH = 200;
 const MAX_GOAL_LENGTH = 200;
+const MAX_SEQUENCE_TASK_TITLE_LENGTH = 200;
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
@@ -42,6 +43,14 @@ type TaskAssistResponse =
         message: string;
       };
     };
+
+interface AssistSequenceContext {
+  currentStepNumber: number;
+  totalSteps: number;
+  completedSteps?: number;
+  previousTaskTitle?: string;
+  nextTaskTitle?: string;
+}
 
 const ASSIST_ERROR_MESSAGES: Record<TaskAssistErrorCode, string> = {
   UNAUTHORIZED: "请先登录后再使用 AI 辅助。",
@@ -109,6 +118,47 @@ async function parseRequestBody(request: NextRequest): Promise<unknown> {
   }
 }
 
+function normalizePositiveInteger(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function normalizeNonNegativeInteger(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+function normalizeSequenceTaskTitle(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim().slice(0, MAX_SEQUENCE_TASK_TITLE_LENGTH);
+
+  return trimmedValue || undefined;
+}
+
+function normalizeSequenceContext(
+  body: Record<string, unknown>,
+): AssistSequenceContext | undefined {
+  const currentStepNumber = normalizePositiveInteger(body.currentStepNumber);
+  const totalSteps = normalizePositiveInteger(body.totalSteps);
+
+  if (!currentStepNumber || !totalSteps) {
+    return undefined;
+  }
+
+  return {
+    completedSteps: normalizeNonNegativeInteger(body.completedSteps),
+    currentStepNumber,
+    nextTaskTitle: normalizeSequenceTaskTitle(body.nextTaskTitle),
+    previousTaskTitle: normalizeSequenceTaskTitle(body.previousTaskTitle),
+    totalSteps,
+  };
+}
+
 export async function POST(request: NextRequest) {
   const userId = await getAuthenticatedUserId();
 
@@ -122,7 +172,8 @@ export async function POST(request: NextRequest) {
     return errorResponse("INVALID_REQUEST_BODY", 400);
   }
 
-  const { actionType, goal, taskTitle } = body as Record<string, unknown>;
+  const requestBody = body as Record<string, unknown>;
+  const { actionType, goal, taskTitle } = requestBody;
 
   if (typeof taskTitle !== "string" || !taskTitle.trim()) {
     return errorResponse("TASK_TITLE_REQUIRED", 400);
@@ -147,6 +198,7 @@ export async function POST(request: NextRequest) {
       actionType,
       goal:
         typeof goal === "string" ? goal.trim().slice(0, MAX_GOAL_LENGTH) : "",
+      sequenceContext: normalizeSequenceContext(requestBody),
       taskTitle: taskTitle.trim().slice(0, MAX_TASK_TITLE_LENGTH),
     });
 
