@@ -10,6 +10,10 @@ import {
 } from "@/lib/input-validator";
 import { isTaskGroupFromToday } from "@/lib/date-utils";
 import { loadTaskGroup, removeTaskGroup, saveTaskGroup } from "@/lib/storage";
+import {
+  isTaskLocked,
+  shouldCarryOverTaskGroup,
+} from "@/lib/task-execution";
 import type {
   ApiErrorCode,
   CloudTaskGroupResponse,
@@ -143,6 +147,7 @@ export function useTaskGroup() {
   const [pageStatus, setPageStatus] = useState<PageStatus>("idle");
   const [taskGroup, setTaskGroup] = useState<TaskGroup | null>(null);
   const [showNewDayPrompt, setShowNewDayPrompt] = useState(false);
+  const [showCarryoverPrompt, setShowCarryoverPrompt] = useState(false);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const storageScopeRef = useRef<string | null>(null);
   const migratedScopeRef = useRef<Set<string>>(new Set());
@@ -158,6 +163,17 @@ export function useTaskGroup() {
     let restoreRunId = 0;
     const supabase = createSupabaseBrowserClient();
 
+    function applyRestoredTaskGroup(restoredTaskGroup: TaskGroup) {
+      const shouldCarryOver = shouldCarryOverTaskGroup(restoredTaskGroup);
+
+      setTaskGroup(restoredTaskGroup);
+      setPageStatus("success");
+      setShowCarryoverPrompt(shouldCarryOver);
+      setShowNewDayPrompt(
+        !shouldCarryOver && !isTaskGroupFromToday(restoredTaskGroup),
+      );
+    }
+
     async function restoreForAuthUser(userId: string | null) {
       const currentRestoreRunId = ++restoreRunId;
       const deviceId = getOrCreateDeviceId();
@@ -171,6 +187,7 @@ export function useTaskGroup() {
       setTaskGroup(null);
       setPageStatus("idle");
       setShowNewDayPrompt(false);
+      setShowCarryoverPrompt(false);
       removeTaskGroup();
       reportTaskGroupRestore(authScope, "start");
 
@@ -203,9 +220,7 @@ export function useTaskGroup() {
           return;
         }
 
-        setTaskGroup(savedTaskGroup);
-        setPageStatus("success");
-        setShowNewDayPrompt(!isTaskGroupFromToday(savedTaskGroup));
+        applyRestoredTaskGroup(savedTaskGroup);
         reportTaskGroupRestore(authScope, "local");
         return;
       }
@@ -221,14 +236,13 @@ export function useTaskGroup() {
         setTaskGroup(null);
         setPageStatus("idle");
         setShowNewDayPrompt(false);
+        setShowCarryoverPrompt(false);
         reportTaskGroupRestore(authScope, "empty");
         return;
       }
 
-      setTaskGroup(cloudTaskGroup);
+      applyRestoredTaskGroup(cloudTaskGroup);
       saveTaskGroup(cloudTaskGroup, storageScope);
-      setPageStatus("success");
-      setShowNewDayPrompt(!isTaskGroupFromToday(cloudTaskGroup));
       reportTaskGroupRestore(authScope, "cloud");
     }
 
@@ -334,6 +348,7 @@ export function useTaskGroup() {
       saveCurrentTaskGroup(result.data);
       void saveTaskGroupToCloud(getOrCreateDeviceId(), result.data);
       setShowNewDayPrompt(false);
+      setShowCarryoverPrompt(false);
       setPageStatus("success");
     } catch {
       setErrorMessage(ERROR_MESSAGES.NETWORK_ERROR);
@@ -378,6 +393,7 @@ export function useTaskGroup() {
       saveCurrentTaskGroup(result.data);
       void saveTaskGroupToCloud(getOrCreateDeviceId(), result.data);
       setShowNewDayPrompt(false);
+      setShowCarryoverPrompt(false);
       setPageStatus("success");
     } catch {
       setRegenerateError(ERROR_MESSAGES.REGENERATE_FAILED);
@@ -388,6 +404,17 @@ export function useTaskGroup() {
   function handleToggleTask(taskId: string) {
     setTaskGroup((currentTaskGroup) => {
       if (!currentTaskGroup) {
+        return currentTaskGroup;
+      }
+
+      const taskIndex = currentTaskGroup.tasks.findIndex(
+        (task) => task.id === taskId,
+      );
+
+      if (
+        taskIndex === -1 ||
+        isTaskLocked(taskIndex, currentTaskGroup.tasks)
+      ) {
         return currentTaskGroup;
       }
 
@@ -414,7 +441,12 @@ export function useTaskGroup() {
     void deleteTaskGroupFromCloud(getOrCreateDeviceId());
     setPageStatus("idle");
     setShowNewDayPrompt(false);
+    setShowCarryoverPrompt(false);
     setRegenerateError(null);
+  }
+
+  function handleContinueCarryover() {
+    setShowCarryoverPrompt(false);
   }
 
   function handleExampleClick(goal: string) {
@@ -432,6 +464,7 @@ export function useTaskGroup() {
     setErrorMessage(null);
     setPageStatus("idle");
     setShowNewDayPrompt(false);
+    setShowCarryoverPrompt(false);
     setRegenerateError(null);
   }
 
@@ -445,12 +478,14 @@ export function useTaskGroup() {
     totalCount,
     isGenerateDisabled,
     showNewDayPrompt,
+    showCarryoverPrompt,
     regenerateError,
     isAllCompleted,
     setInputGoal: handleInputGoalChange,
     handleGenerate,
     handleToggleTask,
     handleClearTasks,
+    handleContinueCarryover,
     handleRegenerate,
     handleExampleClick,
     handleStartNewDay,

@@ -4,6 +4,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { TaskItem } from "@/components/TaskItem";
 import { TaskProgress } from "@/components/TaskProgress";
 import { UI_TEXT } from "@/lib/constants";
+import { getTaskExecutionStatus } from "@/lib/task-execution";
 import type { Task } from "@/lib/types";
 
 interface TaskListProps {
@@ -68,18 +69,24 @@ export function TaskList({
       ) : (
         <div className="space-y-3">
           <div className="space-y-2">
-            {tasks.map((task) => (
-              <TaskItem
-                goal={goal}
-                isAssistOpen={activeAssistTaskId === task.id}
-                isCompanionOpen={activeCompanionTaskId === task.id}
-                key={task.id}
-                onToggle={onToggleTask}
-                onToggleAssist={onToggleAssist}
-                onToggleCompanion={onToggleCompanion}
-                task={task}
-              />
-            ))}
+            {tasks.map((task, index) => {
+              const executionStatus = getTaskExecutionStatus(index, tasks);
+
+              return (
+                <TaskItem
+                  executionStatus={executionStatus}
+                  goal={goal}
+                  isAssistOpen={activeAssistTaskId === task.id}
+                  isCompanionOpen={activeCompanionTaskId === task.id}
+                  key={task.id}
+                  onToggle={onToggleTask}
+                  onToggleAssist={onToggleAssist}
+                  onToggleCompanion={onToggleCompanion}
+                  task={task}
+                  taskIndex={index}
+                />
+              );
+            })}
           </div>
           <TaskProgress
             completedCount={completedCount}

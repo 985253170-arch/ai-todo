@@ -30,12 +30,14 @@ export function MainWorkspace() {
     pageStatus,
     taskGroup,
     showNewDayPrompt,
+    showCarryoverPrompt,
     regenerateError,
     isAllCompleted,
     setInputGoal,
     handleGenerate,
     handleToggleTask,
     handleClearTasks,
+    handleContinueCarryover,
     handleRegenerate,
     handleExampleClick,
     handleStartNewDay,
@@ -167,8 +169,18 @@ export function MainWorkspace() {
             onRetry={taskStats.refreshStats}
             stats={taskStats.stats}
           />
+          {showCarryoverPrompt ? (
+            <NewDayPrompt
+              variant="carryover"
+              onContinue={handleContinueCarryover}
+              onStartNewDay={handleStartNewDayWithStats}
+            />
+          ) : null}
           {showNewDayPrompt ? (
-            <NewDayPrompt onStartNewDay={handleStartNewDayWithStats} />
+            <NewDayPrompt
+              variant="new_day"
+              onStartNewDay={handleStartNewDayWithStats}
+            />
           ) : null}
           {pageStatus === "loading" ? <LoadingState /> : null}
           <TaskList
