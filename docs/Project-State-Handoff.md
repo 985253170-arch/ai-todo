@@ -2,7 +2,7 @@
 
 > 状态：当前项目交接文档
 > 用途：新会话 / Claude Code / Codex 接手项目时优先读取
-> 更新日期：2026-07-08
+> 更新日期：2026-07-08（V2.6 已完成）
 > 原则：只记录当前有效状态，不重复旧阶段完整方案
 
 ---
@@ -49,10 +49,12 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 - Auth 路由守卫（client-side redirect）
 
 ### AI 能力
-- AI 任务生成（含智能调整：根据历史完成率动态调整任务数量和难度）
+- AI 任务生成（含生成阶段智能调整：根据历史完成率动态调整生成任务数量和难度）
 - AI 复盘（基于历史完成情况给出轻量复盘）
 - 任务级 AI 辅助（"AI 帮我一下"——给步骤、模板、检查清单、框架）
-- 任务陪伴模式（"开始陪我做"——逐步推进当前任务）
+- 任务陪伴模式（"开始陪我做"——固定信号按钮 + 任务内受控短反馈输入框，逐步推进当前任务）
+- 任务内受控反馈输入框（用户可输入当前进展、卡点、草稿、时间限制，AI 基于反馈继续推进）
+- AI 小步验收机制（AI 判断当前小步质量，可建议用户自己勾选完成，但不能自动勾选）
 - 未完成任务跨天继承
 - 任务顺序执行（locked/unlocked 机制）
 - AI 序列上下文感知
@@ -143,7 +145,7 @@ src/
     ├── task-generation.ts    # AI 任务生成 Prompt
     ├── task-review.ts        # AI 复盘 Prompt
     ├── task-assist.ts        # AI 辅助执行 Prompt（V2.5.3 最新）
-    └── task-companion.ts     # 陪伴模式 Prompt（V2.5.3 最新）
+    └── task-companion.ts     # 陪伴模式 Prompt（V2.6 最新）
 ```
 
 ### 数据库
@@ -176,7 +178,7 @@ src/
 - **智能调整**：根据历史完成率动态调整任务数量和难度（5 级阈值）
 - **AI 复盘**：基于历史完成情况给出轻量复盘建议
 - **任务级 AI 辅助**（"AI 帮我一下"）：how_to_start / break_down / five_minute / im_stuck 四种动作
-- **任务陪伴模式**（"开始陪我做"）：start / done / stuck / too_hard / encourage 五种信号，逐步推进
+- **任务陪伴模式**（"开始陪我做"）：固定按钮（我完成了/我卡住了/太难了）+ 任务内受控短反馈输入框，逐步推进。AI 可基于用户反馈继续推进当前任务，可验收当前小步质量
 - **序列上下文感知**：AI 知道当前任务在列表中的位置（第几步/共几步）
 - **未完成任务跨天继承**：昨天未完成的任务今天自动带入
 - **任务顺序执行**：locked 任务不能跳过，完成当前任务后下一任务才解锁
@@ -212,26 +214,89 @@ src/
 - 未完成任务跨天继承到新一天
 - AI 不能建议用户跳过当前任务或先做后面的任务
 - 完成权始终在用户手中
+- AI 小步验收机制：AI 判断当前小步质量（基本可以过 / 还差一点 / 不算完成 / 可以勾选完成）
+- AI 可以建议用户自己勾选完成，但不能自动勾选任务
+- AI 不能替用户完成任何需要用户本人承担结果的最终动作
 
 ## 8. 当前文档整理状态
 
 - 历史阶段文档（V2.1–V2.5.3）已全部移动到 `docs/archive/`
 - 旧路线文档和项目元文档已移动到 `docs/archive/`
 - `docs/archive/` 还包含 `phase-12/` `phase-13/` `phase-14/` `phase-15/` `v1/`（更早归档）
-- `docs/` 根目录只保留：`PRD-V2.0.md`、`Project-State-Handoff.md`（本文件）、`Architecture-V3.0-Web-App-Separation.md`
 - **旧文档禁止删除**，需要查历史时去 archive
 
-## 9. 下一阶段：V3.0 Web 与 App 界面分离
+## 9. 🔴 当前活跃 Phase：V2.7 架构设计阶段
 
-V3.0 目标是把"网页端"和"手机应用界面"分开设计。
+### 9.1 V2.6 已完成 ✅
 
-- **Web 端**：产品介绍、登录、桌面浏览体验、管理/概览
-- **App 端**：今日行动、任务执行、AI 陪伴、底部导航、移动端沉浸体验
-- PWA 已存在，但 PWA 不等于 App 信息架构
-- 手机 App UI 需要独立页面结构，不是直接把网页缩小
-- 详细方案见 `docs/Architecture-V3.0-Web-App-Separation.md`
+V2.6（任务内受控反馈框与 AI 验收机制）已实现并通过最终验收。
 
-## 10. Claude Code / Codex 协作流程
+**V2.6 已交付能力：**
+- 删除"鼓励我一下"按钮
+- 新增任务内受控反馈输入框（300 字上限）
+- 用户可输入当前进展、卡点、草稿、时间限制
+- AI 基于 userFeedback 继续推进当前任务
+- AI 小步验收机制（基本可以过 / 还差一点 / 不算完成 / 可以勾选完成）
+- AI 可以建议"你可以自己勾选完成"，但不能自动勾选
+- userFeedback 不入 stepHistory，不存数据库
+- 没有新增聊天 Tab、消息气泡 UI、对话历史存储
+
+**已提交 commit：** `718ec47 feat: add V2.6 task feedback input`
+
+### 9.2 当前状态
+
+V2.7 架构设计尚未开始。
+
+V2.7 核心方向：**任务难度与数量动态调整**。用户多次反馈"太难 / 卡住 / 没时间"后，AI 给出任务调整建议（减量、降难、标记明日继续 / 暂缓 / 保留但不要求今天完成）；用户确认后才调整，且不能绕过 locked 顺序执行。
+
+### 9.3 V2.6 阶段文档（已完成，仅供参考）
+
+| 文档 | 路径 | 状态 |
+|------|------|:--:|
+| 路线规划 | `docs/Roadmap-V2.6-to-V3.0A-AI-Execution-Loop.md` | ✅ |
+| V2.6 架构方案 | `docs/Architecture-V2.6-Task-Feedback-Input.md` | ✅ |
+| 版本锁定关系 | `docs/Upgrade-Lock-V2.6-to-V3.0A.md` | ✅ |
+| V2.6 执行方案 | `docs/Execution-Plan-V2.6-Task-Feedback-Input.md` | ✅ |
+
+### 9.4 下一步工作流
+
+```
+当前 ──→ Claude Code 写 V2.7 架构方案（Architecture-V2.7-*.md）
+         ↓
+         ChatGPT 审查架构方案
+         ↓
+         Claude Code 写执行方案（Execution-Plan-V2.7-*.md）
+         ↓
+         ChatGPT 审查执行方案
+         ↓
+         Codex 按执行方案实现代码
+         ↓
+         Claude Code Code Review
+         ↓
+         ChatGPT 最终把关 → commit
+```
+
+### 9.5 新会话启动后第一件事
+
+**确认当前 Phase 为 V2.7 架构设计阶段。** 下一步是写 V2.7 架构方案。
+
+## 10. V2.6 → V3.0A 版本路线总览
+
+```
+V2.5.3 ✅ → V2.6 ✅ → V2.7 🔜 → V3.0A 📋
+  AI输出      用户→AI    AI自适应     App Shell
+  能力升级    反馈通道    任务调整     承载所有能力
+```
+
+**版本依赖**：V2.5.3→V2.6 ✅（已完成）→ V2.7（硬依赖）→ V3.0A（强建议依赖）
+
+**V2.7 核心方向**：用户多次反馈"太难 / 卡住 / 没时间"后，AI 给出任务调整建议（减量、降难、标记明日继续 / 暂缓 / 保留但不要求今天完成）；用户确认后才调整，且不能绕过 locked 顺序执行。
+
+**不允许多版本并行开发。必须严格按顺序推进。**
+
+详细锁定关系见 [`docs/Upgrade-Lock-V2.6-to-V3.0A.md`](docs/Upgrade-Lock-V2.6-to-V3.0A.md)（新会话必读）。
+
+## 11. Claude Code / Codex 协作流程
 
 ```
 ChatGPT：阶段把关 / 产品判断 / 给 Claude Code 和 Codex 写指令
@@ -252,7 +317,7 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 8. Commit / Push
 ```
 
-## 11. 禁止事项
+## 12. 禁止事项
 
 - 不随便改数据库 schema / migration
 - 不随便改 Auth 核心逻辑
@@ -265,14 +330,18 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 - 不跳过 Review 环节
 - 不删除任何文档（归档 ≠ 删除）
 
-## 12. 新会话最小上下文
+## 13. 新会话最小上下文
 
 以后新会话只需要带：
 
 1. `CLAUDE.md` — 项目规则（系统自动注入）
-2. `docs/PRD-V2.0.md` — V2.0 产品规划
-3. `docs/Project-State-Handoff.md` — 本文档（项目当前状态）
-4. `docs/Architecture-V3.0-Web-App-Separation.md` — V3.0 架构方案
-5. `memory/MEMORY.md` — Memory 索引（按需读取具体条目）
+2. `docs/Project-State-Handoff.md` — 本文档（项目当前状态）⭐
+3. `docs/Roadmap-V2.6-to-V3.0A-AI-Execution-Loop.md` — V2.6→V3.0A 路线总览
+4. `docs/Upgrade-Lock-V2.6-to-V3.0A.md` — 版本锁定关系（新会话必读）⭐
+5. `docs/Architecture-V2.6-Task-Feedback-Input.md` — V2.6 架构方案（已完成，参考）
+6. `docs/Execution-Plan-V2.6-Task-Feedback-Input.md` — V2.6 执行方案（已完成，参考）
+7. `docs/Architecture-V3.0-Web-App-Separation.md` — V3.0 架构（注意：含需修正的旧判断）
+8. `docs/PRD-V2.0.md` — V2.0 产品规划
+9. `memory/MEMORY.md` — Memory 索引（按需读取具体条目）
 
 不再需要读取 20+ 个旧阶段 Architecture/Execution Plan 文档。需要查历史时去 `docs/archive/`。
