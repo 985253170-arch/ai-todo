@@ -257,7 +257,8 @@ export type CompanionUserSignal =
   | "done"
   | "stuck"
   | "too_hard"
-  | "encourage";
+  | "encourage"
+  | "user_feedback";
 
 export type CompanionStatus = "active" | "done";
 

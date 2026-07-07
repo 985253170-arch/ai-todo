@@ -22,6 +22,7 @@ const VALID_USER_SIGNALS = new Set<CompanionUserSignal>([
   "stuck",
   "too_hard",
   "encourage",
+  "user_feedback",
 ]);
 
 const MAX_TASK_TITLE_LENGTH = 200;
@@ -30,6 +31,7 @@ const MAX_CURRENT_STEP_LENGTH = 500;
 const MAX_SEQUENCE_TASK_TITLE_LENGTH = 200;
 const MAX_STEP_HISTORY_ITEMS = 5;
 const MAX_STEP_HISTORY_ITEM_LENGTH = 300;
+const MAX_USER_FEEDBACK_LENGTH = 300;
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
@@ -49,6 +51,7 @@ interface CompanionRequestBody {
   currentStep?: unknown;
   stepHistory?: unknown;
   userSignal?: unknown;
+  userFeedback?: unknown;
   currentStepNumber?: unknown;
   totalSteps?: unknown;
   completedSteps?: unknown;
@@ -158,6 +161,16 @@ function normalizeSequenceTaskTitle(value: unknown) {
   return trimmedValue || undefined;
 }
 
+function normalizeUserFeedback(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim().slice(0, MAX_USER_FEEDBACK_LENGTH);
+
+  return trimmedValue || undefined;
+}
+
 function normalizeSequenceContext(
   body: CompanionRequestBody,
 ): CompanionSequenceContext | undefined {
@@ -221,6 +234,7 @@ export async function POST(request: NextRequest) {
       sequenceContext: normalizeSequenceContext(body),
       stepHistory: normalizeStepHistory(body.stepHistory),
       taskTitle: body.taskTitle.trim().slice(0, MAX_TASK_TITLE_LENGTH),
+      userFeedback: normalizeUserFeedback(body.userFeedback),
       userSignal: body.userSignal,
     });
 

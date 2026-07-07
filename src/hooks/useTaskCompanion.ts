@@ -33,7 +33,10 @@ interface UseTaskCompanionReturn {
   stepHistory: string[];
   activeSignal: CompanionUserSignal | null;
   startCompanion: () => Promise<void>;
-  sendSignal: (userSignal: Exclude<CompanionUserSignal, "start">) => Promise<void>;
+  sendSignal: (
+    userSignal: Exclude<CompanionUserSignal, "start" | "user_feedback">,
+  ) => Promise<void>;
+  sendFeedback: (text: string) => Promise<void>;
   exitCompanion: () => void;
   reset: () => void;
 }
@@ -81,7 +84,7 @@ export function useTaskCompanion({
   }, []);
 
   const requestCompanion = useCallback(
-    async (userSignal: CompanionUserSignal) => {
+    async (userSignal: CompanionUserSignal, userFeedback?: string) => {
       if (inflightRef.current) {
         return;
       }
@@ -110,6 +113,7 @@ export function useTaskCompanion({
             stepHistory: historySnapshot,
             taskTitle,
             totalSteps: sequenceContext?.totalSteps,
+            userFeedback: userFeedback?.trim() || undefined,
             userSignal,
           }),
         });
@@ -162,8 +166,23 @@ export function useTaskCompanion({
   }, [requestCompanion]);
 
   const sendSignal = useCallback(
-    async (userSignal: Exclude<CompanionUserSignal, "start">) => {
+    async (
+      userSignal: Exclude<CompanionUserSignal, "start" | "user_feedback">,
+    ) => {
       await requestCompanion(userSignal);
+    },
+    [requestCompanion],
+  );
+
+  const sendFeedback = useCallback(
+    async (text: string) => {
+      const trimmedText = text.trim();
+
+      if (!trimmedText) {
+        return;
+      }
+
+      await requestCompanion("user_feedback", trimmedText);
     },
     [requestCompanion],
   );
@@ -178,6 +197,7 @@ export function useTaskCompanion({
     error,
     exitCompanion,
     reset,
+    sendFeedback,
     sendSignal,
     startCompanion,
     status,

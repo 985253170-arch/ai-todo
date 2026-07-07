@@ -1,6 +1,12 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useTaskCompanion } from "@/hooks/useTaskCompanion";
 import type { CompanionUserSignal } from "@/lib/types";
@@ -21,17 +27,22 @@ interface TaskCompanionPanelProps {
   onClose: () => void;
 }
 
+type CompanionButtonSignal = Exclude<
+  CompanionUserSignal,
+  "start" | "user_feedback"
+>;
+
 const SIGNAL_BUTTONS: Array<{
-  signal: Exclude<CompanionUserSignal, "start">;
+  signal: CompanionButtonSignal;
   label: string;
 }> = [
   { signal: "done", label: "我完成了" },
   { signal: "stuck", label: "我卡住了" },
   { signal: "too_hard", label: "太难了" },
-  { signal: "encourage", label: "鼓励我一下" },
 ];
 
 const DEFAULT_ERROR_MESSAGE = "AI 陪伴生成失败，请稍后重试。";
+const MAX_FEEDBACK_LENGTH = 300;
 
 export function TaskCompanionPanel({
   goal,
@@ -45,6 +56,7 @@ export function TaskCompanionPanel({
     currentStep,
     error,
     exitCompanion,
+    sendFeedback,
     sendSignal,
     startCompanion,
     status,
@@ -56,18 +68,21 @@ export function TaskCompanionPanel({
   });
   const hasStartedRef = useRef(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [lastSignal, setLastSignal] = useState<
-    Exclude<CompanionUserSignal, "start"> | null
-  >(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [lastSignal, setLastSignal] = useState<CompanionButtonSignal | null>(
+    null,
+  );
+  const [lastFeedbackText, setLastFeedbackText] = useState<string | null>(null);
   const isLoading = status === "loading";
   const isDone = status === "done";
+  const trimmedFeedbackText = feedbackText.trim();
 
   const visibleSignalButtons = useMemo(() => {
     if (!isDone) {
       return SIGNAL_BUTTONS;
     }
 
-    return SIGNAL_BUTTONS.filter((button) => button.signal === "encourage");
+    return [];
   }, [isDone]);
 
   useEffect(() => {
@@ -99,7 +114,7 @@ export function TaskCompanionPanel({
   };
 
   const handleCopy = async () => {
-    if (!currentStep?.message) {
+    if (!currentStep?.message || isLoading) {
       return;
     }
 
@@ -111,12 +126,42 @@ export function TaskCompanionPanel({
     }
   };
 
-  const handleSendSignal = (signal: Exclude<CompanionUserSignal, "start">) => {
+  const handleSendSignal = (signal: CompanionButtonSignal) => {
     setLastSignal(signal);
+    setLastFeedbackText(null);
     void sendSignal(signal);
   };
 
+  const handleSendFeedback = () => {
+    if (!trimmedFeedbackText || isLoading) {
+      return;
+    }
+
+    setLastFeedbackText(trimmedFeedbackText);
+    setLastSignal(null);
+    setFeedbackText("");
+    void sendFeedback(trimmedFeedbackText);
+  };
+
+  const handleFeedbackKeyDown = (
+    event: KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (event.nativeEvent.isComposing) return;
+
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    handleSendFeedback();
+  };
+
   const handleRetry = () => {
+    if (currentStep && lastFeedbackText) {
+      void sendFeedback(lastFeedbackText);
+      return;
+    }
+
     if (currentStep && lastSignal) {
       void sendSignal(lastSignal);
       return;
@@ -135,7 +180,8 @@ export function TaskCompanionPanel({
           </p>
         </div>
         <button
-          className="min-h-11 shrink-0 rounded-full px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-white hover:text-slate-700"
+          className="min-h-11 shrink-0 rounded-full px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-white hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isLoading}
           onClick={handleExit}
           type="button"
         >
@@ -191,6 +237,32 @@ export function TaskCompanionPanel({
         </p>
       ) : null}
 
+      <div className="mt-3 rounded-xl border border-emerald-100 bg-white/80 p-3">
+        <textarea
+          className="min-h-20 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+          disabled={isLoading}
+          maxLength={MAX_FEEDBACK_LENGTH}
+          onChange={(event) => setFeedbackText(event.target.value)}
+          onKeyDown={handleFeedbackKeyDown}
+          placeholder="写下你现在做到哪了 / 卡在哪里 / 贴一小段草稿"
+          rows={3}
+          value={feedbackText}
+        />
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-xs text-slate-400">
+            {feedbackText.length}/{MAX_FEEDBACK_LENGTH}
+          </span>
+          <button
+            className="min-h-11 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLoading || !trimmedFeedbackText}
+            onClick={handleSendFeedback}
+            type="button"
+          >
+            发送给 AI
+          </button>
+        </div>
+      </div>
+
       <div className="mt-3 grid grid-cols-2 gap-2">
         {visibleSignalButtons.map((button) => (
           <button
@@ -206,14 +278,16 @@ export function TaskCompanionPanel({
           </button>
         ))}
         <button
-          className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-200 hover:text-emerald-700"
+          className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-200 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isLoading}
           onClick={handleCopy}
           type="button"
         >
           {isCopied ? "已复制" : "复制当前步骤"}
         </button>
         <button
-          className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-200 hover:text-emerald-700"
+          className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-200 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isLoading}
           onClick={handleExit}
           type="button"
         >
