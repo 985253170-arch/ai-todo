@@ -17,6 +17,8 @@ interface TaskListProps {
   onRegenerate: () => void;
   activeAssistTaskId: string | null;
   onToggleAssist: (taskId: string) => void;
+  activeCompanionTaskId: string | null;
+  onToggleCompanion: (taskId: string) => void;
   goal: string;
 }
 
@@ -30,7 +32,9 @@ export function TaskList({
   onClearTasks,
   onRegenerate,
   activeAssistTaskId,
+  activeCompanionTaskId,
   onToggleAssist,
+  onToggleCompanion,
   goal,
 }: TaskListProps) {
   return (
@@ -68,9 +72,11 @@ export function TaskList({
               <TaskItem
                 goal={goal}
                 isAssistOpen={activeAssistTaskId === task.id}
+                isCompanionOpen={activeCompanionTaskId === task.id}
                 key={task.id}
                 onToggle={onToggleTask}
                 onToggleAssist={onToggleAssist}
+                onToggleCompanion={onToggleCompanion}
                 task={task}
               />
             ))}

@@ -10,6 +10,7 @@ interface TaskAssistPanelProps {
   taskTitle: string;
   goal: string;
   onClose: () => void;
+  onStartCompanion: () => void;
 }
 
 const DEFAULT_ERROR_MESSAGE = "AI 辅助生成失败，请稍后重试。";
@@ -44,6 +45,7 @@ const ASSIST_BUTTONS: Array<{
 export function TaskAssistPanel({
   goal,
   onClose,
+  onStartCompanion,
   taskId,
   taskTitle,
 }: TaskAssistPanelProps) {
@@ -197,6 +199,19 @@ export function TaskAssistPanel({
           </div>
         </div>
       ) : null}
+
+      <div className="mt-4 border-t border-indigo-100 pt-3">
+        <button
+          className="min-h-11 w-full rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+          onClick={onStartCompanion}
+          type="button"
+        >
+          开始陪我做
+        </button>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          一步一步来，AI 陪你推进当前任务。
+        </p>
+      </div>
     </div>
   );
 }

@@ -251,3 +251,43 @@ export interface AssistErrorResponse {
 }
 
 export type AssistResponse = AssistSuccessResponse | AssistErrorResponse;
+
+export type CompanionUserSignal =
+  | "start"
+  | "done"
+  | "stuck"
+  | "too_hard"
+  | "encourage";
+
+export type CompanionStatus = "active" | "done";
+
+export type CompanionErrorCode =
+  | "UNAUTHORIZED"
+  | "INVALID_REQUEST_BODY"
+  | "INVALID_SIGNAL"
+  | "AI_COMPANION_FAILED"
+  | "AI_RESPONSE_INVALID"
+  | "RATE_LIMITED"
+  | "INTERNAL_ERROR";
+
+export interface CompanionStep {
+  message: string;
+  companionState: CompanionStatus;
+}
+
+export interface CompanionSuccessResponse {
+  success: true;
+  data: CompanionStep;
+}
+
+export interface CompanionErrorResponse {
+  success: false;
+  error: {
+    code: CompanionErrorCode;
+    message: string;
+  };
+}
+
+export type CompanionResponse =
+  | CompanionSuccessResponse
+  | CompanionErrorResponse;

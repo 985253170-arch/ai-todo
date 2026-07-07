@@ -43,6 +43,9 @@ export function MainWorkspace() {
   const [activeAssistTaskId, setActiveAssistTaskId] = useState<string | null>(
     null,
   );
+  const [activeCompanionTaskId, setActiveCompanionTaskId] = useState<
+    string | null
+  >(null);
   const taskHistory = useTaskHistory();
   const taskStats = useTaskStats();
   const taskReview = useTaskReview({
@@ -86,6 +89,14 @@ export function MainWorkspace() {
     setActiveAssistTaskId((currentTaskId) =>
       currentTaskId === taskId ? null : taskId,
     );
+    setActiveCompanionTaskId(null);
+  }
+
+  function handleToggleCompanion(taskId: string) {
+    setActiveCompanionTaskId((currentTaskId) =>
+      currentTaskId === taskId ? null : taskId,
+    );
+    setActiveAssistTaskId(null);
   }
 
   function handleClearTasksWithStats() {
@@ -162,12 +173,14 @@ export function MainWorkspace() {
           {pageStatus === "loading" ? <LoadingState /> : null}
           <TaskList
             activeAssistTaskId={activeAssistTaskId}
+            activeCompanionTaskId={activeCompanionTaskId}
             completedCount={completedCount}
             goal={taskGroup?.goal ?? ""}
             isAllCompleted={isAllCompleted}
             onClearTasks={handleClearTasksWithStats}
             onRegenerate={handleRegenerateWithStats}
             onToggleAssist={handleToggleAssist}
+            onToggleCompanion={handleToggleCompanion}
             onToggleTask={handleToggleTaskWithStats}
             regenerateError={regenerateError}
             tasks={tasks}

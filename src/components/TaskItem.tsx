@@ -1,4 +1,5 @@
 ﻿import { TaskAssistPanel } from "@/components/TaskAssistPanel";
+import { TaskCompanionPanel } from "@/components/TaskCompanionPanel";
 import type { Task } from "@/lib/types";
 
 interface TaskItemProps {
@@ -6,14 +7,18 @@ interface TaskItemProps {
   onToggle: (taskId: string) => void;
   isAssistOpen: boolean;
   onToggleAssist: (taskId: string) => void;
+  isCompanionOpen: boolean;
+  onToggleCompanion: (taskId: string) => void;
   goal: string;
 }
 
 export function TaskItem({
   goal,
   isAssistOpen,
+  isCompanionOpen,
   onToggle,
   onToggleAssist,
+  onToggleCompanion,
   task,
 }: TaskItemProps) {
   return (
@@ -49,6 +54,17 @@ export function TaskItem({
           <TaskAssistPanel
             goal={goal}
             onClose={() => onToggleAssist(task.id)}
+            onStartCompanion={() => onToggleCompanion(task.id)}
+            taskId={task.id}
+            taskTitle={task.title}
+          />
+        </div>
+      ) : null}
+      {isCompanionOpen ? (
+        <div className="mt-2">
+          <TaskCompanionPanel
+            goal={goal}
+            onClose={() => onToggleCompanion(task.id)}
             taskId={task.id}
             taskTitle={task.title}
           />
