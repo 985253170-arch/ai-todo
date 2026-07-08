@@ -379,3 +379,45 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 9. `memory/MEMORY.md` — Memory 索引（按需读取具体条目）
 
 不再需要读取 20+ 个旧阶段 Architecture/Execution Plan 文档。需要查历史时去 `docs/archive/`。
+
+## 15. 🟡 待执行：V3.0A-Frontend-Isolation
+
+V3.0A 架构方案与执行方案已完成（2026-07-08），等待 ChatGPT 审查。
+
+### 文档位置（2026-07-08 更新）
+
+**项目级架构决策文档（根 docs/）**：
+- [Architecture-V3.0A-Frontend-Isolation.md](Architecture-V3.0A-Frontend-Isolation.md) — 为什么做前端隔离、为什么选 `apps/mobile-app`、文档边界
+
+**手机 App 前端内部文档（apps/mobile-app/docs/）**：
+- [Frontend-Architecture.md](../apps/mobile-app/docs/Frontend-Architecture.md) — 前端内部架构设计（目录架构、组件拆分、Mock Service、UI 约束）
+- [Frontend-Execution-Plan.md](../apps/mobile-app/docs/Frontend-Execution-Plan.md) — 前端执行方案（Codex 操作手册，48 个文件清单 + 完整代码片段）
+
+**文档边界规则**：
+- 根 `docs/` 管项目级决策（为什么做）
+- `apps/mobile-app/docs/` 管前端内部设计和执行（怎么做）
+
+### 当前工程状态
+
+- `apps/mobile-app/` 目前**只创建了 `docs/` 子目录**，还没有开始创建代码工程
+- 没有 `package.json`、`app/`、`components/` 等实际前端代码文件
+- 下一步仍然需要 ChatGPT 审查，审查通过后才交给 Codex 创建 `apps/mobile-app` 前端工程代码
+
+### V3.0A 核心方向
+
+在 `apps/mobile-app/` 下创建独立 Next.js 手机 App 前端工程，实现四 Tab 信息架构（今日/足迹/成长/我的），使用 mock service，验证成熟后再合并回主项目路由。
+
+### 锁定原则（8 条）
+
+1. 新前端放在 `apps/mobile-app/`
+2. 不直接改现有 `src/app/api`
+3. 不直接改现有 Supabase / Auth / AI 逻辑
+4. 不直接改 prompts
+5. 前端先用 mock service
+6. 页面组件不能直接写死数据
+7. 先实现四 Tab App
+8. 后续通过 service 层替换为真实后端
+
+### 禁止操作
+
+不允许修改 `src/`、`package.json`、API Route、Supabase、prompts、数据库 schema。不允许删除旧文档。
