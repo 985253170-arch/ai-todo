@@ -2,7 +2,7 @@
 
 > 状态：当前项目交接文档
 > 用途：新会话 / Claude Code / Codex 接手项目时优先读取
-> 更新日期：2026-07-08（V2.6 已完成）
+> 更新日期：2026-07-08（V2.7 已完成）
 > 原则：只记录当前有效状态，不重复旧阶段完整方案
 
 ---
@@ -39,6 +39,18 @@ AI Todo 是**手机端优先的 AI 行动教练**，不是普通 Todo List。
 - Cloudflare Turnstile 防机器人
 - 自定义 SMTP（阿里云邮件推送）
 - 错误提示脱敏
+
+### 任务难度与数量动态调整（V2.7 新增）
+- 用户多次卡住 / 太难 / 没时间后，AI 给出任务调整建议
+- 支持三种调整类型：downgraded（降级版）/ tomorrow（明日继续）/ keep_visible（保留可见）
+- 用户必须点击"接受调整"才生效（Human-in-the-Loop），AI 不自动执行
+- "不用，继续"不发送 done 信号，不自动请求 AI
+- resolved_today 四态加入任务执行逻辑（completed / current / locked / resolved_today）
+- tomorrow / keep_visible 不自动完成，今天不阻塞后续任务
+- downgraded 仍是 current，仍阻塞后续任务
+- 跨天恢复时自动清理 tomorrow / keep_visible adjustment
+- 不改数据库 schema · 不改 save/load route · 不改统计口径
+- 不实现 postponed · 不做批量调整
 
 ### 页面结构
 - `/` Landing Page / 产品首页
@@ -92,7 +104,9 @@ src/
 │   │   ├── task-group/migrate/route.ts# 匿名→登录迁移
 │   │   ├── task-groups/history/route.ts# 历史记录（游标分页）
 │   │   ├── task-groups/stats/route.ts # 统计
-│   │   └── task-groups/review/route.ts# AI 复盘
+│   │   ├── task-groups/review/route.ts# AI 复盘
+│   │   ├── task-assist/route.ts     # AI 辅助执行
+│   │   └── task-companion/route.ts  # 陪伴模式
 │   ├── app/page.tsx       # /app 主工作台
 │   ├── login/page.tsx     # /login 登录注册
 │   ├── forgot-password/   # 忘记密码
@@ -182,8 +196,9 @@ src/
 - **序列上下文感知**：AI 知道当前任务在列表中的位置（第几步/共几步）
 - **未完成任务跨天继承**：昨天未完成的任务今天自动带入
 - **任务顺序执行**：locked 任务不能跳过，完成当前任务后下一任务才解锁
+- **任务动态调整（V2.7）**：用户多次反馈卡住/太难/没时间后，AI 给出 [ADJUST] 建议。支持 downgraded / tomorrow / keep_visible 三种调整。用户接受后生效，decline 不触发 AI 请求。resolved_today 状态不阻塞后续任务
 
-### AI 边界规则（V2.5.3）
+### AI 边界规则（V2.5.3 + V2.7）
 - AI 不替用户完成需要本人承担结果的最终动作
 - AI 可以主动提供：信息、材料、框架、模板、示例、问题清单、检查清单、参考表达、低风险草稿、第一句开头、可选方案
 - 低风险草稿只能是练习版/片段/开头/可替换句式/半成品，不能是完整最终稿
@@ -212,6 +227,9 @@ src/
 - 只有"当前任务"（解锁态）才显示 AI 辅助 / 陪伴入口
 - 完成当前任务后，下一任务自动解锁
 - 未完成任务跨天继承到新一天
+- resolved_today 状态的任务（tomorrow / keep_visible）今天不阻塞后续任务，但也不自动完成
+- downgraded 任务仍是 current 状态，仍阻塞后续任务
+- 跨天恢复时自动清理 tomorrow / keep_visible adjustment，保留 downgraded
 - AI 不能建议用户跳过当前任务或先做后面的任务
 - 完成权始终在用户手中
 - AI 小步验收机制：AI 判断当前小步质量（基本可以过 / 还差一点 / 不算完成 / 可以勾选完成）
@@ -225,78 +243,94 @@ src/
 - `docs/archive/` 还包含 `phase-12/` `phase-13/` `phase-14/` `phase-15/` `v1/`（更早归档）
 - **旧文档禁止删除**，需要查历史时去 archive
 
-## 9. 🔴 当前活跃 Phase：V2.7 架构设计阶段
+## 9. 🟢 当前状态：V2.7 已完成，V3.0A 待启动
 
 ### 9.1 V2.6 已完成 ✅
 
 V2.6（任务内受控反馈框与 AI 验收机制）已实现并通过最终验收。
 
-**V2.6 已交付能力：**
-- 删除"鼓励我一下"按钮
-- 新增任务内受控反馈输入框（300 字上限）
-- 用户可输入当前进展、卡点、草稿、时间限制
-- AI 基于 userFeedback 继续推进当前任务
-- AI 小步验收机制（基本可以过 / 还差一点 / 不算完成 / 可以勾选完成）
-- AI 可以建议"你可以自己勾选完成"，但不能自动勾选
-- userFeedback 不入 stepHistory，不存数据库
-- 没有新增聊天 Tab、消息气泡 UI、对话历史存储
-
 **已提交 commit：** `718ec47 feat: add V2.6 task feedback input`
 
-### 9.2 当前状态
+### 9.2 V2.7 已完成 ✅
 
-V2.7 架构设计尚未开始。
+V2.7（任务难度与数量动态调整）已实现并通过全部验收环节：
+- ✅ Claude Code Code Review
+- ✅ P0 parser regex 修复复审
+- ✅ ChatGPT 最终把关
+- ✅ 用户手动验收
 
-V2.7 核心方向：**任务难度与数量动态调整**。用户多次反馈"太难 / 卡住 / 没时间"后，AI 给出任务调整建议（减量、降难、标记明日继续 / 暂缓 / 保留但不要求今天完成）；用户确认后才调整，且不能绕过 locked 顺序执行。
+**最新提交：** `cd8b99f feat: add V2.7 task adjustment flow`
 
-### 9.3 V2.6 阶段文档（已完成，仅供参考）
+**V2.7 已交付能力：**
+- 用户多次卡住 / 太难 / 没时间后，AI 给出 [ADJUST] 任务调整建议
+- 支持三种调整：downgraded（降级版）/ tomorrow（明日继续）/ keep_visible（保留可见）
+- Human-in-the-Loop：用户点击"接受调整"才生效，AI 不自动执行
+- "不用，继续"不发送 done，不自动请求 AI
+- resolved_today 四态任务执行（completed / current / locked / resolved_today）
+- tomorrow / keep_visible 今天不阻塞后续任务，不自动完成
+- downgraded 仍是 current，仍阻塞后续任务
+- 跨天恢复时自动清理 tomorrow / keep_visible adjustment
+- 不改数据库 · 不改 save/load route · 不改统计口径
+- 不实现 postponed · 不做批量调整
+
+**V2.7 修改的 11 个代码文件：**
+1. `src/lib/types.ts`
+2. `src/lib/task-execution.ts`
+3. `src/lib/task-companion-parser.ts`
+4. `src/prompts/task-companion.ts`
+5. `src/app/api/task-companion/route.ts`
+6. `src/hooks/useTaskCompanion.ts`
+7. `src/hooks/useTaskGroup.ts`
+8. `src/components/TaskCompanionPanel.tsx`
+9. `src/components/TaskItem.tsx`
+10. `src/components/TaskList.tsx`
+11. `src/components/MainWorkspace.tsx`
+
+### 9.3 V2.6 + V2.7 阶段文档
 
 | 文档 | 路径 | 状态 |
 |------|------|:--:|
 | 路线规划 | `docs/Roadmap-V2.6-to-V3.0A-AI-Execution-Loop.md` | ✅ |
 | V2.6 架构方案 | `docs/Architecture-V2.6-Task-Feedback-Input.md` | ✅ |
-| 版本锁定关系 | `docs/Upgrade-Lock-V2.6-to-V3.0A.md` | ✅ |
 | V2.6 执行方案 | `docs/Execution-Plan-V2.6-Task-Feedback-Input.md` | ✅ |
+| 版本锁定关系 | `docs/Upgrade-Lock-V2.6-to-V3.0A.md` | ✅ |
+| V2.7 架构方案 | `docs/Architecture-V2.7-Task-Difficulty-Adjustment.md` | ✅ |
+| V2.7 执行方案 | `docs/Execution-Plan-V2.7-Task-Difficulty-Adjustment.md` | ✅ |
 
-### 9.4 下一步工作流
+### 9.4 下一阶段：V3.0A
 
-```
-当前 ──→ Claude Code 写 V2.7 架构方案（Architecture-V2.7-*.md）
-         ↓
-         ChatGPT 审查架构方案
-         ↓
-         Claude Code 写执行方案（Execution-Plan-V2.7-*.md）
-         ↓
-         ChatGPT 审查执行方案
-         ↓
-         Codex 按执行方案实现代码
-         ↓
-         Claude Code Code Review
-         ↓
-         ChatGPT 最终把关 → commit
-```
+V3.0A 核心方向：**App Shell / Web 与移动端结构分离 / 页面结构重组**。
 
-### 9.5 新会话启动后第一件事
+⚠️ **重要提醒**：V3.0A 开始前，必须先重新审查 `docs/Architecture-V3.0-Web-App-Separation.md`。该文档早于 V2.6 / V2.7 完成，可能需要基于新的 Task 类型（adjustment 字段）和 resolved_today 状态进行修订。不要直接按旧架构文档进入 V3.0A 实现。
 
-**确认当前 Phase 为 V2.7 架构设计阶段。** 下一步是写 V2.7 架构方案。
+**当前不安排 Codex 直接进入 V3.0A 写代码。** 下一步应由 Claude Code 先审查 V3.0 架构文档是否需要修订，再由 ChatGPT 确认后进入架构/执行方案阶段。
 
 ## 10. V2.6 → V3.0A 版本路线总览
 
 ```
-V2.5.3 ✅ → V2.6 ✅ → V2.7 🔜 → V3.0A 📋
+V2.5.3 ✅ → V2.6 ✅ → V2.7 ✅ → V3.0A 🔜
   AI输出      用户→AI    AI自适应     App Shell
   能力升级    反馈通道    任务调整     承载所有能力
 ```
 
-**版本依赖**：V2.5.3→V2.6 ✅（已完成）→ V2.7（硬依赖）→ V3.0A（强建议依赖）
-
-**V2.7 核心方向**：用户多次反馈"太难 / 卡住 / 没时间"后，AI 给出任务调整建议（减量、降难、标记明日继续 / 暂缓 / 保留但不要求今天完成）；用户确认后才调整，且不能绕过 locked 顺序执行。
+**版本依赖**：V2.5.3→V2.6 ✅（已完成）→ V2.7 ✅（已完成）→ V3.0A（强建议依赖）
 
 **不允许多版本并行开发。必须严格按顺序推进。**
 
 详细锁定关系见 [`docs/Upgrade-Lock-V2.6-to-V3.0A.md`](docs/Upgrade-Lock-V2.6-to-V3.0A.md)（新会话必读）。
 
-## 11. Claude Code / Codex 协作流程
+## 11. 长期未跟踪项
+
+以下文件/目录长期存在于工作区但未被 Git 跟踪，持续忽略不处理：
+
+- `.agents/`
+- `.claude/`
+- `.codex/`
+- `skills-lock.json`
+- `start`
+- `stop`
+
+## 12. Claude Code / Codex 协作流程
 
 ```
 ChatGPT：阶段把关 / 产品判断 / 给 Claude Code 和 Codex 写指令
@@ -317,7 +351,7 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 8. Commit / Push
 ```
 
-## 12. 禁止事项
+## 13. 禁止事项
 
 - 不随便改数据库 schema / migration
 - 不随便改 Auth 核心逻辑
@@ -330,7 +364,7 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 - 不跳过 Review 环节
 - 不删除任何文档（归档 ≠ 删除）
 
-## 13. 新会话最小上下文
+## 14. 新会话最小上下文
 
 以后新会话只需要带：
 
@@ -338,9 +372,9 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 2. `docs/Project-State-Handoff.md` — 本文档（项目当前状态）⭐
 3. `docs/Roadmap-V2.6-to-V3.0A-AI-Execution-Loop.md` — V2.6→V3.0A 路线总览
 4. `docs/Upgrade-Lock-V2.6-to-V3.0A.md` — 版本锁定关系（新会话必读）⭐
-5. `docs/Architecture-V2.6-Task-Feedback-Input.md` — V2.6 架构方案（已完成，参考）
-6. `docs/Execution-Plan-V2.6-Task-Feedback-Input.md` — V2.6 执行方案（已完成，参考）
-7. `docs/Architecture-V3.0-Web-App-Separation.md` — V3.0 架构（注意：含需修正的旧判断）
+5. `docs/Architecture-V2.7-Task-Difficulty-Adjustment.md` — V2.7 架构方案（已完成，参考）
+6. `docs/Execution-Plan-V2.7-Task-Difficulty-Adjustment.md` — V2.7 执行方案（已完成，参考）
+7. `docs/Architecture-V3.0-Web-App-Separation.md` — V3.0 架构（⚠️ 需先修订再进入 V3.0A）
 8. `docs/PRD-V2.0.md` — V2.0 产品规划
 9. `memory/MEMORY.md` — Memory 索引（按需读取具体条目）
 
