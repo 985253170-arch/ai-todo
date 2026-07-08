@@ -11,6 +11,11 @@
 > 若本文件与 `apps/mobile-app/docs/UI-Spec-Design-Screenshot-Lock-V3.0A.md` 存在冲突，
 > 以后者为最高优先级。
 > 后续所有 apps/mobile-app 前端 UI 实现与 Review，必须优先按设计稿锁定文档逐页对照。
+>
+> **手机视口补充说明**：
+> 所有 `apps/mobile-app` 前端页面还必须遵守
+> `apps/mobile-app/docs/Mobile-Viewport-Layout-Lock-V3.0A.md`。
+> 如果页面结构正确但在 390×844 手机视口下变成长页面，仍视为不通过。
 
 ---
 
@@ -1002,11 +1007,22 @@ AI 当前步骤
 10. 是否出现聊天气泡 / 消息历史列表。
 11. 是否出现普通 Todo List 密集勾选体验。
 12. 是否出现强 SaaS 工具风。
-13. 用户可见 UI 是否只显示“清行”。
+13. 用户可见 UI 是否只显示”清行”。
 14. 是否仍无 `AI Todo Mobile` / 用户可见 `AI Todo`。
 15. 是否 lint 通过。
 16. 是否 build 通过。
 17. 是否需要用户视觉验收。
+
+### 19.1 手机视口验收（新增 — 自 Mobile-Viewport-Layout-Lock-V3.0A.md）
+
+18. 是否在 390×844 视口下截图验收。
+19. 任务界面首屏是否所有核心模块可见（退出栏、标题、TaskProgressCard、CurrentTaskCard、”后面再做”、底部 Tab）。
+20. 底部 Tab 是否首屏可见，无需任何滚动。
+21. 任务界面是否变成长网页 — 如内容超出 390×844 视口 20% 以上，视为 P0。
+22. 是否使用 `min-h-screen` / `min-h-[calc(100vh-...)]` 导致页面高度无上限。
+23. UpcomingTaskList 是否设置 `max-h` + `overflow-y-auto`，而非撑开整页。
+24. 卡片高度是否在 Mobile-Viewport-Layout-Lock 预算范围内。
+25. 整页是否需要大量滚动（> 200px）才能看到底部 Tab。
 
 ---
 

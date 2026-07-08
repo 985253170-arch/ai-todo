@@ -21,11 +21,12 @@ apps/mobile-app/docs/UI-Spec-Design-Screenshot-Lock-V3.0A.md
 
 ```txt
 1. apps/mobile-app/docs/UI-Spec-Design-Screenshot-Lock-V3.0A.md
-2. apps/mobile-app/docs/Frontend-UI-Boundary-Lock-V3.0A.md
-3. apps/mobile-app/docs/UI-Spec-Mobile-App.md
-4. apps/mobile-app/docs/Frontend-Architecture.md
-5. apps/mobile-app/docs/Frontend-Execution-Plan.md
-6. apps/mobile-app/docs/Codex-Frontend-Implementation-Workflow.md
+2. apps/mobile-app/docs/Mobile-Viewport-Layout-Lock-V3.0A.md
+3. apps/mobile-app/docs/Frontend-UI-Boundary-Lock-V3.0A.md
+4. apps/mobile-app/docs/UI-Spec-Mobile-App.md
+5. apps/mobile-app/docs/Frontend-Architecture.md
+6. apps/mobile-app/docs/Frontend-Execution-Plan.md
+7. apps/mobile-app/docs/Codex-Frontend-Implementation-Workflow.md
 ```
 
 ---
@@ -728,20 +729,33 @@ Codex 在任何前端 UI 任务中必须遵守：
 
 ```txt
 1. 是否读取 UI-Spec-Design-Screenshot-Lock-V3.0A.md
-2. 是否与对应截图页面结构一致
-3. 是否误把多个截图合并成一个页面
-4. 是否把今日首页做成任务列表页
-5. 是否把任务执行页做成聊天页
-6. 是否出现双重 AppShell
-7. 是否底部 Tab 正确显示
-8. 是否页面职责正确
-9. 是否出现强 SaaS 工具风
-10. 是否出现强紫色主视觉
-11. 是否用户可见品牌符合用户确认口径
-12. 是否新增了截图外的功能模块
-13. 是否触碰禁止文件范围
-14. lint 是否通过
-15. build 是否通过
+2. 是否读取 Mobile-Viewport-Layout-Lock-V3.0A.md
+3. 是否与对应截图页面结构一致
+4. 是否误把多个截图合并成一个页面
+5. 是否把今日首页做成任务列表页
+6. 是否把任务执行页做成聊天页
+7. 是否出现双重 AppShell
+8. 是否底部 Tab 正确显示
+9. 是否页面职责正确
+10. 是否出现强 SaaS 工具风
+11. 是否出现强紫色主视觉
+12. 是否用户可见品牌符合用户确认口径
+13. 是否新增了截图外的功能模块
+14. 是否触碰禁止文件范围
+15. lint 是否通过
+16. build 是否通过
+```
+
+### 9.1 手机视口验收（新增 — 自 Mobile-Viewport-Layout-Lock-V3.0A.md）
+
+```txt
+17. 是否在 390×844 视口下截图验收
+18. 任务界面首屏是否所有核心模块可见
+19. 底部 Tab 是否首屏可见，无需滚动
+20. 任务界面是否变成长网页（P0）
+21. 是否使用 min-h-screen / min-h-[calc(100vh-...)] 导致无上限
+22. UpcomingTaskList 是否设 max-h + overflow-y-auto
+23. 页面内容总高度是否超出 390×844 可用高度 20% 以上
 ```
 
 ---
