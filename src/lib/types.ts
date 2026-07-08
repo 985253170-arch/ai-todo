@@ -12,6 +12,28 @@ export interface Task {
   completed: boolean;
   createdAt: string;
   updatedAt: string;
+  adjustment?: TaskAdjustment;
+}
+
+export type TaskAdjustmentType = "downgraded" | "tomorrow" | "keep_visible";
+
+export interface TaskAdjustment {
+  type: TaskAdjustmentType;
+  originalTitle?: string;
+  reason?: string;
+  adjustedAt: string;
+}
+
+export interface TaskAdjustmentSuggestion {
+  type: TaskAdjustmentType;
+  suggestion: string;
+  alternativeTitle?: string;
+}
+
+export interface ApplyTaskAdjustmentInput {
+  type: TaskAdjustmentType;
+  reason?: string;
+  alternativeTitle?: string;
 }
 
 export interface TaskGroup {
@@ -274,6 +296,7 @@ export type CompanionErrorCode =
 export interface CompanionStep {
   message: string;
   companionState: CompanionStatus;
+  adjustmentSuggestion?: TaskAdjustmentSuggestion;
 }
 
 export interface CompanionSuccessResponse {

@@ -7,6 +7,7 @@ import type {
   CompanionResponse,
   CompanionStep,
   CompanionUserSignal,
+  TaskAdjustmentType,
 } from "@/lib/types";
 
 interface TaskCompanionSequenceContext {
@@ -15,6 +16,13 @@ interface TaskCompanionSequenceContext {
   completedSteps?: number;
   previousTaskTitle?: string;
   nextTaskTitle?: string;
+}
+
+interface CompanionSignalStats {
+  doneCount: number;
+  stuckCount: number;
+  tooHardCount: number;
+  feedbackDifficultyCount: number;
 }
 
 interface UseTaskCompanionOptions {
@@ -37,12 +45,26 @@ interface UseTaskCompanionReturn {
     userSignal: Exclude<CompanionUserSignal, "start" | "user_feedback">,
   ) => Promise<void>;
   sendFeedback: (text: string) => Promise<void>;
+  declineAdjustment: (type: TaskAdjustmentType) => void;
   exitCompanion: () => void;
   reset: () => void;
 }
 
 const DEFAULT_ERROR_MESSAGE = "AI 陪伴生成失败，请稍后重试。";
 const NETWORK_ERROR_MESSAGE = "网络连接失败，请检查网络后重试。";
+const DIFFICULTY_FEEDBACK_PATTERNS = [
+  "太难",
+  "做不动",
+  "没时间",
+  "来不及",
+  "卡住",
+  "太大",
+  "很难",
+  "不想做",
+  "做不完",
+  "hard",
+  "stuck",
+];
 
 const COMPANION_ERROR_MESSAGES: Record<CompanionErrorCode, string> = {
   UNAUTHORIZED: "请先登录后再使用陪伴模式。",
@@ -56,6 +78,23 @@ const COMPANION_ERROR_MESSAGES: Record<CompanionErrorCode, string> = {
 
 function keepRecentSteps(steps: string[]) {
   return steps.slice(-5);
+}
+
+function createSignalStats(): CompanionSignalStats {
+  return {
+    doneCount: 0,
+    feedbackDifficultyCount: 0,
+    stuckCount: 0,
+    tooHardCount: 0,
+  };
+}
+
+function isDifficultyFeedback(text: string) {
+  const normalizedText = text.toLowerCase();
+
+  return DIFFICULTY_FEEDBACK_PATTERNS.some((pattern) =>
+    normalizedText.includes(pattern),
+  );
 }
 
 export function useTaskCompanion({
@@ -72,6 +111,10 @@ export function useTaskCompanion({
   );
   const inflightRef = useRef(false);
   const requestIdRef = useRef(0);
+  const signalStatsRef = useRef<CompanionSignalStats>(createSignalStats());
+  const dismissedAdjustmentTypesRef = useRef<Set<TaskAdjustmentType>>(
+    new Set(),
+  );
 
   const reset = useCallback(() => {
     requestIdRef.current += 1;
@@ -81,6 +124,8 @@ export function useTaskCompanion({
     setError(null);
     setStepHistory([]);
     setActiveSignal(null);
+    signalStatsRef.current = createSignalStats();
+    dismissedAdjustmentTypesRef.current.clear();
   }, []);
 
   const requestCompanion = useCallback(
@@ -108,6 +153,10 @@ export function useTaskCompanion({
             currentStep: currentStepMessage,
             currentStepNumber: sequenceContext?.currentStepNumber,
             goal,
+            signalStats: signalStatsRef.current,
+            declinedAdjustmentTypes: Array.from(
+              dismissedAdjustmentTypesRef.current,
+            ),
             nextTaskTitle: sequenceContext?.nextTaskTitle,
             previousTaskTitle: sequenceContext?.previousTaskTitle,
             stepHistory: historySnapshot,
@@ -169,6 +218,18 @@ export function useTaskCompanion({
     async (
       userSignal: Exclude<CompanionUserSignal, "start" | "user_feedback">,
     ) => {
+      if (userSignal === "done") {
+        signalStatsRef.current.doneCount += 1;
+      }
+
+      if (userSignal === "stuck") {
+        signalStatsRef.current.stuckCount += 1;
+      }
+
+      if (userSignal === "too_hard") {
+        signalStatsRef.current.tooHardCount += 1;
+      }
+
       await requestCompanion(userSignal);
     },
     [requestCompanion],
@@ -182,10 +243,18 @@ export function useTaskCompanion({
         return;
       }
 
+      if (isDifficultyFeedback(trimmedText)) {
+        signalStatsRef.current.feedbackDifficultyCount += 1;
+      }
+
       await requestCompanion("user_feedback", trimmedText);
     },
     [requestCompanion],
   );
+
+  const declineAdjustment = useCallback((type: TaskAdjustmentType) => {
+    dismissedAdjustmentTypesRef.current.add(type);
+  }, []);
 
   const exitCompanion = useCallback(() => {
     reset();
@@ -194,6 +263,7 @@ export function useTaskCompanion({
   return {
     activeSignal,
     currentStep,
+    declineAdjustment,
     error,
     exitCompanion,
     reset,

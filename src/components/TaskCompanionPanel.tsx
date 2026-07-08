@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import { useTaskCompanion } from "@/hooks/useTaskCompanion";
-import type { CompanionUserSignal } from "@/lib/types";
+import type { CompanionUserSignal, TaskAdjustmentSuggestion } from "@/lib/types";
 
 interface TaskCompanionSequenceContext {
   currentStepNumber: number;
@@ -24,6 +24,10 @@ interface TaskCompanionPanelProps {
   taskTitle: string;
   goal: string;
   sequenceContext?: TaskCompanionSequenceContext;
+  onAcceptAdjustment?: (
+    taskId: string,
+    suggestion: TaskAdjustmentSuggestion,
+  ) => void;
   onClose: () => void;
 }
 
@@ -46,6 +50,7 @@ const MAX_FEEDBACK_LENGTH = 300;
 
 export function TaskCompanionPanel({
   goal,
+  onAcceptAdjustment,
   onClose,
   sequenceContext,
   taskId,
@@ -54,6 +59,7 @@ export function TaskCompanionPanel({
   const {
     activeSignal,
     currentStep,
+    declineAdjustment,
     error,
     exitCompanion,
     sendFeedback,
@@ -73,9 +79,17 @@ export function TaskCompanionPanel({
     null,
   );
   const [lastFeedbackText, setLastFeedbackText] = useState<string | null>(null);
+  const [hiddenAdjustmentKey, setHiddenAdjustmentKey] = useState<string | null>(null);
   const isLoading = status === "loading";
   const isDone = status === "done";
   const trimmedFeedbackText = feedbackText.trim();
+  const adjustmentSuggestion = currentStep?.adjustmentSuggestion;
+  const adjustmentKey = adjustmentSuggestion
+    ? `${adjustmentSuggestion.type}:${adjustmentSuggestion.suggestion}:${adjustmentSuggestion.alternativeTitle ?? ""}`
+    : null;
+  const shouldShowAdjustmentSuggestion = Boolean(
+    adjustmentSuggestion && adjustmentKey !== hiddenAdjustmentKey,
+  );
 
   const visibleSignalButtons = useMemo(() => {
     if (!isDone) {
@@ -93,6 +107,7 @@ export function TaskCompanionPanel({
     hasStartedRef.current = true;
     void startCompanion();
   }, [startCompanion]);
+
 
   useEffect(() => {
     if (!isCopied) {
@@ -154,6 +169,24 @@ export function TaskCompanionPanel({
 
     event.preventDefault();
     handleSendFeedback();
+  };
+
+  const handleAcceptAdjustment = () => {
+    if (!adjustmentSuggestion) {
+      return;
+    }
+
+    onAcceptAdjustment?.(taskId, adjustmentSuggestion);
+    setHiddenAdjustmentKey(adjustmentKey);
+  };
+
+  const handleDeclineAdjustment = () => {
+    if (!adjustmentSuggestion) {
+      return;
+    }
+
+    declineAdjustment(adjustmentSuggestion.type);
+    setHiddenAdjustmentKey(adjustmentKey);
   };
 
   const handleRetry = () => {
@@ -224,6 +257,40 @@ export function TaskCompanionPanel({
           <p className="whitespace-pre-line text-sm leading-6 text-slate-700">
             {currentStep.message}
           </p>
+        ) : null}
+
+        {shouldShowAdjustmentSuggestion && adjustmentSuggestion ? (
+          <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+            <p className="text-xs font-semibold text-amber-900">
+              AI 建议调整当前任务
+            </p>
+            <p className="mt-1 text-sm leading-6 text-amber-900">
+              {adjustmentSuggestion.suggestion}
+            </p>
+            {adjustmentSuggestion.alternativeTitle ? (
+              <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-xs leading-5 text-amber-900">
+                降级为：{adjustmentSuggestion.alternativeTitle}
+              </p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                className="min-h-11 rounded-full bg-amber-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isLoading}
+                onClick={handleAcceptAdjustment}
+                type="button"
+              >
+                接受调整
+              </button>
+              <button
+                className="min-h-11 rounded-full bg-white px-4 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isLoading}
+                onClick={handleDeclineAdjustment}
+                type="button"
+              >
+                不用，继续
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {status === "idle" ? (

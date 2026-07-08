@@ -1,11 +1,11 @@
-﻿import { CompleteAllPrompt } from "@/components/CompleteAllPrompt";
+import { CompleteAllPrompt } from "@/components/CompleteAllPrompt";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { TaskItem } from "@/components/TaskItem";
 import { TaskProgress } from "@/components/TaskProgress";
 import { UI_TEXT } from "@/lib/constants";
 import { getTaskExecutionStatus } from "@/lib/task-execution";
-import type { Task } from "@/lib/types";
+import type { Task, TaskAdjustmentSuggestion } from "@/lib/types";
 
 interface TaskListProps {
   tasks: Task[];
@@ -20,6 +20,10 @@ interface TaskListProps {
   onToggleAssist: (taskId: string) => void;
   activeCompanionTaskId: string | null;
   onToggleCompanion: (taskId: string) => void;
+  onAcceptAdjustment: (
+    taskId: string,
+    suggestion: TaskAdjustmentSuggestion,
+  ) => void;
   goal: string;
 }
 
@@ -34,6 +38,7 @@ export function TaskList({
   onRegenerate,
   activeAssistTaskId,
   activeCompanionTaskId,
+  onAcceptAdjustment,
   onToggleAssist,
   onToggleCompanion,
   goal,
@@ -79,6 +84,7 @@ export function TaskList({
                   isAssistOpen={activeAssistTaskId === task.id}
                   isCompanionOpen={activeCompanionTaskId === task.id}
                   key={task.id}
+                  onAcceptAdjustment={onAcceptAdjustment}
                   onToggle={onToggleTask}
                   onToggleAssist={onToggleAssist}
                   onToggleCompanion={onToggleCompanion}

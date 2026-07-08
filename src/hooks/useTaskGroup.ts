@@ -11,11 +11,13 @@ import {
 import { isTaskGroupFromToday } from "@/lib/date-utils";
 import { loadTaskGroup, removeTaskGroup, saveTaskGroup } from "@/lib/storage";
 import {
+  clearTodayResolvedAdjustmentsForNewDay,
   isTaskLocked,
   shouldCarryOverTaskGroup,
 } from "@/lib/task-execution";
 import type {
   ApiErrorCode,
+  ApplyTaskAdjustmentInput,
   CloudTaskGroupResponse,
   GenerateTasksResponse,
   PageStatus,
@@ -164,14 +166,23 @@ export function useTaskGroup() {
     const supabase = createSupabaseBrowserClient();
 
     function applyRestoredTaskGroup(restoredTaskGroup: TaskGroup) {
-      const shouldCarryOver = shouldCarryOverTaskGroup(restoredTaskGroup);
+      const cleanupResult =
+        clearTodayResolvedAdjustmentsForNewDay(restoredTaskGroup);
+      const taskGroupToApply = cleanupResult.taskGroup;
+      const shouldCarryOver = shouldCarryOverTaskGroup(taskGroupToApply);
 
-      setTaskGroup(restoredTaskGroup);
+      if (cleanupResult.changed) {
+        saveTaskGroup(taskGroupToApply, storageScopeRef.current ?? getDeviceStorageScope(getOrCreateDeviceId()));
+      }
+
+      setTaskGroup(taskGroupToApply);
       setPageStatus("success");
       setShowCarryoverPrompt(shouldCarryOver);
       setShowNewDayPrompt(
-        !shouldCarryOver && !isTaskGroupFromToday(restoredTaskGroup),
+        !shouldCarryOver && !isTaskGroupFromToday(taskGroupToApply),
       );
+
+      return taskGroupToApply;
     }
 
     async function restoreForAuthUser(userId: string | null) {
@@ -241,8 +252,8 @@ export function useTaskGroup() {
         return;
       }
 
-      applyRestoredTaskGroup(cloudTaskGroup);
-      saveTaskGroup(cloudTaskGroup, storageScope);
+      const restoredCloudTaskGroup = applyRestoredTaskGroup(cloudTaskGroup);
+      saveTaskGroup(restoredCloudTaskGroup, storageScope);
       reportTaskGroupRestore(authScope, "cloud");
     }
 
@@ -435,6 +446,77 @@ export function useTaskGroup() {
     });
   }
 
+
+  function applyTaskAdjustment(
+    taskId: string,
+    input: ApplyTaskAdjustmentInput,
+  ) {
+    setTaskGroup((currentTaskGroup) => {
+      if (!currentTaskGroup) {
+        return currentTaskGroup;
+      }
+
+      const taskToAdjust = currentTaskGroup.tasks.find(
+        (task) => task.id === taskId,
+      );
+
+      if (!taskToAdjust) {
+        return currentTaskGroup;
+      }
+
+      if (input.type === "downgraded" && !input.alternativeTitle?.trim()) {
+        return currentTaskGroup;
+      }
+
+      const now = new Date().toISOString();
+      const updatedTaskGroup: TaskGroup = {
+        ...currentTaskGroup,
+        tasks: currentTaskGroup.tasks.map((task) => {
+          if (task.id !== taskId) {
+            return task;
+          }
+
+          const reason = input.reason?.trim() || undefined;
+
+          if (input.type === "downgraded") {
+            const alternativeTitle = input.alternativeTitle?.trim();
+
+            if (!alternativeTitle) {
+              return task;
+            }
+
+            return {
+              ...task,
+              adjustment: {
+                adjustedAt: now,
+                originalTitle: task.adjustment?.originalTitle ?? task.title,
+                reason,
+                type: "downgraded",
+              },
+              title: alternativeTitle,
+              updatedAt: now,
+            };
+          }
+
+          return {
+            ...task,
+            adjustment: {
+              adjustedAt: now,
+              reason,
+              type: input.type,
+            },
+            updatedAt: now,
+          };
+        }),
+        updatedAt: now,
+      };
+
+      saveCurrentTaskGroup(updatedTaskGroup);
+      void saveTaskGroupToCloud(getOrCreateDeviceId(), updatedTaskGroup);
+      return updatedTaskGroup;
+    });
+  }
+
   function handleClearTasks() {
     setTaskGroup(null);
     removeCurrentTaskGroup();
@@ -484,6 +566,7 @@ export function useTaskGroup() {
     setInputGoal: handleInputGoalChange,
     handleGenerate,
     handleToggleTask,
+    applyTaskAdjustment,
     handleClearTasks,
     handleContinueCarryover,
     handleRegenerate,

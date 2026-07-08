@@ -15,6 +15,8 @@ import { useTaskGroup } from "@/hooks/useTaskGroup";
 import { useTaskReview } from "@/hooks/useTaskReview";
 import { useTaskStats } from "@/hooks/useTaskStats";
 import { getOrCreateDeviceId } from "@/lib/device-id";
+import { isTaskTodayResolved } from "@/lib/task-execution";
+import type { TaskAdjustmentSuggestion } from "@/lib/types";
 
 export function MainWorkspace() {
   const historyPanelRef = useRef<HTMLDivElement>(null);
@@ -36,6 +38,7 @@ export function MainWorkspace() {
     setInputGoal,
     handleGenerate,
     handleToggleTask,
+    applyTaskAdjustment,
     handleClearTasks,
     handleContinueCarryover,
     handleRegenerate,
@@ -50,6 +53,12 @@ export function MainWorkspace() {
   >(null);
   const taskHistory = useTaskHistory();
   const taskStats = useTaskStats();
+  const hasOnlyResolvedTodayRemaining =
+    tasks.length > 0 &&
+    tasks.some((task) => !task.completed) &&
+    tasks.every(
+      (task) => task.completed || isTaskTodayResolved(task.adjustment),
+    );
   const taskReview = useTaskReview({
     taskGroupId: taskGroup?.id,
     taskGroupUpdatedAt: taskGroup?.updatedAt,
@@ -99,6 +108,17 @@ export function MainWorkspace() {
       currentTaskId === taskId ? null : taskId,
     );
     setActiveAssistTaskId(null);
+  }
+
+  function handleAcceptAdjustment(
+    taskId: string,
+    suggestion: TaskAdjustmentSuggestion,
+  ) {
+    applyTaskAdjustment(taskId, {
+      alternativeTitle: suggestion.alternativeTitle,
+      reason: suggestion.suggestion,
+      type: suggestion.type,
+    });
   }
 
   function handleClearTasksWithStats() {
@@ -190,6 +210,7 @@ export function MainWorkspace() {
             goal={taskGroup?.goal ?? ""}
             isAllCompleted={isAllCompleted}
             onClearTasks={handleClearTasksWithStats}
+            onAcceptAdjustment={handleAcceptAdjustment}
             onRegenerate={handleRegenerateWithStats}
             onToggleAssist={handleToggleAssist}
             onToggleCompanion={handleToggleCompanion}
@@ -198,6 +219,11 @@ export function MainWorkspace() {
             tasks={tasks}
             totalCount={totalCount}
           />
+          {hasOnlyResolvedTodayRemaining ? (
+            <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
+              今天先到这里，剩下的任务已保留/明天继续。
+            </p>
+          ) : null}
           {taskGroup ? (
             <TaskReviewPanel
               taskCount={totalCount}

@@ -10,6 +10,7 @@ import type {
   CompanionErrorCode,
   CompanionResponse,
   CompanionUserSignal,
+  TaskAdjustmentType,
 } from "@/lib/types";
 import {
   COMPANION_SYSTEM_PROMPT,
@@ -52,6 +53,8 @@ interface CompanionRequestBody {
   stepHistory?: unknown;
   userSignal?: unknown;
   userFeedback?: unknown;
+  signalStats?: unknown;
+  declinedAdjustmentTypes?: unknown;
   currentStepNumber?: unknown;
   totalSteps?: unknown;
   completedSteps?: unknown;
@@ -67,12 +70,24 @@ interface CompanionSequenceContext {
   nextTaskTitle?: string;
 }
 
+interface CompanionSignalStats {
+  doneCount?: number;
+  stuckCount?: number;
+  tooHardCount?: number;
+  feedbackDifficultyCount?: number;
+}
+
 interface RateLimitEntry {
   count: number;
   resetAt: number;
 }
 
 const rateLimitMap = new Map<string, RateLimitEntry>();
+const VALID_ADJUSTMENT_TYPES = new Set<TaskAdjustmentType>([
+  "downgraded",
+  "tomorrow",
+  "keep_visible",
+]);
 
 function errorResponse(code: CompanionErrorCode, status: number) {
   const response: CompanionResponse = {
@@ -171,6 +186,52 @@ function normalizeUserFeedback(value: unknown) {
   return trimmedValue || undefined;
 }
 
+function normalizeLimitedCount(value: unknown) {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.min(value, 20));
+}
+
+function normalizeSignalStats(value: unknown): CompanionSignalStats | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const rawStats = value as Record<string, unknown>;
+  const signalStats: CompanionSignalStats = {
+    doneCount: normalizeLimitedCount(rawStats.doneCount),
+    feedbackDifficultyCount: normalizeLimitedCount(
+      rawStats.feedbackDifficultyCount,
+    ),
+    stuckCount: normalizeLimitedCount(rawStats.stuckCount),
+    tooHardCount: normalizeLimitedCount(rawStats.tooHardCount),
+  };
+
+  return Object.values(signalStats).some((count) => typeof count === "number")
+    ? signalStats
+    : undefined;
+}
+
+function normalizeDeclinedAdjustmentTypes(
+  value: unknown,
+): TaskAdjustmentType[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const declinedAdjustmentTypes = value.filter(
+    (item): item is TaskAdjustmentType =>
+      typeof item === "string" &&
+      VALID_ADJUSTMENT_TYPES.has(item as TaskAdjustmentType),
+  );
+
+  return declinedAdjustmentTypes.length
+    ? Array.from(new Set(declinedAdjustmentTypes))
+    : undefined;
+}
+
 function normalizeSequenceContext(
   body: CompanionRequestBody,
 ): CompanionSequenceContext | undefined {
@@ -231,7 +292,11 @@ export async function POST(request: NextRequest) {
         typeof body.goal === "string"
           ? body.goal.trim().slice(0, MAX_GOAL_LENGTH)
           : undefined,
+      declinedAdjustmentTypes: normalizeDeclinedAdjustmentTypes(
+        body.declinedAdjustmentTypes,
+      ),
       sequenceContext: normalizeSequenceContext(body),
+      signalStats: normalizeSignalStats(body.signalStats),
       stepHistory: normalizeStepHistory(body.stepHistory),
       taskTitle: body.taskTitle.trim().slice(0, MAX_TASK_TITLE_LENGTH),
       userFeedback: normalizeUserFeedback(body.userFeedback),
