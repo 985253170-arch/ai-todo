@@ -3,11 +3,13 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 interface PrimaryButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   loading?: boolean;
+  loadingText?: string;
 }
 
 export function PrimaryButton({
   children,
   loading = false,
+  loadingText = "正在整理今天的小步...",
   disabled,
   className = "",
   ...props
@@ -19,7 +21,7 @@ export function PrimaryButton({
       type="button"
       {...props}
     >
-      {loading ? "正在整理今天的小步..." : children}
+      {loading ? loadingText : children}
     </button>
   );
 }

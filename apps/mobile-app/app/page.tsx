@@ -1,6 +1,10 @@
 ﻿"use client";
 
 import { useMemo, useState } from "react";
+import { WelcomePage } from "@/components/auth/WelcomePage";
+import { OtpLoginPage } from "@/components/auth/OtpLoginPage";
+import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
+import { RegisterPage } from "@/components/auth/RegisterPage";
 import { AppShell } from "@/components/shell/AppShell";
 import { PaperCard } from "@/components/ui/PaperCard";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -15,7 +19,9 @@ import {
   IconSettings,
   IconStar,
 } from "@/components/icons";
-import type { AppTab } from "@/types/app";
+import type { AppTab, AuthScreen } from "@/types/app";
+
+type AuthState = "guest" | "authenticated";
 
 const tabCopy: Record<AppTab, { title: string; body: string }> = {
   today: {
@@ -37,6 +43,8 @@ const tabCopy: Record<AppTab, { title: string; body: string }> = {
 };
 
 export default function Home() {
+  const [authState, setAuthState] = useState<AuthState>("guest");
+  const [authScreen, setAuthScreen] = useState<AuthScreen>("welcome");
   const [activeTab, setActiveTab] = useState<AppTab>("today");
   const current = tabCopy[activeTab];
 
@@ -55,6 +63,42 @@ export default function Home() {
 
     return <IconStar size={40} />;
   }, [activeTab]);
+
+  function handleLoginSuccess() {
+    setAuthState("authenticated");
+    setActiveTab("today");
+  }
+
+  if (authState === "guest") {
+    if (authScreen === "otp-login") {
+      return (
+        <OtpLoginPage
+          onLoginSuccess={handleLoginSuccess}
+          onNavigate={setAuthScreen}
+        />
+      );
+    }
+
+    if (authScreen === "password-login") {
+      return (
+        <PasswordLoginPage
+          onLoginSuccess={handleLoginSuccess}
+          onNavigate={setAuthScreen}
+        />
+      );
+    }
+
+    if (authScreen === "register") {
+      return (
+        <RegisterPage
+          onLoginSuccess={handleLoginSuccess}
+          onNavigate={setAuthScreen}
+        />
+      );
+    }
+
+    return <WelcomePage onNavigate={setAuthScreen} />;
+  }
 
   return (
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
@@ -113,4 +157,3 @@ export default function Home() {
     </AppShell>
   );
 }
-

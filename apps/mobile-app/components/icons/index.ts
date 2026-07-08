@@ -4,6 +4,8 @@ export * from "./IconFire";
 export * from "./IconFootprint";
 export * from "./IconGrowth";
 export * from "./IconLeaf";
+export * from "./IconLock";
+export * from "./IconMail";
 export * from "./IconMe";
 export * from "./IconPaperPlane";
 export * from "./IconSeed";
