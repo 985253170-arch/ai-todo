@@ -2,7 +2,7 @@
 
 > 状态：当前项目交接文档
 > 用途：新会话 / Claude Code / Codex 接手项目时优先读取
-> 更新日期：2026-07-09（V3.0A Batch 3B 已完成并已 push）
+> 更新日期：2026-07-10（V3.0A Batch 4：足迹页已完成并已 push）
 > 原则：只记录当前有效状态，不重复旧阶段完整方案
 
 ---
@@ -243,7 +243,7 @@ src/
 - `docs/archive/` 还包含 `phase-12/` `phase-13/` `phase-14/` `phase-15/` `v1/`（更早归档）
 - **旧文档禁止删除**，需要查历史时去 archive
 
-## 9. 🟢 当前状态：V3.0A Batch 3B 已完成
+## 9. 🟢 当前状态：V3.0A Batch 4 已完成
 
 ### 9.1 V2.6 已完成 ✅
 
@@ -360,16 +360,65 @@ V3.0A Batch 3B（任务执行界面）已完成、提交并 push 到 GitHub main
 - ✅ P2 = 2（loading 文案省略号不一致 + 视觉可微调），不阻断
 - ✅ 已 push 到 GitHub main
 
-### 9.6 下一阶段：V3.0A Batch 4
+### 9.6 V3.0A Batch 4：足迹页 已完成 ✅
 
-下一阶段为 **V3.0A Batch 4：足迹页**。
+V3.0A Batch 4（足迹页）已完成、提交并 push 到 GitHub main。
+
+**最新提交：** `d52c88e3 feat: add mobile footprints view`
+
+**已完成内容：**
+1. 新增足迹页主容器 `FootprintsView`
+2. 新增足迹空状态 `FootprintEmptyState`
+3. 新增今日轻总结卡 `FootprintSummaryCard`
+4. 新增最近足迹列表 `FootprintList`
+5. 新增足迹详情页 `FootprintDetailView`
+6. `page.tsx` 接入 `activeTab === "footprint"` 渲染 `FootprintsView`
+7. 实现足迹列表页
+8. 实现足迹详情页
+9. 实现足迹列表 → 足迹详情
+10. 实现足迹详情 → 足迹列表
+11. 实现空状态按钮 → 回到今日
+12. 只使用 `FootprintsView` 内本地 mock 数据
+13. 未新增路由
+14. 未新增 AppShell
+15. 未修改 BottomTabBar
+
+**视觉验收结论：**
+- ✅ 足迹列表页通过
+- ✅ 足迹详情页通过
+- ✅ 底部 Tab 保留，足迹 Tab 激活正常
+- ✅ 页面没有 SaaS 报表化
+- ✅ 页面没有 Todo 历史列表化
+- ✅ 没有 checkbox / 完成率 / KPI / 统计报表
+- ✅ 文案符合清行温柔、低压力风格
+
+**技术验收结论：**
+- ✅ lint 通过
+- ✅ build 通过
+- ✅ Claude Code Review 通过
+- ✅ P0 = 0
+- ✅ P1 = 0
+- ✅ P2 = 3（FootprintEntry 接口重复定义 + totalCompletedToday 硬编码 + mock 数据下空状态不默认展示），不阻断
+- ✅ 已 push 到 GitHub main
+
+**本次提交文件：**
+1. `apps/mobile-app/app/page.tsx`
+2. `apps/mobile-app/components/footprints/FootprintsView.tsx`
+3. `apps/mobile-app/components/footprints/FootprintEmptyState.tsx`
+4. `apps/mobile-app/components/footprints/FootprintSummaryCard.tsx`
+5. `apps/mobile-app/components/footprints/FootprintList.tsx`
+6. `apps/mobile-app/components/footprints/FootprintDetailView.tsx`
+
+### 9.7 下一阶段：V3.0A Batch 5
+
+下一阶段为 **V3.0A Batch 5：成长页**。
 
 ## 10. V2.6 → V3.0A 版本路线总览
 
 ```
-V2.5.3 ✅ → V2.6 ✅ → V2.7 ✅ → V3.0A Batch 3A ✅ → V3.0A Batch 3B ✅ → V3.0A Batch 4 🔜
-  AI输出      用户→AI    AI自适应     今日首页/任务界面     任务执行界面       足迹页
-  能力升级    反馈通道    任务调整     手机前端闭环入口     任务层陪伴         足迹历史
+V2.5.3 ✅ → V2.6 ✅ → V2.7 ✅ → V3.0A Batch 3A ✅ → V3.0A Batch 3B ✅ → V3.0A Batch 4 ✅ → V3.0A Batch 5 🔜
+  AI输出      用户→AI    AI自适应     今日首页/任务界面     任务执行界面       足迹页       成长页
+  能力升级    反馈通道    任务调整     手机前端闭环入口     任务层陪伴         足迹历史     成长洞察
 ```
 
 **版本依赖**：V2.5.3→V2.6 ✅（已完成）→ V2.7 ✅（已完成）→ V3.0A（强建议依赖）
@@ -441,7 +490,7 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 
 ## 15. 🟡 当前执行中：V3.0A-Frontend-Isolation
 
-V3.0A 前端隔离工程已启动，并已完成到 **Batch 3B：任务执行界面**。
+V3.0A 前端隔离工程已启动，并已完成到 **Batch 4：足迹页**。
 
 ### 文档位置
 
@@ -468,8 +517,9 @@ V3.0A 前端隔离工程已启动，并已完成到 **Batch 3B：任务执行界
 - Batch 2 Auth 页面已完成
 - Batch 3A 今日首页 + 任务界面已完成并 push
 - Batch 3B 任务执行界面已完成并 push
-- 最新提交：`5606f244 feat: add mobile task execution view`
-- 下一步：V3.0A Batch 4 足迹页
+- Batch 4 足迹页已完成并 push
+- 最新提交：`d52c88e3 feat: add mobile footprints view`
+- 下一步：V3.0A Batch 5 成长页
 
 ### V3.0A 核心方向
 
@@ -488,18 +538,19 @@ V3.0A 前端隔离工程已启动，并已完成到 **Batch 3B：任务执行界
 9. 390×844 是手机端主验收视口
 10. 每一屏只做一件事，不能做成长网页
 
-### Batch 4 注意事项
+### Batch 5 注意事项
 
-1. 足迹页必须按原设计稿还原
-2. 不做复杂数据分析仪表盘
-3. 不做 SaaS 风报表
-4. 不做普通 Todo 历史列表
-5. 保持暖米白、深蓝、纸张卡片、低压力风格
-6. 必须使用 390×844 手机视口验收
-7. 底部 Tab 固定为：今日 / 足迹 / 成长 / 我的
-8. 足迹页当前激活 Tab 为"足迹"
-9. 实现前必须先由 ChatGPT 整理 UI Spec，并由用户确认
-10. Codex 不能直接自由发挥写代码
+1. 成长页不能做成复杂数据看板
+2. 不能做成 SaaS 报表
+3. 不能做成焦虑型成长评分
+4. 不要使用强紫色
+5. 重点是温柔看见自己的变化
+6. 保持暖米白、深蓝、纸张卡片、低压力风格
+7. 必须使用 390×844 手机视口验收
+8. 底部 Tab 固定为：今日 / 足迹 / 成长 / 我的
+9. 成长页当前激活 Tab 为"成长"
+10. 实现前必须先由 ChatGPT 整理 UI Spec，并由用户确认
+11. Codex 不能直接自由发挥写代码
 
 ### 禁止操作
 
