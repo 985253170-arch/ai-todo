@@ -20,6 +20,7 @@ export function TaskExecutionView({
 }: TaskExecutionViewProps) {
   const [guide, setGuide] = useState<CompanionStep | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -50,6 +51,7 @@ export function TaskExecutionView({
     try {
       const nextGuide = await getCompanionStep(task.id, feedback);
       setGuide(nextGuide);
+      setHasSubmittedFeedback(true);
     } finally {
       setIsProcessing(false);
     }
@@ -88,7 +90,11 @@ export function TaskExecutionView({
       </header>
 
       <ExecutionTaskCard task={task} />
-      <ExecutionGuideCard guide={guide} isProcessing={isProcessing} />
+      <ExecutionGuideCard
+        guide={guide}
+        isProcessing={isProcessing}
+        hasSubmittedFeedback={hasSubmittedFeedback}
+      />
       <ExecutionFeedbackBox isProcessing={isProcessing} onSubmit={handleFeedback} />
       <PrimaryButton
         className="shrink-0 min-h-[44px] py-3 text-sm"

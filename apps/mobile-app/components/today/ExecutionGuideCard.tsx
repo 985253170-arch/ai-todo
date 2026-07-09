@@ -5,19 +5,24 @@ import type { CompanionStep } from "@/types/app";
 interface ExecutionGuideCardProps {
   guide: CompanionStep | null;
   isProcessing: boolean;
+  hasSubmittedFeedback: boolean;
 }
 
-export function ExecutionGuideCard({ guide, isProcessing }: ExecutionGuideCardProps) {
-  const steps = guide?.steps.slice(0, 3) ?? [];
-
+export function ExecutionGuideCard({
+  guide,
+  isProcessing,
+  hasSubmittedFeedback,
+}: ExecutionGuideCardProps) {
   return (
     <PaperCard variant="white" padding="compact" className="min-h-0 flex-1 overflow-hidden bg-paper/90">
       <div className="flex h-full min-h-0 flex-col gap-2">
         <div className="flex shrink-0 items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-brand-blue/70">先做这一小步</p>
+            <p className="text-xs font-semibold text-brand-blue/70">
+              {guide?.taskTitle ?? "陪你走这一步"}
+            </p>
             <h2 className="mt-1 font-serif text-xl font-semibold leading-snug text-brand-blue">
-              {isProcessing ? "正在整理下一小步…" : guide?.stepTitle ?? "先做这一小步"}
+              给你一个更轻的下一步
             </h2>
           </div>
           <div className="relative shrink-0 text-brand-blue/75">
@@ -33,25 +38,23 @@ export function ExecutionGuideCard({ guide, isProcessing }: ExecutionGuideCardPr
             <p className="text-sm leading-6 text-text-secondary">
               我正在把你现在的情况整理成更轻的一步。
             </p>
-          ) : (
-            <>
-              <p className="text-sm leading-6 text-text-secondary">
-                不用一次做好，先照着下面这几步慢慢来。
-              </p>
-              <ol className="mt-2 space-y-1.5 text-sm leading-5 text-text-secondary">
-                {steps.map((step, index) => (
-                  <li key={`${step}-${index}`} className="flex gap-2">
-                    <span className="font-semibold text-brand-blue">{index + 1}.</span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-              {guide?.closingText ? (
-                <p className="mt-2 rounded-2xl bg-warm-soft px-3 py-2 text-xs leading-5 text-text-secondary">
-                  {guide.closingText}
+          ) : hasSubmittedFeedback ? (
+            <div className="space-y-2 text-sm leading-6 text-text-secondary">
+              <p>我看到你已经开始推进了。</p>
+              <p>现在不用扩展太多，先把其中一个点写清楚就好。</p>
+              <div className="rounded-3xl bg-warm-soft px-3 py-2">
+                <p className="text-xs font-semibold text-brand-blue">下一小步：</p>
+                <p className="mt-1 text-sm leading-6 text-text-primary">
+                  把你刚才提到的内容，写成一句完整的话。
                 </p>
-              ) : null}
-            </>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 text-sm leading-6 text-text-secondary">
+              <p>先不用想完整答案。</p>
+              <p>你可以告诉我：你做到哪了、卡在哪里，或者只写一句现在的想法。</p>
+              <p>我会帮你把它变成一个更容易继续的小动作。</p>
+            </div>
           )}
         </div>
       </div>
