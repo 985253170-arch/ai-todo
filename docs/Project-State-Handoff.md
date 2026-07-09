@@ -2,7 +2,7 @@
 
 > 状态：当前项目交接文档
 > 用途：新会话 / Claude Code / Codex 接手项目时优先读取
-> 更新日期：2026-07-10（V3.0A Batch 4：足迹页已完成并已 push）
+> 更新日期：2026-07-10（V3.0A Batch 5：成长页已完成并已 push）
 > 原则：只记录当前有效状态，不重复旧阶段完整方案
 
 ---
@@ -243,7 +243,7 @@ src/
 - `docs/archive/` 还包含 `phase-12/` `phase-13/` `phase-14/` `phase-15/` `v1/`（更早归档）
 - **旧文档禁止删除**，需要查历史时去 archive
 
-## 9. 🟢 当前状态：V3.0A Batch 4 已完成
+## 9. 🟢 当前状态：V3.0A Batch 5 已完成
 
 ### 9.1 V2.6 已完成 ✅
 
@@ -409,16 +409,71 @@ V3.0A Batch 4（足迹页）已完成、提交并 push 到 GitHub main。
 5. `apps/mobile-app/components/footprints/FootprintList.tsx`
 6. `apps/mobile-app/components/footprints/FootprintDetailView.tsx`
 
-### 9.7 下一阶段：V3.0A Batch 5
+### 9.7 V3.0A Batch 5：成长页 已完成 ✅
 
-下一阶段为 **V3.0A Batch 5：成长页**。
+V3.0A Batch 5（成长页）已完成、提交并 push 到 GitHub main。经过两轮视觉迭代修正，最终用户验收通过。
+
+**最新提交：** `ae0c4ba4 feat: add mobile growth view`
+
+**已完成内容：**
+1. 新增成长页主容器 `GrowthView`
+2. 新增成长空状态 `GrowthEmptyState`
+3. 新增本周温柔总结卡 `GrowthSummaryCard`
+4. 新增行动节奏卡 `GrowthRhythmCard`
+5. 新增适合你的小步大小卡 `GrowthTaskSizeCard`
+6. `page.tsx` 接入 `activeTab === "growth"` 渲染 `GrowthView`
+7. 洞察页采用单屏轻洞察结构（三张卡片，无底部 CTA）
+8. 第一轮修正：移除 `GrowthSuggestionCard`（"下一步，可以轻一点"+"回到今日，安排一小步"）
+9. 第二轮修正：移除洞察页 overflow 滚动，RhythmCard / TaskSizeCard 从编号列表改为紧凑小标签
+10. 空状态保留"先回到今日"按钮
+11. 只用 `GrowthView` 内本地 mock 数据
+12. 未新增路由
+13. 未新增 AppShell
+14. 未修改 BottomTabBar
+
+**视觉验收结论：**
+- ✅ 最终视觉通过（两轮迭代）
+- ✅ 页面不再像长网页
+- ✅ 洞察页三张卡片自然收束、无底部多余 CTA
+- ✅ 底部 Tab 保留，成长 Tab 激活正常
+- ✅ 没有 SaaS 仪表盘化
+- ✅ 没有评分 / 排名 / 等级
+- ✅ 没有完成率 / KPI / 百分比
+- ✅ 文案符合清行温柔、低压力风格
+
+**重要产品结论：**
+1. 成长页不是数据看板
+2. 成长页不是历史记录列表
+3. 成长页不是评分、排名、等级页
+4. 成长页应保持清行的温柔、低压力、单屏轻洞察风格
+5. 不允许做成长率、完成率、KPI、图表化报表
+
+**技术验收结论：**
+- ✅ lint 通过
+- ✅ build 通过
+- ✅ Claude Code Review 通过
+- ✅ P0 = 0
+- ✅ P1 = 0
+- ✅ 已 push 到 GitHub main
+
+**本次提交文件：**
+1. `apps/mobile-app/app/page.tsx`
+2. `apps/mobile-app/components/growth/GrowthView.tsx`
+3. `apps/mobile-app/components/growth/GrowthEmptyState.tsx`
+4. `apps/mobile-app/components/growth/GrowthSummaryCard.tsx`
+5. `apps/mobile-app/components/growth/GrowthRhythmCard.tsx`
+6. `apps/mobile-app/components/growth/GrowthTaskSizeCard.tsx`
+
+### 9.8 下一阶段：V3.0A Batch 6
+
+下一阶段为 **V3.0A Batch 6：我的页**。进入 Batch 6 前，应先由 ChatGPT 输出 UI Spec，不能直接让 Codex 写代码。
 
 ## 10. V2.6 → V3.0A 版本路线总览
 
 ```
-V2.5.3 ✅ → V2.6 ✅ → V2.7 ✅ → V3.0A Batch 3A ✅ → V3.0A Batch 3B ✅ → V3.0A Batch 4 ✅ → V3.0A Batch 5 🔜
-  AI输出      用户→AI    AI自适应     今日首页/任务界面     任务执行界面       足迹页       成长页
-  能力升级    反馈通道    任务调整     手机前端闭环入口     任务层陪伴         足迹历史     成长洞察
+V2.5.3 ✅ → V2.6 ✅ → V2.7 ✅ → V3.0A Batch 3A ✅ → V3.0A Batch 3B ✅ → V3.0A Batch 4 ✅ → V3.0A Batch 5 ✅ → V3.0A Batch 6 🔜
+  AI输出      用户→AI    AI自适应     今日首页/任务界面     任务执行界面       足迹页       成长页       我的页
+  能力升级    反馈通道    任务调整     手机前端闭环入口     任务层陪伴         足迹历史     成长洞察     账号设置
 ```
 
 **版本依赖**：V2.5.3→V2.6 ✅（已完成）→ V2.7 ✅（已完成）→ V3.0A（强建议依赖）
@@ -490,7 +545,7 @@ Codex：具体写代码 / 按文档实现 / 小修 bug
 
 ## 15. 🟡 当前执行中：V3.0A-Frontend-Isolation
 
-V3.0A 前端隔离工程已启动，并已完成到 **Batch 4：足迹页**。
+V3.0A 前端隔离工程已启动，并已完成到 **Batch 5：成长页**。
 
 ### 文档位置
 
@@ -518,8 +573,9 @@ V3.0A 前端隔离工程已启动，并已完成到 **Batch 4：足迹页**。
 - Batch 3A 今日首页 + 任务界面已完成并 push
 - Batch 3B 任务执行界面已完成并 push
 - Batch 4 足迹页已完成并 push
-- 最新提交：`d52c88e3 feat: add mobile footprints view`
-- 下一步：V3.0A Batch 5 成长页
+- Batch 5 成长页已完成并 push
+- 最新提交：`ae0c4ba4 feat: add mobile growth view`
+- 下一步：V3.0A Batch 6 我的页
 
 ### V3.0A 核心方向
 
@@ -538,19 +594,18 @@ V3.0A 前端隔离工程已启动，并已完成到 **Batch 4：足迹页**。
 9. 390×844 是手机端主验收视口
 10. 每一屏只做一件事，不能做成长网页
 
-### Batch 5 注意事项
+### Batch 6 注意事项
 
-1. 成长页不能做成复杂数据看板
-2. 不能做成 SaaS 报表
-3. 不能做成焦虑型成长评分
-4. 不要使用强紫色
-5. 重点是温柔看见自己的变化
-6. 保持暖米白、深蓝、纸张卡片、低压力风格
-7. 必须使用 390×844 手机视口验收
-8. 底部 Tab 固定为：今日 / 足迹 / 成长 / 我的
-9. 成长页当前激活 Tab 为"成长"
-10. 实现前必须先由 ChatGPT 整理 UI Spec，并由用户确认
-11. Codex 不能直接自由发挥写代码
+1. 进入 Batch 6 前，应先由 ChatGPT 输出 UI Spec，不能直接让 Codex 写代码
+2. 我的页不能做成复杂账号中心
+3. 不能做成会员 / 支付页
+4. 不能做成 SaaS 设置面板
+5. 保持暖米白、深蓝、纸张卡片、低压力风格
+6. 必须使用 390×844 手机视口验收
+7. 底部 Tab 固定为：今日 / 足迹 / 成长 / 我的
+8. 我的页当前激活 Tab 为"我的"
+9. 实现前必须先由 ChatGPT 整理 UI Spec，并由用户确认
+10. Codex 不能直接自由发挥写代码
 
 ### 禁止操作
 
