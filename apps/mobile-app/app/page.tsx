@@ -6,6 +6,7 @@ import { OtpLoginPage } from "@/components/auth/OtpLoginPage";
 import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
 import { RegisterPage } from "@/components/auth/RegisterPage";
 import { FootprintsView } from "@/components/footprints/FootprintsView";
+import { GrowthView } from "@/components/growth/GrowthView";
 import { AppShell } from "@/components/shell/AppShell";
 import { TaskExecutionView } from "@/components/today/TaskExecutionView";
 import { TaskListView } from "@/components/today/TaskListView";
@@ -174,6 +175,10 @@ export default function Home() {
 
     if (activeTab === "footprint") {
       return <FootprintsView onNavigateToToday={() => setActiveTab("today")} />;
+    }
+
+    if (activeTab === "growth") {
+      return <GrowthView onNavigateToToday={() => setActiveTab("today")} />;
     }
 
     return renderPlaceholderContent();
