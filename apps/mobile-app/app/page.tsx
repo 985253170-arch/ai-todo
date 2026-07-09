@@ -6,6 +6,7 @@ import { OtpLoginPage } from "@/components/auth/OtpLoginPage";
 import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
 import { RegisterPage } from "@/components/auth/RegisterPage";
 import { AppShell } from "@/components/shell/AppShell";
+import { TaskExecutionView } from "@/components/today/TaskExecutionView";
 import { TaskListView } from "@/components/today/TaskListView";
 import { TodayHomeView } from "@/components/today/TodayHomeView";
 import { PaperCard } from "@/components/ui/PaperCard";
@@ -25,7 +26,7 @@ import { completeTask, generateTasks, getTodayState } from "@/services/taskServi
 import type { AppTab, AuthScreen, TodayState } from "@/types/app";
 
 type AuthState = "guest" | "authenticated";
-type TodayMode = "home" | "tasks";
+type TodayMode = "home" | "tasks" | "execution";
 
 const tabCopy: Record<AppTab, { title: string; body: string }> = {
   today: {
@@ -54,6 +55,7 @@ export default function Home() {
   const [todayState, setTodayState] = useState<TodayState | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [taskHint, setTaskHint] = useState("");
+  const [executingTaskId, setExecutingTaskId] = useState<string | null>(null);
   const current = tabCopy[activeTab];
 
   const accentIcon = useMemo(() => {
@@ -76,6 +78,7 @@ export default function Home() {
     setAuthState("authenticated");
     setActiveTab("today");
     setTodayMode("home");
+    setExecutingTaskId(null);
   }
 
   async function handleGenerateGoal(goal: string) {
@@ -86,6 +89,7 @@ export default function Home() {
       await generateTasks(goal);
       const nextState = await getTodayState();
       setTodayState(nextState);
+      setExecutingTaskId(null);
       setTodayMode("tasks");
     } finally {
       setIsGenerating(false);
@@ -96,28 +100,61 @@ export default function Home() {
     const nextState = await completeTask(taskId);
     setTodayState(nextState);
     setTaskHint("");
+    setExecutingTaskId(null);
+    setTodayMode("tasks");
   }
 
-  function handleStartTask() {
-    setTaskHint("下一步会陪你做这一小步，先把任务界面确认好。");
+  function handleStartTask(taskId: string) {
+    setTaskHint("");
+    setExecutingTaskId(taskId);
+    setTodayMode("execution");
+  }
+
+  function handleBackToTasks() {
+    setExecutingTaskId(null);
+    setTodayMode("tasks");
   }
 
   function handleLockedTaskClick() {
     setTaskHint("先完成眼前这一小步");
   }
 
+  function renderTaskList() {
+    if (!todayState) {
+      return null;
+    }
+
+    return (
+      <TaskListView
+        todayState={todayState}
+        hint={taskHint}
+        onBackHome={() => setTodayMode("home")}
+        onStartTask={handleStartTask}
+        onCompleteTask={handleCompleteTask}
+        onLockedTaskClick={handleLockedTaskClick}
+      />
+    );
+  }
+
   function renderTodayContent() {
+    if (todayMode === "execution" && todayState) {
+      const executingTask = todayState.tasks.find((task) => task.id === executingTaskId);
+
+      if (executingTask) {
+        return (
+          <TaskExecutionView
+            task={executingTask}
+            onBack={handleBackToTasks}
+            onComplete={handleCompleteTask}
+          />
+        );
+      }
+
+      return renderTaskList();
+    }
+
     if (todayMode === "tasks" && todayState) {
-      return (
-        <TaskListView
-          todayState={todayState}
-          hint={taskHint}
-          onBackHome={() => setTodayMode("home")}
-          onStartTask={handleStartTask}
-          onCompleteTask={handleCompleteTask}
-          onLockedTaskClick={handleLockedTaskClick}
-        />
-      );
+      return renderTaskList();
     }
 
     return (
