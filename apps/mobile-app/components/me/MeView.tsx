@@ -1,13 +1,28 @@
-﻿import { IconLeaf } from "@/components/icons";
+import { useState } from "react";
+import { IconLeaf } from "@/components/icons";
 import { MeAccountCard } from "./MeAccountCard";
+import { MeFeedbackPage } from "./MeFeedbackPage";
 import { MeMoreList } from "./MeMoreList";
+import { MePrivacyPage } from "./MePrivacyPage";
 import { MeSyncCard } from "./MeSyncCard";
 
 interface MeViewProps {
   onLogout: () => void;
 }
 
+type MeMode = "home" | "privacy" | "feedback";
+
 export function MeView({ onLogout }: MeViewProps) {
+  const [meMode, setMeMode] = useState<MeMode>("home");
+
+  if (meMode === "privacy") {
+    return <MePrivacyPage onBack={() => setMeMode("home")} />;
+  }
+
+  if (meMode === "feedback") {
+    return <MeFeedbackPage onBack={() => setMeMode("home")} />;
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <header className="shrink-0 space-y-1 pt-1">
@@ -29,7 +44,11 @@ export function MeView({ onLogout }: MeViewProps) {
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-3 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <MeAccountCard />
         <MeSyncCard />
-        <MeMoreList onLogout={onLogout} />
+        <MeMoreList
+          onOpenPrivacy={() => setMeMode("privacy")}
+          onOpenFeedback={() => setMeMode("feedback")}
+          onLogout={onLogout}
+        />
       </div>
     </div>
   );
