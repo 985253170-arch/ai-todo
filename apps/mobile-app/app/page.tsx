@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { WelcomePage } from "@/components/auth/WelcomePage";
@@ -6,6 +6,8 @@ import { OtpLoginPage } from "@/components/auth/OtpLoginPage";
 import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
 import { RegisterPage } from "@/components/auth/RegisterPage";
 import { AppShell } from "@/components/shell/AppShell";
+import { TaskListView } from "@/components/today/TaskListView";
+import { TodayHomeView } from "@/components/today/TodayHomeView";
 import { PaperCard } from "@/components/ui/PaperCard";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
@@ -19,9 +21,11 @@ import {
   IconSettings,
   IconStar,
 } from "@/components/icons";
-import type { AppTab, AuthScreen } from "@/types/app";
+import { completeTask, generateTasks, getTodayState } from "@/services/taskService.mock";
+import type { AppTab, AuthScreen, TodayState } from "@/types/app";
 
 type AuthState = "guest" | "authenticated";
+type TodayMode = "home" | "tasks";
 
 const tabCopy: Record<AppTab, { title: string; body: string }> = {
   today: {
@@ -46,6 +50,10 @@ export default function Home() {
   const [authState, setAuthState] = useState<AuthState>("guest");
   const [authScreen, setAuthScreen] = useState<AuthScreen>("welcome");
   const [activeTab, setActiveTab] = useState<AppTab>("today");
+  const [todayMode, setTodayMode] = useState<TodayMode>("home");
+  const [todayState, setTodayState] = useState<TodayState | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [taskHint, setTaskHint] = useState("");
   const current = tabCopy[activeTab];
 
   const accentIcon = useMemo(() => {
@@ -67,41 +75,62 @@ export default function Home() {
   function handleLoginSuccess() {
     setAuthState("authenticated");
     setActiveTab("today");
+    setTodayMode("home");
   }
 
-  if (authState === "guest") {
-    if (authScreen === "otp-login") {
-      return (
-        <OtpLoginPage
-          onLoginSuccess={handleLoginSuccess}
-          onNavigate={setAuthScreen}
-        />
-      );
-    }
+  async function handleGenerateGoal(goal: string) {
+    setIsGenerating(true);
+    setTaskHint("");
 
-    if (authScreen === "password-login") {
-      return (
-        <PasswordLoginPage
-          onLoginSuccess={handleLoginSuccess}
-          onNavigate={setAuthScreen}
-        />
-      );
+    try {
+      await generateTasks(goal);
+      const nextState = await getTodayState();
+      setTodayState(nextState);
+      setTodayMode("tasks");
+    } finally {
+      setIsGenerating(false);
     }
-
-    if (authScreen === "register") {
-      return (
-        <RegisterPage
-          onLoginSuccess={handleLoginSuccess}
-          onNavigate={setAuthScreen}
-        />
-      );
-    }
-
-    return <WelcomePage onNavigate={setAuthScreen} />;
   }
 
-  return (
-    <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
+  async function handleCompleteTask(taskId: string) {
+    const nextState = await completeTask(taskId);
+    setTodayState(nextState);
+    setTaskHint("");
+  }
+
+  function handleStartTask() {
+    setTaskHint("下一步会陪你做这一小步，先把任务界面确认好。");
+  }
+
+  function handleLockedTaskClick() {
+    setTaskHint("先完成眼前这一小步");
+  }
+
+  function renderTodayContent() {
+    if (todayMode === "tasks" && todayState) {
+      return (
+        <TaskListView
+          todayState={todayState}
+          hint={taskHint}
+          onBackHome={() => setTodayMode("home")}
+          onStartTask={handleStartTask}
+          onCompleteTask={handleCompleteTask}
+          onLockedTaskClick={handleLockedTaskClick}
+        />
+      );
+    }
+
+    return (
+      <TodayHomeView
+        isGenerating={isGenerating}
+        onGenerateGoal={handleGenerateGoal}
+        onNavigateToMe={() => setActiveTab("me")}
+      />
+    );
+  }
+
+  function renderPlaceholderContent() {
+    return (
       <div className="flex min-h-[calc(100vh-7rem)] flex-col gap-6">
         <header className="flex items-center justify-between">
           <div>
@@ -154,6 +183,43 @@ export default function Home() {
           <PrimaryButton onClick={() => setActiveTab("growth")}>看看成长</PrimaryButton>
         </div>
       </div>
+    );
+  }
+
+  if (authState === "guest") {
+    if (authScreen === "otp-login") {
+      return (
+        <OtpLoginPage
+          onLoginSuccess={handleLoginSuccess}
+          onNavigate={setAuthScreen}
+        />
+      );
+    }
+
+    if (authScreen === "password-login") {
+      return (
+        <PasswordLoginPage
+          onLoginSuccess={handleLoginSuccess}
+          onNavigate={setAuthScreen}
+        />
+      );
+    }
+
+    if (authScreen === "register") {
+      return (
+        <RegisterPage
+          onLoginSuccess={handleLoginSuccess}
+          onNavigate={setAuthScreen}
+        />
+      );
+    }
+
+    return <WelcomePage onNavigate={setAuthScreen} />;
+  }
+
+  return (
+    <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
+      {activeTab === "today" ? renderTodayContent() : renderPlaceholderContent()}
     </AppShell>
   );
 }

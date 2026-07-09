@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Todo 手机界面验收预览</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        background: #eef0f3;
+        color: #1f2937;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        padding: 28px 20px 40px;
+        background:
+          radial-gradient(circle at top, rgba(255, 255, 255, 0.9), transparent 34rem),
+          #eef0f3;
+      }
+
+      .toolbar {
+        width: min(720px, 100%);
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+        border: 1px solid #d6d9de;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: 0 16px 40px rgba(31, 41, 55, 0.08);
+      }
+
+      .toolbar h1 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.25;
+      }
+
+      .toolbar p {
+        margin: 0;
+        color: #667085;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+      }
+
+      label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+      }
+
+      input {
+        min-width: 0;
+        flex: 1;
+        height: 42px;
+        padding: 0 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        font-size: 15px;
+        color: #111827;
+        background: #ffffff;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: #111827;
+        box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.12);
+      }
+
+      button {
+        height: 42px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #ffffff;
+        background: #111827;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #000000;
+      }
+
+      .preview-area {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+      }
+
+      .phone-frame {
+        position: relative;
+        width: 430px;
+        height: 884px;
+        padding: 20px;
+        border: 6px solid #050505;
+        border-radius: 54px;
+        background: #050505;
+        box-shadow:
+          0 28px 70px rgba(15, 23, 42, 0.22),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+
+      .speaker {
+        position: absolute;
+        z-index: 2;
+        top: 18px;
+        left: 50%;
+        width: 112px;
+        height: 30px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: #050505;
+        box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16);
+        pointer-events: none;
+      }
+
+      .screen {
+        width: 390px;
+        height: 844px;
+        overflow: hidden;
+        border-radius: 38px;
+        background: #ffffff;
+      }
+
+      iframe {
+        display: block;
+        width: 390px;
+        height: 844px;
+        border: 0;
+        background: #ffffff;
+      }
+
+      @media (max-width: 520px) {
+        body {
+          padding-inline: 10px;
+        }
+
+        .controls {
+          flex-direction: column;
+        }
+
+        button {
+          width: 100%;
+        }
+
+        .preview-area {
+          overflow-x: auto;
+          justify-content: flex-start;
+          padding-bottom: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="toolbar" aria-labelledby="page-title">
+      <h1 id="page-title">AI Todo 手机界面验收预览</h1>
+      <p>
+        这是开发验收工具，不是产品功能。下方手机边框内会加载本地 mobile-app 页面，默认地址为
+        http://localhost:3000。需要切换端口时，修改地址后点击“加载页面”。
+      </p>
+      <div class="controls">
+        <label for="app-url">本地 App 地址</label>
+        <input id="app-url" type="url" value="http://localhost:3000" spellcheck="false" />
+        <button id="load-button" type="button">加载页面</button>
+      </div>
+    </main>
+
+    <section class="preview-area" aria-label="手机边框预览区域">
+      <div class="phone-frame" aria-label="390 × 844 手机外框">
+        <div class="speaker" aria-hidden="true"></div>
+        <div class="screen">
+          <iframe
+            id="app-frame"
+            title="本地 mobile-app 页面预览"
+            src="http://localhost:3000"
+          ></iframe>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const input = document.getElementById("app-url");
+      const button = document.getElementById("load-button");
+      const frame = document.getElementById("app-frame");
+
+      function loadPage() {
+        const url = input.value.trim();
+        if (!url) {
+          input.focus();
+          return;
+        }
+
+        frame.src = url;
+      }
+
+      button.addEventListener("click", loadPage);
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          loadPage();
+        }
+      });
+    </script>
+  </body>
+</html>
