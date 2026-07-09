@@ -7,6 +7,7 @@ import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
 import { RegisterPage } from "@/components/auth/RegisterPage";
 import { FootprintsView } from "@/components/footprints/FootprintsView";
 import { GrowthView } from "@/components/growth/GrowthView";
+import { MeView } from "@/components/me/MeView";
 import { AppShell } from "@/components/shell/AppShell";
 import { TaskExecutionView } from "@/components/today/TaskExecutionView";
 import { TaskListView } from "@/components/today/TaskListView";
@@ -121,6 +122,16 @@ export default function Home() {
     setTaskHint("先完成眼前这一小步");
   }
 
+  function handleLogout() {
+    setAuthState("guest");
+    setAuthScreen("welcome");
+    setActiveTab("today");
+    setTodayMode("home");
+    setTodayState(null);
+    setExecutingTaskId(null);
+    setTaskHint("");
+  }
+
   function renderTaskList() {
     if (!todayState) {
       return null;
@@ -179,6 +190,10 @@ export default function Home() {
 
     if (activeTab === "growth") {
       return <GrowthView onNavigateToToday={() => setActiveTab("today")} />;
+    }
+
+    if (activeTab === "me") {
+      return <MeView onLogout={handleLogout} />;
     }
 
     return renderPlaceholderContent();
