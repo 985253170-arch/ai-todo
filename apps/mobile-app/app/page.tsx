@@ -5,6 +5,7 @@ import { WelcomePage } from "@/components/auth/WelcomePage";
 import { OtpLoginPage } from "@/components/auth/OtpLoginPage";
 import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
 import { RegisterPage } from "@/components/auth/RegisterPage";
+import { FootprintsView } from "@/components/footprints/FootprintsView";
 import { AppShell } from "@/components/shell/AppShell";
 import { TaskExecutionView } from "@/components/today/TaskExecutionView";
 import { TaskListView } from "@/components/today/TaskListView";
@@ -166,6 +167,18 @@ export default function Home() {
     );
   }
 
+  function renderContent() {
+    if (activeTab === "today") {
+      return renderTodayContent();
+    }
+
+    if (activeTab === "footprint") {
+      return <FootprintsView onNavigateToToday={() => setActiveTab("today")} />;
+    }
+
+    return renderPlaceholderContent();
+  }
+
   function renderPlaceholderContent() {
     return (
       <div className="flex min-h-[calc(100vh-7rem)] flex-col gap-6">
@@ -256,7 +269,7 @@ export default function Home() {
 
   return (
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
-      {activeTab === "today" ? renderTodayContent() : renderPlaceholderContent()}
+      {renderContent()}
     </AppShell>
   );
 }
