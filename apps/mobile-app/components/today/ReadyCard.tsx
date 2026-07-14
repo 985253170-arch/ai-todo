@@ -18,9 +18,10 @@ export function ReadyCard({ onReady }: ReadyCardProps) {
       </div>
       <div className="relative pr-12">
         <p className="font-serif text-2xl font-semibold leading-snug text-brand-blue">
-          准备好了吗？
-          <br />
-          我们一起迈出今天一小步
+          你之前的小步还在这里。
+        </p>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">
+          进度还在，接着往前走就好，不用从头再来。
         </p>
         <SecondaryButton className="mt-5 bg-paper/85" onClick={onReady}>
           迈入新的一天

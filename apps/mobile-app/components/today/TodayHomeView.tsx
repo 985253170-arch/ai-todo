@@ -5,14 +5,18 @@ import { ReadyCard } from "./ReadyCard";
 
 interface TodayHomeViewProps {
   isGenerating?: boolean;
+  hasUnfinishedTasks: boolean;
   onGenerateGoal: (goal: string) => void | Promise<void>;
   onNavigateToMe: () => void;
+  onResumeTasks: () => void;
 }
 
 export function TodayHomeView({
   isGenerating = false,
+  hasUnfinishedTasks,
   onGenerateGoal,
   onNavigateToMe,
+  onResumeTasks,
 }: TodayHomeViewProps) {
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden">
@@ -42,7 +46,11 @@ export function TodayHomeView({
       </header>
 
       <div className="shrink-0"><GoalInputCard isGenerating={isGenerating} onGenerateGoal={onGenerateGoal} /></div>
-      <div className="shrink-0"><ReadyCard /></div>
+      {hasUnfinishedTasks ? (
+        <div className="shrink-0">
+          <ReadyCard onReady={onResumeTasks} />
+        </div>
+      ) : null}
 
       <PaperCard padding="compact" className="shrink-0 space-y-2 bg-paper/85">
         <div className="flex items-start justify-between gap-3">

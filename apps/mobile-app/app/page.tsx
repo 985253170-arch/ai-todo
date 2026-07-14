@@ -59,6 +59,8 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [taskHint, setTaskHint] = useState("");
   const [executingTaskId, setExecutingTaskId] = useState<string | null>(null);
+  const hasUnfinishedTasks =
+    todayState?.tasks.some((task) => task.status !== "completed") ?? false;
   const current = tabCopy[activeTab];
 
   const accentIcon = useMemo(() => {
@@ -173,8 +175,10 @@ export default function Home() {
     return (
       <TodayHomeView
         isGenerating={isGenerating}
+        hasUnfinishedTasks={hasUnfinishedTasks}
         onGenerateGoal={handleGenerateGoal}
         onNavigateToMe={() => setActiveTab("me")}
+        onResumeTasks={() => setTodayMode("tasks")}
       />
     );
   }
