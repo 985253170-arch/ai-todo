@@ -4,13 +4,15 @@ import { MeMenuRow } from "./MeMenuRow";
 interface MeMoreListProps {
   onOpenPrivacy: () => void;
   onOpenFeedback: () => void;
-  onLogout: () => void;
+  onOpenClearCache: () => void;
+  onOpenLogoutConfirm: () => void;
 }
 
 export function MeMoreList({
   onOpenPrivacy,
   onOpenFeedback,
-  onLogout,
+  onOpenClearCache,
+  onOpenLogoutConfirm,
 }: MeMoreListProps) {
   return (
     <PaperCard variant="white" padding="compact" className="shrink-0 bg-paper/90">
@@ -19,8 +21,16 @@ export function MeMoreList({
         <MeMenuRow label="隐私与数据说明" onClick={onOpenPrivacy} />
         <MeMenuRow label="说说你的想法" onClick={onOpenFeedback} />
         <MeMenuRow label="当前版本" value="清行 V3.0A" />
-        <MeMenuRow label="清除本地缓存" variant="warning" />
-        <MeMenuRow label="退出当前账号" variant="danger" onClick={onLogout} />
+        <MeMenuRow
+          label="清除本地缓存"
+          variant="warning"
+          onClick={onOpenClearCache}
+        />
+        <MeMenuRow
+          label="退出当前账号"
+          variant="danger"
+          onClick={onOpenLogoutConfirm}
+        />
       </div>
     </PaperCard>
   );
