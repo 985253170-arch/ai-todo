@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { BackControllerProvider, useBackController } from "@/contexts/BackControllerContext";
 import { WelcomePage } from "@/components/auth/WelcomePage";
 import { OtpLoginPage } from "@/components/auth/OtpLoginPage";
 import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
@@ -51,7 +52,7 @@ const tabCopy: Record<AppTab, { title: string; body: string }> = {
   },
 };
 
-export default function Home() {
+function HomeContent() {
   const [authState, setAuthState] = useState<AuthState>("guest");
   const [authScreen, setAuthScreen] = useState<AuthScreen>("welcome");
   const [activeTab, setActiveTab] = useState<AppTab>("today");
@@ -135,6 +136,74 @@ export default function Home() {
     setTaskHint("");
   }
 
+  const backController = useBackController();
+
+  useEffect(() => {
+    if (authState !== "guest") {
+      return;
+    }
+
+    backController.register({
+      id: "page-auth-flow",
+      priority: 60,
+      handle: () => {
+        if (authState !== "guest") {
+          return false;
+        }
+
+        if (authScreen === "register" || authScreen === "password-login") {
+          setAuthScreen("otp-login");
+          return true;
+        }
+
+        if (authScreen === "otp-login") {
+          setAuthScreen("welcome");
+          return true;
+        }
+
+        return false;
+      },
+    });
+
+    return () => backController.unregister("page-auth-flow");
+  }, [authScreen, authState, backController]);
+
+  useEffect(() => {
+    if (authState !== "authenticated") {
+      return;
+    }
+
+    backController.register({
+      id: "page-authenticated-root",
+      priority: 50,
+      handle: () => {
+        if (authState !== "authenticated") {
+          return false;
+        }
+
+        if (activeTab !== "today") {
+          setActiveTab("today");
+          return true;
+        }
+
+        if (todayMode === "execution") {
+          setExecutingTaskId(null);
+          setTodayMode("tasks");
+          return true;
+        }
+
+        if (todayMode === "tasks") {
+          setTodayMode("home");
+          return true;
+        }
+
+        return false;
+      },
+    });
+
+    return () => backController.unregister("page-authenticated-root");
+  }, [activeTab, authState, backController, todayMode]);
+
   function renderTaskList() {
     if (!todayState) {
       return null;
@@ -190,7 +259,7 @@ export default function Home() {
     }
 
     if (activeTab === "footprint") {
-      return <FootprintsView onNavigateToToday={() => setActiveTab("today")} />;
+      return <FootprintsView isActive={activeTab === "footprint"} onNavigateToToday={() => setActiveTab("today")} />;
     }
 
     if (activeTab === "growth") {
@@ -198,7 +267,7 @@ export default function Home() {
     }
 
     if (activeTab === "me") {
-      return <MeView onLogout={handleLogout} />;
+      return <MeView isActive={activeTab === "me"} onLogout={handleLogout} />;
     }
 
     return renderPlaceholderContent();
@@ -306,5 +375,13 @@ export default function Home() {
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
       {renderContent()}
     </AppShell>
+  );
+}
+
+export default function Page() {
+  return (
+    <BackControllerProvider>
+      <HomeContent />
+    </BackControllerProvider>
   );
 }

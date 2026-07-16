@@ -1,10 +1,12 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { useBackController } from "@/contexts/BackControllerContext";
 import { FootprintDetailView } from "./FootprintDetailView";
 import { FootprintEmptyState } from "./FootprintEmptyState";
 import { FootprintList } from "./FootprintList";
 import { FootprintSummaryCard } from "./FootprintSummaryCard";
 
 interface FootprintsViewProps {
+  isActive: boolean;
   onNavigateToToday: () => void;
 }
 
@@ -50,9 +52,13 @@ const MOCK_FOOTPRINTS_DATA: FootprintEntry[] = [
   },
 ];
 
-export function FootprintsView({ onNavigateToToday }: FootprintsViewProps) {
+export function FootprintsView({
+  isActive,
+  onNavigateToToday,
+}: FootprintsViewProps) {
   const [footprintMode, setFootprintMode] = useState<FootprintMode>("list");
   const [selectedFootprintId, setSelectedFootprintId] = useState<string | null>(null);
+  const backController = useBackController();
 
   const selectedFootprint = useMemo(
     () => MOCK_FOOTPRINTS_DATA.find((footprint) => footprint.id === selectedFootprintId),
@@ -68,6 +74,23 @@ export function FootprintsView({ onNavigateToToday }: FootprintsViewProps) {
     setSelectedFootprintId(null);
     setFootprintMode("list");
   }
+
+  useEffect(() => {
+    backController.register({
+      id: "footprint-detail",
+      priority: 80,
+      handle: () => {
+        if (!isActive || footprintMode !== "detail") {
+          return false;
+        }
+
+        handleBackToList();
+        return true;
+      },
+    });
+
+    return () => backController.unregister("footprint-detail");
+  }, [backController, footprintMode, isActive]);
 
   if (footprintMode === "detail" && selectedFootprint) {
     return <FootprintDetailView footprint={selectedFootprint} onBack={handleBackToList} />;
