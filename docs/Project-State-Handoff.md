@@ -904,3 +904,40 @@ V3.0B 正式完成。下一阶段建议进入 **V3.0C：手机端细节与真实
 ### 禁止操作
 
 不允许修改 `src/`、根 `package.json`、API Route、Supabase、prompts、数据库 schema。不允许删除旧文档。
+
+### 15.1 V3.0C 规划阶段：三份文档 ChatGPT 审查通过
+
+V3.0C 三份规划文档已由 ChatGPT 正式审查通过，进入待施工状态。
+
+**已通过文档：**
+
+| 文档 | 路径 | 状态 |
+|------|------|:--:|
+| V3.0C Roadmap | `docs/Roadmap-V3.0C-to-V3.3-Mobile-Production.md` | ✅ ChatGPT 审查通过 |
+| V3.0C Architecture | `docs/Architecture-V3.0C-Mobile-Hardening.md` | ✅ ChatGPT 审查通过 |
+| V3.0C Execution Plan | `docs/Execution-Plan-V3.0C-Mobile-Hardening.md` | ✅ ChatGPT 审查通过 |
+
+**当前状态：**
+
+- 下一步为 **Batch C1**
+- C1 尚未开始施工
+- Codex 尚未获得写代码授权
+- 三份规划文档仍为未跟踪文件，Phase 0 尚未提交
+- 最新代码基线仍为：`8d8a2111`
+
+**Batch 顺序（严格）：**
+
+```
+C1 → C2 → C3 → C4
+```
+
+**C4 阻断条件：** 图标源视觉必须经过 ChatGPT 产品把关和用户确认，在此之前不得开始 C4。
+
+**施工依据优先级：**
+
+```
+ChatGPT 当前指令
+  → Execution Plan（docs/Execution-Plan-V3.0C-Mobile-Hardening.md）
+    → Architecture（docs/Architecture-V3.0C-Mobile-Hardening.md）
+      → Roadmap（docs/Roadmap-V3.0C-to-V3.3-Mobile-Production.md）
+```
