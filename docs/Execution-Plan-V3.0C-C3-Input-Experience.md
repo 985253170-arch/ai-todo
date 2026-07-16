@@ -78,10 +78,11 @@ test_photo.jpeg
 
 ## 3. 精确文件范围
 
-### C3-A 唯一允许修改（2 个）
+### C3-A 唯一允许修改（3 个）
 
 1. `apps/mobile-app/components/today/TaskExecutionView.tsx`
 2. `apps/mobile-app/components/today/ExecutionFeedbackBox.tsx`
+3. `apps/mobile-app/components/today/ExecutionGuideCard.tsx`
 
 ### C3-B 唯一允许修改（3 个）
 
@@ -102,363 +103,192 @@ test_photo.jpeg
 
 ### 只读参考
 
-`app/page.tsx`、`contexts/BackControllerContext.tsx`、AppShell、BottomTabBar、ExecutionTaskCard、ExecutionGuideCard、globals.css、tailwind.config.ts、UI primitives、C1/C2 文档。
+`app/page.tsx`、`contexts/BackControllerContext.tsx`、AppShell、BottomTabBar、ExecutionTaskCard、globals.css、tailwind.config.ts、UI primitives、C1/C2 文档。
 
 ---
 
-## 4. C3-A：任务反馈专注模式
+## 4. C3-A：任务反馈专注模式（含 Follow-up：AI 回复卡专注阅读模式）
 
-### A1. `TaskExecutionView.tsx`
+C3-A 初始实施文件为 TaskExecutionView + ExecutionFeedbackBox（已完成初次 Review）；本次 Follow-up 在此基础上增加 ExecutionGuideCard 的专注阅读模式，并将 `FeedbackPresentation` 二枚举升级为 `ExecutionPresentation` 三枚举。
 
-**允许做：**
+---
 
-1. 新增以下本地状态和 refs：
+### A1. `TaskExecutionView.tsx` — 状态升级为三枚举
 
-```ts
-type FeedbackPresentation = "default" | "focused";
+**初始 C3-A 已完成状态的搬入。** Follow-up 新增的修改仅限以下步骤：
 
-const [feedbackPresentation, setFeedbackPresentation] = useState<FeedbackPresentation>("default");
-const [feedbackDraft, setFeedbackDraft] = useState("");
-const [keyboardInset, setKeyboardInset] = useState(0);
+**做：**
 
-const executionRootRef = useRef<HTMLDivElement | null>(null);
-const feedbackTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-const baselineViewportHeightRef = useRef<number | null>(null);
-```
+1. 将 `FeedbackPresentation` 类型重命名为 `ExecutionPresentation`，值改为 `"default" | "guide-focused" | "feedback-focused"`。
+2. 重命名 `feedbackPresentation` → `executionPresentation`，`feedbackPresentationRef` → `executionPresentationRef`；Ref 类型同步为 `RefObject<ExecutionPresentation>`。
+3. 新增 `openGuideFocus` — 设置 `executionPresentationRef.current = "guide-focused"` 和 `setExecutionPresentation("guide-focused")`。
+4. 新增 `collapseGuideFocus` — 设置 ref 和 state 为 `"default"`，不修改 draft。
+5. `collapseFeedbackFocus` 改为回到 `"default"`（保持不变，语义一致）。
+6. 新增 `focusFrameRef = useRef<number | null>(null)`，在 presentation 变化、task.id 变化和 unmount 时 cancel 残留 frame。
+7. `openFeedbackFocus` 改为设置 `ref/state = "feedback-focused"` 然后调用 `startViewportTracking`。
+8. 所有现有 `feedbackPresentation` 引用替换为 `executionPresentation`。
 
-`TaskExecutionView` 是 focused/default、`feedbackDraft`、顶部“收起”按钮、`collapseFeedbackFocus()`、`task-feedback-focus / 95` 和 visualViewport 生命周期的唯一所有者。`ExecutionFeedbackBox` 不接收 `onCollapse`、不渲染“收起”、不改变 presentation、不注册 Back Handler。
+**禁止：** 修改 `feedbackDraft` 逻辑、visualViewport 监听算法、`backController` register/unregister 语义。
 
-2. 将 `ExecutionFeedbackBox` 改为由 `feedbackDraft` 控制，并传递如下 Props：
+---
 
-```tsx
-<ExecutionFeedbackBox
-  value={feedbackDraft}
-  focused={feedbackPresentation === "focused"}
-  textareaRef={feedbackTextareaRef}
-  isProcessing={isProcessing}
-  onChange={setFeedbackDraft}
-  onFocus={openFeedbackFocus}
-  onSubmit={handleFeedback}
-/>
-```
+### A2. `TaskExecutionView.tsx` — 三种 presentation 渲染与 flex 约束
 
-3. 增加 `openFeedbackFocus()`：记录 visualViewport / innerHeight 基线，进入 focused。不得清草稿。
-4. 增加统一 `collapseFeedbackFocus()`：**只允许**由专注态顶部标题区右侧“收起”、`task-feedback-focus / 95`、反馈提交成功、`task.id` 变化或 `TaskExecutionView` 卸载触发；它让 textarea blur、恢复 default、清 keyboard UI/listener/inset，保留草稿。
-5. textarea blur、键盘“完成”、手动收起键盘或 viewport 高度恢复时，只清 visualViewport listener、keyboardInset、baseline 与局部 CSS variable；**不得**调用 `collapseFeedbackFocus()`、`setFeedbackPresentation("default")`、清草稿、卸载 textarea、隐藏 focused 操作或调用 BackController。
-6. 成功提交后继续调用现有 `getCompanionStep(task.id, feedback)`、更新 guide 和 `hasSubmittedFeedback`；成功后才调用 `collapseFeedbackFocus()`，但**不得** `setFeedbackDraft("")`。提交失败保持 focused、保留 draft，允许继续编辑和再次提交。
-7. 点击“继续陪我推进”导致 textarea 先 blur 时，focused UI 与按钮必须保持挂载，click 必须正常执行一次；不得因 blur 导致按钮卸载、重排或丢失 click。
-8. `task.id` 变化时重置 task-scoped guide / submitted / draft / focus / keyboard 状态，避免跨任务草稿泄漏。
-9. 当组件 unmount（任务完成、退出执行、Tab 切换、登出）时清 visualViewport listener 和局部状态；不持久化草稿。
-10. 根节点添加 `ref={executionRootRef}`，在 focused 布局使用局部 CSS custom property，例如：
+**做：**
+
+1. default Header 保持不变（回到任务 / 先退出 + 陪你走这一步）。
+2. guide-focused 和 feedback-focused 共用专注态顶部：任务执行 / task.title / 收起（收起按钮组件相同，click 调用当前 presentation 对应的 collapse 函数）。
+3. TaskCard 仅在 `executionPresentation === "default"` 渲染。
+4. 保留 `!isFeedbackFocused` 条件隐藏 GuideCard 视觉区域（但组件实例保留）。
+5. 将 `isFeedbackFocused` 替换为更通用的 `needsCompactHeader` 判断，或直接按三枚举逐个分支。
+6. guide-focused 时显示 `ExecutionGuideCard` 为 `focused={true}`。
+7. guide-focused 时在 GuideCard 之后渲染独立的 `"写下现在的情况"` PrimaryButton：
 
 ```tsx
-style={{ "--task-feedback-keyboard-inset": `${keyboardInset}px` } as React.CSSProperties}
+<PrimaryButton
+  className="shrink-0 min-h-touch py-3 text-sm"
+  onClick={() => {
+    setExecutionPresentation("feedback-focused");
+    if (focusFrameRef.current !== null) cancelAnimationFrame(focusFrameRef.current);
+    focusFrameRef.current = requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      // 再次确认此时 presentation 和 DOM 已就位
+      if (executionPresentationRef.current === "feedback-focused") {
+        feedbackTextareaRef.current?.focus();
+      }
+    });
+  }}
+>
+  写下现在的情况
+</PrimaryButton>
 ```
 
-仅可在该根节点局部使用。实现所需 type import 可从 React 引入，不改 types 文件。
-11. TaskExecutionView 只能渲染**一个** `ExecutionFeedbackBox` 实例。default/focused 切换只能改变周围内容显隐、className 和布局；不得分别渲染两个实例、不得用 `key` 强制重建、不得让 ExecutionFeedbackBox 因 presentation 切换卸载。focused 时 TaskCard/Guide 可使用条件 class 隐藏或仅条件渲染；onFocus 后 `document.activeElement` 必须仍是同一个 textarea。
-12. focused 时隐藏完整任务卡/Guide 包装层并显示简洁任务上下文：执行身份、当前 task.title、专注态顶部标题区右侧唯一的 `收起`。必须保留：
-    - 当前任务标题；
-    - 任务执行身份；
-    - textarea；
-    - `继续陪我推进`；
-    - `我完成了这一小步`。
-13. 在 focused 时使用局部 flex 布局及 `--task-feedback-keyboard-inset` 使上述核心元素位于可用 visual viewport 区域；不改 AppShell 的 `100svh` 模型，不增加全页滚动。
-14. 通过 `useBackController()` 注册：
+8. guide-focused 时 FeedbackBox 视觉区域隐藏（`focused={false}`，shrink-0），但实例保持挂载。
+9. feedback-focused 时 GuideCard 视觉区域隐藏（通过 wrapper class hidden），但实例保持挂载。
+10. 在三种 presentation 下始终不重新创建或卸载 `ExecutionFeedbackBox` 或 `ExecutionGuideCard` 实例。唯一一个 `ExecutionFeedbackBox` 和唯一一个 `ExecutionGuideCard` 在 JSX 中始终挂载，视觉可见/隐藏由 presentation 和 className 控制。
+
+**禁止：** 用 `key` 强制重建；双组件实例；条件渲染 `null` 让 React 卸载 textarea 节点。
+
+---
+
+### A3. `TaskExecutionView.tsx` — Back Handler
+
+**做：**
+
+现有 `task-feedback-focus / 95` 的判断条件改为 `executionPresentation !== "feedback-focused"`。
+
+新增第二个 useEffect 注册：
 
 ```ts
 {
-  id: "task-feedback-focus",
-  priority: 95,
+  id: "task-guide-focus",
+  priority: 94,
   handle: () => {
-    if (feedbackPresentation !== "focused") return false;
-    collapseFeedbackFocus();
+    if (executionPresentation !== "guide-focused") return false;
+    collapseGuideFocus();
     return true;
   },
 }
 ```
 
-Effect 依赖完整，cleanup 精确 `unregister("task-feedback-focus")`。
+Effect 依赖完整，cleanup 精确 `unregister("task-guide-focus")`。
 
-**ExecutionFeedbackBox 接口锁定：**
+**禁止：** 修改 BackControllerContext、WebHistoryGuard、popstate/pageshow 或 History API。
+
+---
+
+### A4. `ExecutionFeedbackBox.tsx`
+
+**保持当前 C3-A 实现不变。** 不新增 prop 或逻辑改动。外部 `focused` prop 在 guide-focused 时传入 false，组件自然以 shrink-0 默认态呈现。
+
+---
+
+### A5. `ExecutionGuideCard.tsx` — 默认预览 + 专注阅读
+
+**做：**
+
+1. Props 锁定为：
 
 ```ts
-interface ExecutionFeedbackBoxProps {
-  value: string;
-  focused: boolean;
+interface ExecutionGuideCardProps {
+  guide: CompanionStep | null;
   isProcessing: boolean;
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
-  onChange: (value: string) => void;
-  onFocus: () => void;
-  onSubmit: (feedback: string) => void | Promise<void>;
+  hasSubmittedFeedback: boolean;
+  focused: boolean;
+  onExpand: () => void;
 }
 ```
 
-**visualViewport 规则：**
+2. 默认预览（`!focused`）：正文使用 `line-clamp-4` 截断、`overflow-hidden`；移除默认态的 `overflow-y-auto`，不允许框内滚动完整内容。
+3. 展开入口：当 `guide !== null` 且 `isProcessing === false` 时，始终渲染一个 `type="button"` 的 `text-left` 按钮，内部同时包含正文预览和底部文案"展开查看完整建议"。按钮 `onClick` 触发 `onExpand`。
+4. 专注阅读（`focused`）：取消 `line-clamp`；PaperCard 使用 `min-h-0 flex-1 overflow-hidden`；正文 div 使用 `min-h-0 flex-1 overflow-y-auto`，内部可滚动。
+5. 不显示展开入口。
+6. 加载中和无 guide 时不渲染按钮区域。
+7. 不新增内部 useState，不复制 guide 数据，不管理 presentation，不注册 Back Handler，不渲染"收起"或"写下现在的情况"。
 
-1. 只有 `feedbackPresentation === "focused"` 且 `window.visualViewport` 存在时监听 `resize` 和 `scroll`；
-2. 聚焦时记录 `baselineViewportHeightRef.current`；
-3. 计算必须等价于：
+**完成标准：** 默认仅 4 行预览；存在 guide 且非 loading 时展开入口可见；focused 完整内滚，不撑开 AppShell。
 
-```ts
-const viewportDrop = Math.max(0, baselineHeight - visualViewport.height);
-const rawInset = Math.max(
-  0,
-  window.innerHeight - visualViewport.height - visualViewport.offsetTop,
-);
-const nextInset = viewportDrop >= 120 ? rawInset : 0;
-```
+---
 
-4. `120px` 不可由 Codex 自行调整；
-5. 高度恢复阈值内、textarea blur、键盘“完成”或手动收起键盘时，仅清 keyboardInset/baseline/局部 CSS variable 和 visualViewport listener；不得退出 focused。收起、成功提交、task.id 变化或 unmount 才能退出 presentation；
-6. 不支持 visualViewport 时，focus 仍进入 focused fallback，inset 设 0；
-7. 不监听普通 `window.resize`、`orientationchange` 或全局 DOM。
+### A6. C3-A Follow-up Code Review 清单
 
-**不允许做：**
+- [ ] diff 只有 3 个文件（TaskExecutionView、ExecutionFeedbackBox、ExecutionGuideCard）
+- [ ] `executionPresentation` 三枚举互斥，无同时 active 路径
+- [ ] textarea DOM 稳定（三种 presentation 均不重挂载）
+- [ ] `feedbackDraft` 在三种 presentation 间始终保留
+- [ ] `task-guide-focus / 94` 与 `task-feedback-focus / 95` 互斥，cleanup 正确
+- [ ] guide-focused Back → default execution → tasks → home
+- [ ] "写下现在的情况"点击一次 → rAF 聚焦 textarea → 键盘弹出
+- [ ] `focusFrameRef` click、presentation 改变、task.id 改、unmount 均 cancel
+- [ ] 提交成功回 default，Guide 更新，draft 保留
+- [ ] task.id 变化 / 卸载清空
+- [ ] visualViewport listener 仅 feedback-focused 存在
+- [ ] GuideCard 默认 line-clamp-4，focused 内 overflow-y-auto
+- [ ] 展开入口始终显示（guide 非 null 且非 loading）
+- [ ] ExecutionTaskCard 仅在 default 渲染；focused 时完全隐藏
+- [ ] Guide 与 Feedback 实例各只有一个，无 key、无双实例、无卸载
+- [ ] 未修改 Context、page.tsx、AppShell、BottomTabBar、services
+- [ ] lint / build / TypeScript 通过
 
-- 改 `page.tsx`、BackControllerContext、WebHistoryGuard；
-- 直接 `history.back()` / `router.back()`；
-- 新增 popstate/pageshow；
-- 使用 `scrollIntoView` 作为任务执行页降级；
-- 变更任务 Mock/service/完成逻辑；
-- 变成聊天历史、聊天气泡、消息发送页；
-- 隐藏当前任务标题、继续推进或完成动作；
-- 让任务执行页 `overflow-y-auto` 成长网页。
+---
 
-**完成标准：**
+### A7. C3-A Follow-up 用户验收
 
-- 默认 textarea 为 112px、最大 300 字；
-- focused 输入态在同一 AppShell 内，有 `收起`，草稿不丢；
-- focused Back → default execution；下一次 Back → tasks；再下一次 Back → home；
-- 成功提交更新 Guide、回默认态、草稿仍在；
-- 键盘/地址栏变化不会留下 listener 或局部 CSS variable。
+- [ ] default Guide 只显示 4 行；框内不可滚动
+- [ ] 存在 guide 且非 loading 时展开入口可见
+- [ ] 点击正文预览或"展开查看完整建议"→ 进入 guide-focused
+- [ ] guide-focused 长正文内可滚动
+- [ ] guide-focused 不显示完整 FeedbackBox 或继续按钮
+- [ ] feedback-focused 不显示 GuideCard 视觉区域
+- [ ] Guide 与 Feedback 组件保持挂载
+- [ ] 点击"写下现在的情况"一次即可聚焦 textarea；手机键盘自动弹出
+- [ ] guide-focused → feedback-focused 草稿不丢
+- [ ] 两种 focused 收起或返回都先回 default
+- [ ] 页面不是长网页，不聊天化
+- [ ] 375/390/430 宽度下核心动作与标题不溢出
 
-### A2. `ExecutionFeedbackBox.tsx`
+---
 
-**允许做：**
-
-1. 删除内部 `useState` 草稿所有权；使用父组件 `value` / `onChange`。
-2. 接收 `focused`、`textareaRef`、`onFocus`，textarea 的 `onFocus` 调用父回调；`onChange` 只上报值。
-3. 保持 textarea `maxLength={300}`，默认最低高度 112px。
-4. focused 时以 className 让卡片成为 `flex min-h-0 flex-1 flex-col`，textarea 成为 `flex-1 min-h-[112px]` 且仅其自身滚动；default 时保持纸张卡片、简洁说明和主操作。
-5. focused 时主操作继续使用准确文案“继续陪我推进”。“收起”只由 TaskExecutionView 在专注态顶部标题区右侧渲染；ExecutionFeedbackBox 不接收 `onCollapse`、不渲染“收起”、不调用 `setFeedbackPresentation`、不注册 Back Handler。
-6. `handleSubmit` 使用 `value.trim()`；成功后不清父 draft。
-
-**不允许做：**
-
-- 内部维护第二份草稿；
-- 自行监听 visualViewport；
-- 新增 service 调用；
-- 写聊天/发送 UI；
-- 把草稿保存到 localStorage；
-- 修改 task / guide 状态。
-
-**完成标准：**
-
-- 一个稳定 textarea DOM 节点跨 focused/default 存活；
-- 收起、提交、失败各自符合草稿规则；
-- 无值时继续按钮 disabled；loading 继续复用 PrimaryButton。
-
-### A3. C3-A Code Review 清单
-
-- [ ] diff 只有 A1/A2 两个文件；
-- [ ] `task-feedback-focus / 95` 注册、最新 state、cleanup 正确；
-- [ ] C2 的 `me-confirm / 100`、`me-subpage / 90` 等既有 Handler 未变；
-- [ ] 不改 WebHistoryGuard / popstate / pageshow；
-- [ ] TaskExecutionView 只渲染一个 ExecutionFeedbackBox 实例；default/focused 不存在双分支或 `key` 强制重建；
-- [ ] 页面中只有一个反馈 textarea；focus 后 `document.activeElement` 仍是同一 textarea；
-- [ ] blur 只清键盘 UI，不改变 presentation、不清草稿、不卸载 textarea；
-- [ ] 点击提交时 textarea blur 不会丢 click；提交失败仍保持 focused；
-- [ ] 300 字、112px、顶部标题区右侧收起、草稿保留、成功返回默认态正确；
-- [ ] visualViewport listener 仅 focused 期间存在，resize + scroll cleanup 完整；
-- [ ] 120px 阈值、局部 inset、无 visualViewport fallback 正确；
-- [ ] focused 不像聊天软件，不丢任务标题/两动作/底部 Tab 结构；
-- [ ] 不出现全页滚动、双 AppShell、服务/Mock 修改。
-
-### A4. C3-A 用户验收
-
-- [ ] 375×812 / 390×844 / 430×932：默认 textarea 明显可写，focused 布局不溢出；
-- [ ] 输入进度、卡点、草稿、时间约束，验证 300 字上限；
-- [ ] 输入后收起再打开，草稿不丢；
-- [ ] 键盘打开时直接点击“继续陪我推进”，一次点击即可提交；textarea blur 不丢 click；
-- [ ] 点击键盘“完成”或手动收起键盘后，仍停留 focused；顶部“收起”和提交按钮仍可用；
-- [ ] 成功提交后回默认任务执行页，Guide 更新，草稿仍可查看/编辑；
-- [ ] Android Chrome：键盘下标题、textarea、继续、完成可用；地址栏单独收展不误入 keyboard inset；
-- [ ] iPhone Safari（如可用）：同上，并验证键盘关闭完整恢复；
-- [ ] 系统/浏览器 Back：focused → default execution → tasks → home；
-- [ ] Tab 切换、任务完成、退出执行后不遗留 focused UI/listener，草稿按会话结束清理；
-- [ ] 不显示聊天历史、气泡、发送箭头或聊天 Tab。
-
-### A5. C3-A 提交建议
+### A8. C3-A 提交建议
 
 ```text
 feat: add focused task feedback mode
 ```
 
-只有 ChatGPT 批准、Review 与设备验收通过后，才能逐个暂存 A1/A2、提交和 push。
+只有 ChatGPT 批准、Review 与设备验收通过后，才可逐个暂存三个 C3-A 文件、提交和 push。
 
 ---
 
 ## 5. C3-B：我的编辑区与 Sheet 锁滚动
 
-### B1. `MeFeedbackPage.tsx`
+（内容与初次审查通过时保持一致，见下方 B1-B6。）
 
-**允许做：**
-
-1. 保留当前 `feedback`、`hint`、`isSubmitted` 状态本地所有权，成功态 JSX 和 `onBack` 语义不改。
-2. 新增明确 refs：
-
-```ts
-const feedbackScrollRef = useRef<HTMLDivElement | null>(null);
-const feedbackFocusTargetRef = useRef<HTMLDivElement | null>(null);
-const feedbackTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-```
-
-3. 输入态 PaperCard 保持 `min-h-0 flex-1 overflow-hidden`；其内部新增唯一 `overflow-y-auto overscroll-y-contain` 滚动容器。
-4. textarea 改为 `flex-1 min-h-[280px] max-h-[360px] resize-none`（或等价 CSS），`maxLength={500}`。
-5. focus target 必须同时包围 textarea、提示和主按钮；textarea focus 后使用 `requestAnimationFrame` 对该 target 调用：
-
-```ts
-scrollIntoView({ block: "nearest", behavior: "auto" })
-```
-
-6. 仅在 textarea focus 期间，若 `visualViewport` 存在，监听其 resize/scroll，并在 viewport 变化后重新执行同一个 rAF reveal；同样使用 120px 阈值后才给明确滚动容器设局部 scroll-padding-bottom。blur/unmount 移除 listener 并清 local state/style。
-7. 输入态主按钮文案改为 **`送出这份想法`**；成功态现有“回到我的小空间”不改。
-
-**不允许做：**
-
-- 新路由或第三级页面；
-- 提升 state 至 MeView/page；
-- body/AppShell 滚动；
-- 真实反馈接口、消息历史、客服聊天；
-- 改返回按钮/成功态/Me Handler。
-
-**完成标准：**
-
-- 390×844 编辑区约 280–360px；
-- 500 字限制；
-- 键盘下 textarea 与提交动作可通过唯一 card scroller 到达；
-- 无双滚动、无长页面、成功态无回归。
-
-### B2. `MeView.tsx`
-
-**允许做：**
-
-1. 从 React 引入 `useRef`。
-2. 创建：
-
-```ts
-const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-```
-
-3. 只将 ref 绑定到 home 分支原有的 `overflow-y-auto` 列表 div。
-4. 向已存在的 MeConfirmSheet 传递 `scrollContainerRef`。
-5. 原有 `me-confirm / 100`、`me-subpage / 90` 的 state、priority、isActive 检查、effect 依赖和 cleanup 必须逐字语义保持。
-
-**不允许做：**
-
-- 提升 `meMode` / `confirmMode`；
-- 改 Me 菜单、退出/清缓存 Mock 行为、视觉文案；
-- 改 BackControllerContext/page；
-- 绑定 ref 到 AppShell/body/其他 Tab。
-
-**完成标准：** Sheet 始终收到实际 Me home scroll container；离开 Me 或 Strict Mode 不造成 Handler 或 ref 错乱。
-
-### B3. `MeConfirmSheet.tsx`
-
-**允许做：**
-
-1. Props 新增：
-
-```ts
-scrollContainerRef: RefObject<HTMLDivElement | null>;
-```
-
-2. 新增 effect，mount 时读取当前 ref 元素，保存：
-   - `style.overflow`；
-   - `style.overscrollBehavior`；
-   - `scrollTop`。
-3. 只锁该元素：
-
-```ts
-scrollContainer.style.overflow = "hidden";
-scrollContainer.style.overscrollBehavior = "contain";
-```
-
-4. cleanup 恢复精确原 style 字符串与 scrollTop。
-5. Sheet overlay DOM 必须唯一实现为 backdrop 与 section 的兄弟层：
-
-```tsx
-<div className="fixed ...">
-  <button
-    type="button"
-    aria-label="关闭确认弹层"
-    className="absolute inset-0 touch-none ..."
-    onClick={onClose}
-    onTouchMove={(event) => event.preventDefault()}
-  />
-
-  <section
-    role="dialog"
-    className="relative ... overflow-y-auto overscroll-y-contain"
-  >
-    ...
-  </section>
-</div>
-```
-
-6. overlay root 只负责定位：不得有 `touch-none` 或统一 `preventDefault`。backdrop 是唯一 `touch-none` 与 `onTouchMove(preventDefault)` 的元素；section 必须是其兄弟，绝不调用 `preventDefault`，继续自身触摸滚动。
-7. Sheet dialog section 增加 `overscroll-y-contain`，保留其 own `overflow-y-auto`。
-
-**不允许做：**
-
-- 锁 body/html/AppShell；
-- `document.querySelector`；
-- 在 overlay root 或 Sheet section 上放 `touch-none` 或 `onTouchMove(preventDefault)`；
-- 使用 `stopPropagation` 作为唯一滚动方案；
-- 新增全局 scroll-lock utility/dependency；
-- 改 Sheet 内容、文案、确认动作或角色语义。
-
-**完成标准：**
-
-- Sheet 打开时 Me home 背景不能滚；
-- Sheet 内容超高仍可自身滚动，边界不穿透；
-- backdrop/按钮/Back 关闭、clear-cache → success、连续开关、卸载与 Strict Mode 后，原 scrollTop 和 inline styles 完整恢复。
-
+### B1. `MeFeedbackPage.tsx` ... (same as original)
+### B2. `MeView.tsx` ... (same)
+### B3. `MeConfirmSheet.tsx` ... (same)
 ### B4. C3-B Code Review 清单
-
-- [ ] diff 只有 B1/B2/B3 三个文件；
-- [ ] MeFeedback 只有一个 card 内部 scroller；
-- [ ] 280–360px、500 字、`送出这份想法` 正确；
-- [ ] focus target 包含 textarea + submit，rAF reveal 的祖先真实可滚；
-- [ ] focus 期 visualViewport listener/cleanup/120px threshold 局部化；
-- [ ] 成功态、Me C2 Back Handler、返回行为无回归；
-- [ ] MeView ref 指向 home list，非 body/AppShell；
-- [ ] Sheet 保存/恢复 overflow/overscroll/scrollTop 对称；
-- [ ] backdrop 与 Sheet section 为兄弟层；overlay root 不含 touch-none/preventDefault；
-- [ ] touch-none 与 backdrop onTouchMove(preventDefault) 只在 backdrop；Sheet section 无 preventDefault，`overflow-y-auto overscroll-y-contain` 仍可滚；
-- [ ] 超高 Sheet 滚动到边界后背景不移动；
-- [ ] 没有 selector、body lock、第三方依赖、文案/Mock/服务扩大。
-
 ### B5. C3-B 用户 / 真机验收
-
-- [ ] 375×812 / 390×844 / 430×932：编辑区与提交可达，无双滚动；
-- [ ] 输入 500 字验证上限；主按钮为“送出这份想法”；
-- [ ] Android Chrome、iOS Safari（如可用）键盘 focus/close 后 card 内 reveal 正确；
-- [ ] 成功态仍为现有确认页，可返回我的；
-- [ ] 滚动 Me home 后，打开 clear-cache/logout/success Sheet，背景不滚；
-- [ ] Sheet 超高时 Sheet 自身可正常触摸滚动，滚动到边界后背景仍不移动；
-- [ ] iOS Safari 连续上下滑动，backdrop 不穿透且 Sheet 自身不被 touch 策略误伤；
-- [ ] 遮罩、主操作、系统 Back、模式切换、连续开关、Strict Mode、logout 卸载后 scrollTop 和样式恢复；
-- [ ] C2 返回：Sheet 优先关闭，其次二级页返回 Me home。
-
-### B6. C3-B 提交建议
-
-```text
-fix: improve mobile feedback editing and sheet locking
-```
-
-只有 C3-A 已完成提交、C3-B Review/验收/ChatGPT 批准通过后，才能逐个暂存 B1/B2/B3、提交和 push。
+### B6. C3-B 提交建议 (`fix: improve mobile feedback editing and sheet locking`)
 
 ---
 
@@ -491,7 +321,8 @@ git diff $C3A_BASE_HEAD | Select-String -Pattern `
 # C3-A
 $C3A_ALLOWED = @(
   "apps/mobile-app/components/today/TaskExecutionView.tsx",
-  "apps/mobile-app/components/today/ExecutionFeedbackBox.tsx"
+  "apps/mobile-app/components/today/ExecutionFeedbackBox.tsx",
+  "apps/mobile-app/components/today/ExecutionGuideCard.tsx"
 )
 git diff --name-only $C3A_BASE_HEAD -- apps/mobile-app
 
@@ -533,7 +364,7 @@ git status --short --untracked-files=all
 $C3A_BASE_HEAD = <C3-A 开始时记录的 SHA>
 git diff --name-only $C3A_BASE_HEAD
 git diff --check
-# 只能逐个 git add 两个 A 文件
+# 只能逐个 git add 三个 A 文件
 
 # C3-B
 $C3B_BASE_HEAD = <C3-B 开始时记录的 SHA>
