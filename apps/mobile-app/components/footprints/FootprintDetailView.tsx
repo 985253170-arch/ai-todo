@@ -21,7 +21,7 @@ export function FootprintDetailView({ footprint, onBack }: FootprintDetailViewPr
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <header className="shrink-0 space-y-2 pt-1">
         <button
-          className="inline-flex min-h-[38px] items-center gap-1 rounded-full bg-paper px-3 text-sm font-semibold text-brand-blue shadow-card"
+          className="inline-flex min-h-touch items-center gap-1 rounded-full bg-paper px-3 text-sm font-semibold text-brand-blue shadow-card"
           type="button"
           onClick={onBack}
         >

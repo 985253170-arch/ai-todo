@@ -37,7 +37,7 @@ export function UpcomingTaskList({
               </div>
             </div>
             <button
-              className="min-h-[34px] shrink-0 rounded-full border border-border-paper bg-paper px-3 text-xs font-semibold text-brand-blue transition active:scale-[0.98]"
+              className="min-h-touch shrink-0 rounded-full border border-border-paper bg-paper px-3 text-xs font-semibold text-brand-blue transition active:scale-[0.98]"
               type="button"
               onClick={onLockedTaskClick}
             >

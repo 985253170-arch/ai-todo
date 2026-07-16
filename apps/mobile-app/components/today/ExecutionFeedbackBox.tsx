@@ -43,7 +43,7 @@ export function ExecutionFeedbackBox({
       />
 
       <PrimaryButton
-        className="min-h-[42px] py-3 text-sm"
+        className="min-h-touch py-3 text-sm"
         disabled={!trimmedFeedback}
         loading={isProcessing}
         loadingText="正在整理下一小步"

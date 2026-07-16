@@ -31,7 +31,7 @@ export function TaskListView({
       <header className="shrink-0 space-y-3 pt-1">
         <div className="grid grid-cols-3 items-center text-sm font-semibold text-brand-blue">
           <button
-            className="inline-flex min-h-[40px] items-center gap-1 justify-self-start rounded-full bg-paper px-3 shadow-card"
+            className="inline-flex min-h-touch items-center gap-1 justify-self-start rounded-full bg-paper px-3 shadow-card"
             type="button"
             onClick={onBackHome}
           >

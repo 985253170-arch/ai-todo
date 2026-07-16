@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { WelcomePage } from "@/components/auth/WelcomePage";
 import { OtpLoginPage } from "@/components/auth/OtpLoginPage";
 import { PasswordLoginPage } from "@/components/auth/PasswordLoginPage";
@@ -263,32 +264,42 @@ export default function Home() {
   if (authState === "guest") {
     if (authScreen === "otp-login") {
       return (
-        <OtpLoginPage
+        <AuthShell>
+          <OtpLoginPage
           onLoginSuccess={handleLoginSuccess}
           onNavigate={setAuthScreen}
         />
+        </AuthShell>
       );
     }
 
     if (authScreen === "password-login") {
       return (
-        <PasswordLoginPage
+        <AuthShell>
+          <PasswordLoginPage
           onLoginSuccess={handleLoginSuccess}
           onNavigate={setAuthScreen}
         />
+        </AuthShell>
       );
     }
 
     if (authScreen === "register") {
       return (
-        <RegisterPage
+        <AuthShell>
+          <RegisterPage
           onLoginSuccess={handleLoginSuccess}
           onNavigate={setAuthScreen}
         />
+        </AuthShell>
       );
     }
 
-    return <WelcomePage onNavigate={setAuthScreen} />;
+    return (
+      <AuthShell bottomInsetHandledByChild>
+        <WelcomePage onNavigate={setAuthScreen} />
+      </AuthShell>
+    );
   }
 
   return (
