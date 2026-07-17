@@ -4,7 +4,7 @@
 > 定位：V3.0C 手机端加固 → V3.3 中国大陆稳定部署，严格顺序推进
 > 依据：V3.0C 只读审计 + ChatGPT 修正 + 现有代码核验
 > 创建日期：2026-07-15
-> 最后修订：2026-07-15（15 项修正）
+> 最后修订：2026-07-17（追加 V3.1-A / V3.1-B 串行拆分与真实认证流程锁定）
 
 ---
 
@@ -164,6 +164,43 @@ V3.0A 架构文档曾将 V3.0C 定义为"移动端细节优化（safe-area、触
 ### 4.1 目标
 
 保留 [apps/mobile-app/](../apps/mobile-app/) 的所有 `*.mock.ts`，新增真实 API adapter 实现，通过统一 service facade/provider 切换 Mock/Real。同时不修改现有 `src/app/api/` 的逻辑。核心思路是编写 **API Adapter 层**，将旧 API 的数据格式转换为 mobile-app 的简化类型。
+
+### V3.1 子阶段与严格顺序
+
+V3.1 严格拆分为两个串行子阶段：
+
+```text
+V3.1-A：真实认证流程接入
+  → Review、用户验收、提交并 Push
+  → V3.1-B：任务、足迹、成长与其他真实 Service Adapter 接入
+```
+
+#### V3.1-A：真实认证流程接入
+
+范围：
+
+- 输入邮箱；
+- 发送 6 位验证码；
+- 输入并验证验证码；
+- 自动登录或注册；
+- 首次登录后设置密码；
+- 后续支持密码登录；
+- 保留邮箱验证码登录；
+- 保留 Mock；
+- 页面通过 auth service facade 调用。
+
+详细需求锁定见 [V3.1-A-Auth-Flow-Lock.md](V3.1-A-Auth-Flow-Lock.md)。
+
+#### V3.1-B：任务、足迹、成长与其他真实 Service Adapter 接入
+
+范围：
+
+- 任务数据；
+- 足迹数据；
+- 成长数据；
+- 其他非认证业务 Adapter；
+- 保留所有 Mock service；
+- 通过统一 facade 切换 Mock / Real。
 
 ### 4.2 允许范围
 
