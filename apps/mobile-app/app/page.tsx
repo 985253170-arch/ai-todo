@@ -12,6 +12,7 @@ import { GrowthView } from "@/components/growth/GrowthView";
 import { MeView } from "@/components/me/MeView";
 import { AppShell } from "@/components/shell/AppShell";
 import { TaskExecutionView } from "@/components/today/TaskExecutionView";
+import { ActionListView } from "@/components/today/ActionListView";
 import { TaskListView } from "@/components/today/TaskListView";
 import { TodayHomeView } from "@/components/today/TodayHomeView";
 import { PaperCard } from "@/components/ui/PaperCard";
@@ -31,7 +32,7 @@ import { completeTask, generateTasks, getTodayState } from "@/services/taskServi
 import type { AppTab, AuthScreen, TodayState } from "@/types/app";
 
 type AuthState = "guest" | "authenticated";
-type TodayMode = "home" | "tasks" | "execution";
+type TodayMode = "home" | "tasks" | "action-list" | "execution";
 
 const tabCopy: Record<AppTab, { title: string; body: string }> = {
   today: {
@@ -169,6 +170,23 @@ function HomeContent() {
   }, [authScreen, authState, backController]);
 
   useEffect(() => {
+    backController.register({
+      id: "action-list",
+      priority: 85,
+      handle: () => {
+        if (authState !== "authenticated" || activeTab !== "today" || todayMode !== "action-list") {
+          return false;
+        }
+
+        setTodayMode("tasks");
+        return true;
+      },
+    });
+
+    return () => backController.unregister("action-list");
+  }, [activeTab, authState, backController, todayMode]);
+
+  useEffect(() => {
     if (authState !== "authenticated") {
       return;
     }
@@ -188,6 +206,11 @@ function HomeContent() {
 
         if (todayMode === "execution") {
           setExecutingTaskId(null);
+          setTodayMode("tasks");
+          return true;
+        }
+
+        if (todayMode === "action-list") {
           setTodayMode("tasks");
           return true;
         }
@@ -217,6 +240,7 @@ function HomeContent() {
         onStartTask={handleStartTask}
         onCompleteTask={handleCompleteTask}
         onLockedTaskClick={handleLockedTaskClick}
+        onOpenActionList={() => setTodayMode("action-list")}
       />
     );
   }
@@ -236,6 +260,15 @@ function HomeContent() {
       }
 
       return renderTaskList();
+    }
+
+    if (todayMode === "action-list" && todayState) {
+      return (
+        <ActionListView
+          todayState={todayState}
+          onBack={() => setTodayMode("tasks")}
+        />
+      );
     }
 
     if (todayMode === "tasks" && todayState) {

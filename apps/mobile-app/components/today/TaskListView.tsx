@@ -3,7 +3,6 @@ import { IconBack, IconStar } from "@/components/icons";
 import { PaperCard } from "@/components/ui/PaperCard";
 import { CurrentTaskCard } from "./CurrentTaskCard";
 import { TaskProgressCard } from "./TaskProgressCard";
-import { UpcomingTaskList } from "./UpcomingTaskList";
 
 interface TaskListViewProps {
   todayState: TodayState;
@@ -12,6 +11,7 @@ interface TaskListViewProps {
   onStartTask: (taskId: string) => void;
   onCompleteTask: (taskId: string) => void;
   onLockedTaskClick: () => void;
+  onOpenActionList: () => void;
 }
 
 export function TaskListView({
@@ -20,14 +20,18 @@ export function TaskListView({
   onBackHome,
   onStartTask,
   onCompleteTask,
-  onLockedTaskClick,
+  onOpenActionList,
 }: TaskListViewProps) {
   const currentTask = todayState.tasks.find((task) => task.status === "current");
-  const upcomingTasks = todayState.tasks.filter((task) => task.status === "locked");
-  const allCompleted = todayState.totalCount > 0 && todayState.completedCount === todayState.totalCount;
+  const upcomingTasks = todayState.tasks.filter(
+    (task) => task.status !== "completed" && task.status !== "current",
+  );
+  const remainingCount = upcomingTasks.length;
+  const allCompleted =
+    todayState.totalCount > 0 && todayState.completedCount === todayState.totalCount;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <header className="shrink-0 space-y-3 pt-1">
         <div className="grid grid-cols-3 items-center text-sm font-semibold text-brand-blue">
           <button
@@ -75,6 +79,23 @@ export function TaskListView({
         />
       ) : null}
 
+      {remainingCount > 0 && !allCompleted ? (
+        <PaperCard variant="white" padding="compact" className="shrink-0 bg-paper/85">
+          <button
+            className="min-h-touch w-full text-left"
+            type="button"
+            onClick={onOpenActionList}
+          >
+            <p className="font-serif text-xl font-semibold text-brand-blue">
+              后面还有 {remainingCount} 步
+            </p>
+            <p className="mt-1 text-sm font-semibold text-text-secondary">
+              看看今天的其他小步 →
+            </p>
+          </button>
+        </PaperCard>
+      ) : null}
+
       {allCompleted ? (
         <PaperCard variant="yellow" padding="compact" className="shrink-0">
           <p className="font-serif text-xl font-semibold leading-snug text-brand-blue">
@@ -85,11 +106,6 @@ export function TaskListView({
           </p>
         </PaperCard>
       ) : null}
-
-      <UpcomingTaskList
-        tasks={upcomingTasks}
-        onLockedTaskClick={onLockedTaskClick}
-      />
     </div>
   );
 }
