@@ -3,10 +3,33 @@ import { PaperCard } from "@/components/ui/PaperCard";
 
 interface ExecutionTaskCardProps {
   task: Task;
+  compact?: boolean;
 }
 
-export function ExecutionTaskCard({ task }: ExecutionTaskCardProps) {
+export function ExecutionTaskCard({
+  task,
+  compact = false,
+}: ExecutionTaskCardProps) {
   const details = task.details?.slice(0, 2) ?? [];
+  const compactDetail = task.details
+    ?.find((detail) => detail.trim())
+    ?.trim();
+
+  if (compact) {
+    return (
+      <PaperCard variant="yellow" padding="compact" className="shrink-0 space-y-2">
+        <h2 className="font-serif text-xl font-semibold leading-snug text-brand-blue">
+          {task.title}
+        </h2>
+        {compactDetail ? (
+          <p className="text-sm leading-5 text-text-secondary">{compactDetail}</p>
+        ) : null}
+        {typeof task.estimatedMinutes === "number" ? (
+          <p className="text-xs text-text-tertiary">约 {task.estimatedMinutes} 分钟</p>
+        ) : null}
+      </PaperCard>
+    );
+  }
 
   return (
     <PaperCard variant="yellow" padding="compact" className="shrink-0 space-y-2">

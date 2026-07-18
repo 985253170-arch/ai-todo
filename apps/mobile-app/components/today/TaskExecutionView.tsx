@@ -274,7 +274,9 @@ export function TaskExecutionView({
   return (
     <div
       ref={executionRootRef}
-      className={`flex h-full min-h-0 flex-col gap-3 overflow-hidden ${
+      className={`flex h-full min-h-0 flex-col gap-3 ${
+        isDefault ? "overflow-y-auto pb-4" : "overflow-hidden"
+      } ${
         isFeedbackFocused ? "pb-[var(--task-feedback-keyboard-inset)]" : ""
       }`}
       style={
@@ -333,13 +335,15 @@ export function TaskExecutionView({
         </header>
       )}
 
-      {isDefault ? <ExecutionTaskCard task={task} /> : null}
+      {isDefault ? <ExecutionTaskCard task={task} compact /> : null}
 
       <div
         className={
           isFeedbackFocused
             ? "hidden"
-            : "flex min-h-0 flex-1 flex-col"
+            : isGuideFocused
+              ? "flex min-h-0 flex-1 flex-col"
+              : "shrink-0"
         }
       >
         <ExecutionGuideCard
