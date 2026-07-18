@@ -4,6 +4,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "清行",
   description: "慢一点，也在向前走",
+  appleWebApp: {
+    capable: true,
+    title: "清行",
+    statusBarStyle: "default",
+  },
+  icons: {
+    apple: [{ url: "/icons/icon-180.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
