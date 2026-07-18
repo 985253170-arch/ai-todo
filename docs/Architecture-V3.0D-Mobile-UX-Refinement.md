@@ -1,6 +1,6 @@
 # V3.0D 架构方案：手机端核心体验修正
 
-> **状态：** Architecture 阶段完成（ChatGPT Follow-up Review 修订）；Execution Plan 和代码施工需单独授权。
+> **状态：** Architecture 与 Execution Plan 已通过 ChatGPT 最终 Review；D1 代码施工需单独授权。
 >
 > **Git 基线：** `73d4a7d63a7fe51b6bb60ef46b8e3e97023fc0a6` — `feat: add mobile app install assets`
 >
@@ -8,7 +8,7 @@
 >
 > **产品输入：** ChatGPT 已确认 UI Spec（V3.0D），用户已确认
 >
-> **范围：** 欢迎页单屏、OTP Mock 双状态、任务总览重构、行动清单二级页面、任务执行三状态高度重分配
+> **范围：** 欢迎页默认字号单屏优先、OTP Mock 双状态、任务总览重构、行动清单二级页面、任务执行 default 页面级内容流调整
 >
 > **不进入范围：** V3.1-A 真实认证、Service Worker、Capacitor、新路由、后端、数据库
 
@@ -161,7 +161,7 @@ V3.0D 目标状态图（新增/变更项标 ★）：
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ guest                                                               │
-│   ├─ welcome                      ★ 改为固定单屏                    │
+│   ├─ welcome                      ★ 默认字号单屏优先；放大字号安全滚动                    │
 │   ├─ otp-login                                                      │
 │   │   ├─ otpStep="email-entry"    ★ 新增                            │
 │   │   └─ otpStep="code-entry"     ★ 新增                            │
@@ -173,7 +173,7 @@ V3.0D 目标状态图（新增/变更项标 ★）：
 │   │   ├─ todayMode="home"                                           │
 │   │   ├─ todayMode="tasks"         ★ 重构：移除后续任务列表           │
 │   │   ├─ todayMode="action-list"   ★ 新增：行动清单二级页面           │
-│   │   └─ todayMode="execution"     ★ 重构：三状态高度重分配           │
+│   │   └─ todayMode="execution"     ★ 重构：default 页面级内容流调整     │
 │   │       ├─ executionPresentation="default"                        │
 │   │       ├─ executionPresentation="guide-focused"                  │
 │   │       └─ executionPresentation="feedback-focused"               │
@@ -194,7 +194,7 @@ V3.0D 目标状态图（新增/变更项标 ★）：
 | 注册 | `authScreen="register"` | 只读 |
 | 今日首页 | `todayMode="home"` | 只读 |
 | 任务总览 | `todayMode="tasks"` | 现有，重构 |
-| 行动清单 | `todayMode="action-list"` | ★ 新增 |
+| 今日的其他小步 | `todayMode="action-list"` / `ActionListView` | ★ 新增；“行动清单二级页”仅作内部文档角色名称 |
 | 任务执行（默认） | `executionPresentation="default"` | 现有，重构 |
 | 任务执行（AI 专注） | `executionPresentation="guide-focused"` | 现有，保持 |
 | 任务执行（输入专注） | `executionPresentation="feedback-focused"` | 现有，保持 |
@@ -216,62 +216,68 @@ V3.0D 目标状态图（新增/变更项标 ★）：
 
 ### 6.2 目标方案
 
-Welcome 改为真正的 App Welcome Screen。
+Welcome 改为紧凑的 App Welcome Screen，默认系统字号优先在一屏完成主流程，并在系统放大字号或可访问性文字下允许 AuthShell 内容区安全纵向滚动；不裁切内容，也不以极小字号强行塞入一屏。
 
 **锁定结构（与 ChatGPT 和用户确认一致）：**
 
 ```
 AuthShell (h-[100svh] overflow-hidden)
-└─ Welcome 内容 (flex flex-col h-full)
+└─ Welcome 内容（默认字号紧凑；必要时由 AuthShell 内容区纵向滚动）
    ├─ 顶部安全区
-   ├─ "清行" (shrink-0)
-   ├─ 中间品牌区 (flex-1 flex flex-col justify-center)
+   ├─ "清行"
+   ├─ 中间品牌区
    │   ├─ 主标题："今天，也从一小步开始"
    │   ├─ 手绘小径与嫩芽品牌视觉（主视觉）
-   │   ├─ 品牌文案："慢一点，也在向前走"
+   │   ├─ 品牌文案："慢一点，也在向前走。"
    │   └─ 说明："不用完整计划，先写下今天想推进的事。"
-   ├─ 底部操作区 (shrink-0)
-   │   ├─ PrimaryButton "开始使用"
-   │   └─ SecondaryButton "已有账号，去登录"
+   ├─ 底部操作区
+   │   └─ PrimaryButton "开始使用"
    └─ 底部安全区
 ```
 
+**唯一主动作与登录/注册路径：**
+
+- Welcome 只保留一个主按钮“开始使用”，调用既有 `onNavigate("otp-login")`。
+- Welcome 不显示顶部登录按钮、旧第二登录 CTA、注册按钮、“了解更多”或任何第三入口。
+- 新用户从验证码登录页的既有注册入口进入 RegisterPage；已有用户同样点击“开始使用”进入登录页。
+- 不修改 WelcomePage 与 page.tsx 的现有回调接口。
+
 **品牌视觉规则：**
 
-- "今天，也从一小步开始"是唯一主标题
-- "慢一点，也在向前走"是品牌鼓励文案，不替换主标题
-- 主要品牌视觉必须是手绘小径与嫩芽
-- 可复用 C4 已存在的清行图标资产作为只读展示来源
-- 不修改 C4 图标文件
-- 星星可作为轻量装饰，但不能替代小径与嫩芽主视觉
-- 纸飞机不能继续作为 Welcome 主品牌视觉
+- "今天，也从一小步开始"是唯一主标题。
+- "慢一点，也在向前走。"是品牌鼓励文案，不替换主标题。
+- 主要品牌视觉必须是手绘小径与嫩芽。
+- 可复用 C4 已存在的清行图标资产作为只读展示来源。
+- 不修改 C4 图标文件。
+- 星星可作为轻量装饰，但不能替代小径与嫩芽主视觉。
+- 纸飞机不能继续作为 Welcome 主品牌视觉。
 
 **关键变更：**
 
-- 删除模拟任务展示大卡（PaperCard 含占位条、行动中标签）
-- 删除功能列表、统计数据、"了解更多"等网页式内容
-- 外层改为 `h-full flex flex-col`（不再使用 `min-h-screen`）
-- AuthShell 已经提供 `overflow-y-auto` 作为安全兜底，但目标是不触发
-- 375×812 下两个按钮完整可见
+- 删除模拟任务展示大卡（PaperCard 含占位条、行动中标签）。
+- 删除功能列表、统计数据、"了解更多"等网页式内容。
+- 外层使用紧凑 `h-full flex flex-col` 语义，不再使用 `min-h-screen`。
+- 默认字号的 375×812 下，唯一主按钮“开始使用”完整可见；系统放大字号时允许 AuthShell 内容区安全滚动。
 
 **WelcomePage 修改范围：**
 
-- 删减中间模拟内容区
-- 外层容器改为 `h-full` 语义（从 AuthShell 继承高度约束）
-- 保留品牌标识（清行、小径与嫩芽主视觉）
-- 保留两个底部按钮
+- 删减中间模拟内容区。
+- 外层容器改为紧凑 `h-full` 语义（从 AuthShell 继承高度约束）。
+- 保留品牌标识（清行、小径与嫩芽主视觉）。
+- 仅保留底部“开始使用”主按钮。
 
 **不修改：**
 
-- AuthShell 本身
-- WelcomePage 与 page.tsx 的接口（`onNavigate` prop）
+- AuthShell 本身。
+- WelcomePage 与 page.tsx 的接口（`onNavigate` prop）。
 
 ### 6.3 AuthShell 角色
 
-AuthShell 当前已提供 `h-[100svh] overflow-hidden` + 内层 `overflow-y-auto`。Welcome 改为单屏后：
-- 不触发 AuthShell 的 `overflow-y-auto` 滚动
-- 键盘弹出时（如后续验证码输入）AuthShell 的滚动能力作为安全兜底
-- AuthShell 的 `bottomInsetHandledByChild` prop 保持现有语义
+AuthShell 当前已提供 `h-[100svh] overflow-hidden` + 内层 `overflow-y-auto`。Welcome 调整后：
+
+- 默认系统字号优先呈现紧凑 Welcome，用户无需滚动即可看到“开始使用”。
+- 系统放大字号或可访问性文字导致内容增高时，AuthShell 内层纵向滚动是必要且允许的安全兜底，确保标题、说明、主视觉和按钮均不被裁切。
+- AuthShell 的 `bottomInsetHandledByChild` prop 保持现有语义。
 
 ---
 
@@ -303,11 +309,13 @@ AuthShell
    ├─ header: "清行" + 星星装饰
    ├─ 标题："继续今天的小步"
    ├─ 说明："收一封邮件，就可以继续今天的记录。"
-   ├─ Tab: 验证码登录 / 密码登录
+   ├─ 登录方式 Tab：验证码登录 / 密码登录
    ├─ 邮箱输入框
    ├─ PrimaryButton "发送验证码"
-   └─ footer: "密码登录" / "第一次来？创建我的行动记录"
+   └─ footer: "第一次来？创建我的行动记录"（注册入口）
 ```
+
+密码登录只能通过登录方式 Tab 进入；footer 不再显示第二个密码登录入口，也不新增文字链接形式的第三个密码登录入口。注册入口继续进入 RegisterPage；PasswordLoginPage、RegisterPage 与 page.tsx 均保持只读。
 
 **code-entry 状态：**
 ```
@@ -333,7 +341,8 @@ AuthShell
 - **不调用真实 auth service：** 不调用 `loginWithOtp`，不调用任何 `authService.mock.ts` 中的发送相关函数
 - **不显示"发送成功"：** 不声称真实邮件已发送
 - **code-entry → authenticated：**
-  输入 6 位数字后"验证并进入清行"可用 → 点击 → mock delay → `onLoginSuccess()`
+  `verificationCode` 未满 6 位时“验证并进入清行”保持 disabled，且不自动提交；完整 6 位数字时，用户点击按钮后再次以 `/^\d{6}$/` 检查、清除 `formError`，并**立即**调用现有 `onLoginSuccess()`。
+- 不增加 `isVerifying`、验证按钮 loading、验证 mock delay、验证 timeout、成功提示、真实验证码校验或 service 调用。
 - 不修改 `authService.mock.ts`
 - 不接 Supabase、SMTP 或任何真实后端
 
@@ -412,64 +421,63 @@ TaskListView (h-full overflow-hidden)
 
 ### 8.2 目标方案
 
-将"后面再做"完整列表从任务总览中移除，改为轻量入口卡：
+将“后面再做”完整列表从任务总览中移除，改为轻量入口卡；TaskListView 仍以当前任务为视觉中心。
 
 **新 TaskListView 结构：**
+
+```text
+TaskListView（页面内容区单一纵向滚动）
+├─ header
+│  ├─ “← 退出” / “任务执行”
+│  ├─ “已经开始了，今天慢慢来”
+│  └─ “不用看完整清单，先把眼前这一小步做好。”
+├─ TaskProgressCard
+│  ├─ “今天的小目标” + goal
+│  └─ 进度条
+├─ hint（条件）
+├─ CurrentTaskCard（条件）
+│  ├─ “先做这一件”
+│  ├─ 任务标题 + 细节
+│  ├─ “陪我做这一步”
+│  └─ “我完成了”
+├─ 今日的其他小步入口卡（条件）
+│  ├─ “后面还有 N 步”
+│  └─ “看看今天的其他小步 →”
+└─ allCompleted 提示（条件）
 ```
-TaskListView (h-full flex flex-col overflow-hidden)
-├─ header (shrink-0)
-│   ├─ "← 退出" / "任务执行"
-│   ├─ "已经开始了，今天慢慢来"
-│   └─ "不用看完整清单，先把眼前这一小步做好。"
-├─ TaskProgressCard (shrink-0)
-│   ├─ "今天的小目标" + goal
-│   └─ 进度条
-├─ hint (shrink-0, 条件)
-├─ CurrentTaskCard (shrink-0)
-│   ├─ "先做这一件"
-│   ├─ 任务标题 + 细节
-│   ├─ "陪我做这一步"
-│   └─ "我完成了"
-├─ 行动清单入口卡 (shrink-0) ★ 新增
-│   ├─ "后面还有 N 步"
-│   ├─ "现在不用一次看完，想知道接下来有什么时再打开。"
-│   └─ "查看行动清单 →"
-└─ allCompleted 提示 (shrink-0, 条件)
-```
 
-**行动清单入口卡设计：**
-- 暖白纸张卡（`variant="white"`）
-- 视觉权重弱于 CurrentTaskCard
-- N 来自后续任务数据（见 §9 数据分组规则）
-- 完整可读，不压缩成横条
-- 不使用红点或数字徽章
-- 点击 → `todayMode = "action-list"`
+**入口卡设计与显示条件：**
 
-**入口卡显示条件：**
-- N > 0 时显示
-- N = 0（无后续任务或全部完成）时隐藏
+- 暖白纸张卡（`variant="white"`），视觉权重弱于 CurrentTaskCard。
+- 只突出“后面还有 N 步”和“看看今天的其他小步 →”；不保留额外长段解释，也不保留旧入口箭头文案。
+- N 来自后续任务数据（见 §9 数据分组规则）；N > 0 且未全部完成时显示，N = 0 或全部完成时隐藏。
+- 点击 → `todayMode = "action-list"`；内部代码名仍为 ActionListView，用户界面名称见 §9。
+- 不使用红点、数字徽章、checkbox 或设置列表式 chevron 行。
 
-**关键变更：**
-- UpcomingTaskList 组件从 TaskListView 中移除
-- 不再使用 `flex-1` 让后续任务区争抢剩余空间
-- 任务总览变为纯固定高度布局，所有子元素 `shrink-0`
-- TaskListView 继续使用 CurrentTaskCard，不导入、不改用 ExecutionTaskCard
-- CurrentTaskCard 是唯一视觉中心
+**滚动与内容规则：**
+
+- 移除 UpcomingTaskList 后，不再让后续任务区以 `flex-1` 争抢空间。
+- TaskListView 采用**页面内容区单一纵向滚动**，不强制 `overflow-hidden` 将内容锁死，也不为入口卡创建独立小滚动框。
+- 默认 390×844 优先保持当前任务在前；375×812 或系统放大字号导致内容超出时，允许页面内容自然纵向滚动。
+- 不裁切入口卡，不压缩 CurrentTaskCard，不通过固定高度预算塞入单屏；BottomTabBar 仍由 AppShell 唯一提供，内容底部留出其实际高度、safe area 与至少 16px。
+- TaskListView 继续使用 CurrentTaskCard，不导入、不改用 ExecutionTaskCard；CurrentTaskCard 是唯一视觉中心。
 
 ---
 
 ## 9. 行动清单二级页面架构
 
-### 9.1 页面定位
+### 9.1 页面定位与对外名称
 
-行动清单是**只读浏览页**，让用户安心查看当前及后续小步。不是任务管理器。
+“行动清单二级页”仅是内部文档角色名称。对用户的真实页面标题固定为**“今天的其他小步”**；页面仍是只读浏览页，让用户安心查看当前及后续小步，而不是任务管理器。
+
+入口来自 TaskListView 的“后面还有 N 步 / 看看今天的其他小步 →”，内部状态和组件名保持 `todayMode="action-list"`、`ActionListView`。
 
 ### 9.2 状态所有权
 
 `todayMode` 新增值 `"action-list"`，由 HomeContent (`page.tsx`) 唯一持有。
 
-进入：TaskListView 中点击"查看行动清单"→ `setTodayMode("action-list")`
-退出：点击返回 或 系统返回 → `setTodayMode("tasks")`
+进入：TaskListView 中点击“看看今天的其他小步”→ `setTodayMode("action-list")`
+退出：点击“回到任务”或系统返回 → `setTodayMode("tasks")`
 
 ### 9.3 数据分组规则（锁定）
 
@@ -567,39 +575,38 @@ interface ActionListViewProps {
 }
 ```
 
-**结构：**
-```
-ActionListView (h-full flex flex-col overflow-hidden)
-├─ header (shrink-0)
-│   ├─ "← 回到任务" / "行动清单"
-│   └─ "不用一次看完，先把眼前这一小步做好。"
-├─ TaskProgressCard (shrink-0)
-│   └─ "今天的小目标" + goal
-├─ 任务列表 (min-h-0 flex-1 overflow-y-auto overscroll-y-contain)
-│   ├─ "正在做" 分组（条件：currentTask 存在）
-│   │   └─ ActionListTaskCard（淡黄色、只读，无按钮）
-│   ├─ "接下来" 分组（条件：N >= 1）
-│   │   ├─ ActionListTaskCard（暖白、只读，无按钮）
-│   │   └─ "完成当前小步后再来看"
-│   └─ "后面再做" 分组（条件：N >= 2）
-│       ├─ ActionListTaskCard × (N-1)（安静暖白、只读）
-│       └─ "现在不用着急"
-└─ BottomTabBar（由 AppShell 提供）
+**结构与滚动：**
+
+```text
+ActionListView
+└─ 页面内容滚动区（单一 `overflow-y-auto overscroll-y-contain`）
+   ├─ header
+   │  ├─ “← 回到任务” / “今天的其他小步”
+   │  └─ “不用一次看完，先把眼前这一小步做好。”
+   ├─ TaskProgressCard
+   │  └─ “今天的小目标” + goal
+   ├─ “正在做” 分组（条件：currentTask 存在）
+   │  └─ ActionListTaskCard（淡黄色、只读，无按钮）
+   ├─ “接下来” 分组（条件：N >= 1）
+   │  └─ ActionListTaskCard（暖白、只读，无按钮）
+   └─ “后面再做” 分组（条件：N >= 2）
+      └─ ActionListTaskCard × (N-1)（安静暖白、只读）
+
+BottomTabBar（由 AppShell 唯一提供，固定）
 ```
 
 **视觉规则：**
-- 当前任务（正在做）：淡黄色纸张卡（`variant="yellow"`）
-- 后续任务：暖白卡 + 浅边框
-- 所有任务完整可读，不使用"禁用灰"让文字难以阅读
-- 无 checkbox、拖拽、排序、优先级、标签、截止日期、分类、批量操作
-- 无"新增任务"按钮
-- 无 KPI、评分、百分比
+- 当前任务（正在做）：淡黄色纸张卡（`variant="yellow"`）。
+- 后续任务：暖白卡 + 浅边框。
+- 所有任务完整可读，不使用“禁用灰”让文字难以阅读。
+- 无 checkbox、拖拽、排序、优先级、标签、截止日期、分类、批量操作。
+- 无“新增任务”按钮、KPI、评分或百分比。
 
 **滚动规则：**
-- 顶部 header + TaskProgressCard 固定（`shrink-0`）
-- 中间任务卡列表内部滚动（`min-h-0 flex-1 overflow-y-auto`）
-- 底部 Tab 由 AppShell 提供，始终固定
-- 外层页面不变成长网页
+- header、TaskProgressCard 和所有任务卡处于**同一页面内容滚动流**。
+- 只设置一个页面级内容滚动区域；不把任务 list 单独设为狭小的 `overflow-y-auto`，不形成页面滚动套列表滚动。
+- BottomTabBar 仍由 AppShell 唯一提供；滚动内容底部必须预留 BottomTabBar 实际高度 + safe area + 至少 16px，确保末项可达且不被遮挡。
+- 不创建第二 AppShell 或第二 BottomTabBar。
 
 ### 9.5 任务卡方案（锁定）
 
@@ -638,47 +645,38 @@ type ExecutionPresentation = "default" | "guide-focused" | "feedback-focused";
 
 ### 10.2 真机问题
 
-1. **default 态 AI 输出区偏小**：ExecutionTaskCard（约 120-150px）+ GuideCard 4 行预览（约 100-120px）+ FeedbackBox 112px + 完成按钮，AI 卡在中间被压缩
-2. **guide-focused 态**：已经正确实现（GuideCard flex-1 内部滚动）
-3. **feedback-focused 态**：已经正确实现（FeedbackBox flex-1，visualViewport 键盘适配）
+1. **default 态 AI 输出区可读性不足**：任务摘要、Guide、反馈与完成动作在当前固定高度布局中会相互挤压；D3 的目标是改为页面级内容流，而非继续分配固定高度。
+2. **guide-focused 态**：已经正确实现（保留既有 GuideCard 阅读滚动）。
+3. **feedback-focused 态**：已经正确实现（保留 FeedbackBox 扩展与 visualViewport 键盘适配）。
 
-### 10.3 目标方案：default 态高度重分配
-
-**现有 default 态结构：**
-```
-TaskExecutionView (h-full overflow-hidden flex flex-col)
-├─ header "回到任务 / 先退出" + "陪你走这一步" (shrink-0)
-├─ ExecutionTaskCard (shrink-0)              ← 约 120-150px
-├─ ExecutionGuideCard 4行预览 (flex-1)       ← 被压缩
-├─ ExecutionFeedbackBox 112px (shrink-0)
-└─ "我完成了这一小步" (shrink-0)
-```
+### 10.3 目标方案：default 态内容流与页面级滚动
 
 **目标 default 态结构：**
-```
-TaskExecutionView (h-full overflow-hidden flex flex-col)
-├─ header: 顶部导航 (shrink-0)
-│   └─ "陪你走这一步" + 副标题
-├─ ExecutionTaskCard compact (shrink-0)      ← ★ 紧凑摘要 ~88-110px
-├─ ExecutionGuideCard (min-h-0 flex-1)       ← ★ 占主要空间
-│   ├─ 默认 4-6 行预览
-│   └─ "展开查看完整建议" 入口
-├─ ExecutionFeedbackBox 112px (shrink-0)
-└─ "我完成了这一小步" (shrink-0)
+
+```text
+TaskExecutionView default（页面内容区单一纵向滚动）
+├─ header：顶部导航
+│  └─ “陪你走这一步” + 副标题
+├─ ExecutionTaskCard compact
+├─ ExecutionGuideCard（独立 AI 指引卡）
+│  └─ “展开查看完整建议”入口
+├─ ExecutionFeedbackBox（独立输入区域）
+└─ “我完成了这一小步”
 ```
 
 **关键调整：**
-- ExecutionTaskCard 改为紧凑模式，目标高度约 88-110px
-- GuideCard 获得 `min-h-0 flex-1`，成为默认态的主要弹性区域
-- 保留 line-clamp-4 预览和"展开查看完整建议"
-- FeedbackBox 保持 112px 和"继续陪我推进"
-- 完成按钮保持
-- 不改变单实例约束
+
+- default 状态的当前任务摘要、AI 输出、用户输入与完成动作处于同一页面内容流，内容较长时由页面级纵向滚动承载。
+- 不使用固定外层裁切内容，不为默认 AI 输出创建狭小内部滚动框，也不通过固定高度预算塞入单屏。
+- AI Guide 是独立卡片，默认状态清晰可识别；不硬编码必须显示的行数，不用极小字号或 line clamp 强行适配，既有“展开查看完整建议”能力保留。
+- FeedbackBox 是独立输入区域，保留既有组件规则和 300 字限制；不把其当前实现高度重新定义为产品固定高度，不修改 ExecutionFeedbackBox 文件。
+- “我完成了这一小步”必须可通过页面滚动到达，且内容底部需预留 BottomTabBar 实际高度、safe area 与至少 16px。
+- 不改变 GuideCard / FeedbackBox / textarea 单实例约束、C3 三状态、visualViewport 逻辑或 Back Handler。
 
 ### 10.4 ExecutionTaskCard compact 必须保留的信息
 
 compact 模式必须保留：
-1. **任务标题** — `task.title`，始终显示，最多一行（`line-clamp-1`）。不删除标题。
+1. **任务标题** — `task.title`，始终完整可读，允许按可用宽度自然换行；不使用 line clamp 裁切必要标题，也不删除标题。
 2. **当前小步说明** — 从 `task.details` 中取得第一条非空字符串。存在时显示一次。不存在时该说明行不渲染。不使用预计时间代替。不自行生成新的任务说明文案。
 3. **预计时间** — `task.estimatedMinutes` 存在时独立显示"约 X 分钟"。不存在时不显示。整张卡中最多显示一次预计时间。
 4. **最低信息原则** — 必须保留：任务标题、可用的小步说明、可用的预计时间。但不得因某项数据不存在而重复预计时间、编造小步说明、显示空占位行或改写任务数据。
@@ -690,23 +688,16 @@ compact 模式必须保留：
 - 不必要的说明文字
 - 细节列表展开（`details.slice(0, 2)` → 仅保留第一项）
 
-**禁止压缩为：只有"正在做"标签 + 一行标题。**
+**不得压缩为：只有“正在做”标签 + 一行标题。**
 
-**高度目标：约 88-110px。**
-
-但架构不写死绝对像素作为唯一实现标准。最终约束是：
-
-**375×812 下 AI 输出区、输入区和完成按钮均完整可识别。**
-
-AI Guide 继续是 default 态主要弹性区域。
+不写死固定高度；紧凑模式的判断是必要信息完整、内容不被裁切、可减少装饰/重复标签/过大留白，而不是达到某个像素区间。
 
 **ExecutionTaskCard 紧凑化方案：**
-- 为 ExecutionTaskCard 新增可选 `compact?: boolean` prop（默认 `false`）
-- `compact=true` 时：组合标签 + 任务标题（`line-clamp-1`）+ 小步说明摘要（一行）+ 预计时间
-- TaskExecutionView 是 V3.0D 中唯一明确使用 ExecutionTaskCard 的页面，并且始终传入 `compact={true}`
-- TaskListView 继续使用 CurrentTaskCard，不导入或改用 ExecutionTaskCard；CurrentTaskCard 保持只读
-- V3.0D 不新增其他 ExecutionTaskCard 使用位置
-- 禁止新增组件替换现有 CurrentTaskCard
+- 为 ExecutionTaskCard 新增可选 `compact?: boolean` prop（默认 `false`）。
+- `compact=true` 时保留任务标题、第一条非空小步说明（存在时）和单次预计时间（存在时）；不以时间代替 detail，不编造缺失内容。
+- TaskExecutionView 是 V3.0D 中唯一明确使用 ExecutionTaskCard 的页面，并且始终传入 `compact={true}`。
+- TaskListView 继续使用 CurrentTaskCard，不导入或改用 ExecutionTaskCard；CurrentTaskCard 保持只读。
+- V3.0D 不新增其他 ExecutionTaskCard 使用位置，也不新增组件替换现有 CurrentTaskCard。
 
 ### 10.5 guide-focused 态（保持）
 
@@ -734,17 +725,17 @@ AI Guide 继续是 default 态主要弹性区域。
 
 | 页面/状态 | 唯一所有者 | 展示组件 | 返回行为 | 滚动所有者 | Bottom Tab | 内部滚动 |
 |-----------|-----------|---------|---------|-----------|-----------|---------|
-| Welcome | HomeContent (page.tsx) | WelcomePage | 不可返回（根） | AuthShell | ❌ | 无 |
-| otp-email | OtpLoginPage 本地 | OtpLoginPage | Back → welcome | AuthShell | ❌ | 无 |
-| otp-code | OtpLoginPage 本地 | OtpLoginPage | Back → otp-email (via otp-code-entry / 65) | AuthShell | ❌ | 键盘时 AuthShell 兜底 |
-| password-login | HomeContent (page.tsx) | PasswordLoginPage | Back → otp-login | AuthShell | ❌ | 无 |
-| register | HomeContent (page.tsx) | RegisterPage | Back → otp-login | AuthShell | ❌ | 键盘时 AuthShell 兜底 |
-| today-home | HomeContent (page.tsx) | TodayHomeView | Back → 退出应用 | AppShell | ✅ | 无 |
-| task-overview | HomeContent (page.tsx) | TaskListView | Back → today-home | AppShell | ✅ | 无（固定高度） |
-| action-list ★ | HomeContent (page.tsx) | ActionListView ★ | Back → task-overview (via action-list / 85) | AppShell | ✅ | 中间列表 `overflow-y-auto` |
-| task-exec-default | TaskExecutionView | TaskExecutionView | Back → task-overview | AppShell | ✅ | GuideCard 4-6 行预览（不滚动） |
-| task-exec-guide | TaskExecutionView | TaskExecutionView | Back → task-exec-default | AppShell | ✅ | GuideCard 内部 `overflow-y-auto` |
-| task-exec-feedback | TaskExecutionView | TaskExecutionView | Back → task-exec-default | AppShell | ✅ | FeedbackBox `flex-1` + visualViewport |
+| Welcome | HomeContent (page.tsx) | WelcomePage | 不可返回（根） | AuthShell 内容区 | ❌ | 默认字号单屏优先；放大字号安全纵向滚动 |
+| otp-email | OtpLoginPage 本地 | OtpLoginPage | Back → welcome | AuthShell 内容区 | ❌ | 页面内容区纵向滚动兜底 |
+| otp-code | OtpLoginPage 本地 | OtpLoginPage | Back → otp-email (via otp-code-entry / 65) | AuthShell 内容区 | ❌ | 键盘时 AuthShell 兜底 |
+| password-login | HomeContent (page.tsx) | PasswordLoginPage | Back → otp-login | AuthShell 内容区 | ❌ | 页面内容区纵向滚动兜底 |
+| register | HomeContent (page.tsx) | RegisterPage | Back → otp-login | AuthShell 内容区 | ❌ | 键盘时 AuthShell 兜底 |
+| today-home | HomeContent (page.tsx) | TodayHomeView | Back → 退出应用 | AppShell | ✅ | 既有行为不变 |
+| task-overview | HomeContent (page.tsx) | TaskListView | Back → today-home | TaskListView 页面内容区 | ✅ | 单一纵向滚动；无嵌套小滚动框 |
+| action-list ★ | HomeContent (page.tsx) | ActionListView（UI 标题“今天的其他小步”） | Back → task-overview (via action-list / 85) | ActionListView 页面内容区 | ✅ | 单一纵向滚动；header、进度、任务同流 |
+| task-exec-default | TaskExecutionView | TaskExecutionView | Back → task-overview | TaskExecutionView 页面内容区 | ✅ | 单一纵向滚动；摘要、AI、输入、完成同流 |
+| task-exec-guide | TaskExecutionView | TaskExecutionView | Back → task-exec-default | TaskExecutionView | ✅ | 保留既有 GuideCard 阅读滚动 |
+| task-exec-feedback | TaskExecutionView | TaskExecutionView | Back → task-exec-default | TaskExecutionView | ✅ | 保留 FeedbackBox focused / visualViewport |
 | footprint-list | FootprintsView | FootprintsView | Back → today | AppShell | ✅ | 列表 `overflow-y-auto` |
 | footprint-detail | FootprintsView | FootprintDetailView | Back → footprint-list | AppShell | ✅ | 列表 `overflow-y-auto` |
 | me-home | MeView | MeView | Back → today | AppShell | ✅ | 列表 `overflow-y-auto` |
@@ -788,11 +779,17 @@ AI Guide 继续是 default 态主要弹性区域。
 action-list → tasks → home
 ```
 
-当前已处理 `todayMode === "execution"` → tasks → home。只需确保 `action-list` 在 `execution` 同层被处理：
+当前已处理 `todayMode === "execution"` → tasks → home。action-list 必须以独立分支同层处理，且不得清空 `executingTaskId`：
 
 ```ts
 // page-authenticated-root 中
-if (todayMode === "execution" || todayMode === "action-list") {
+if (todayMode === "execution") {
+  setExecutingTaskId(null);
+  setTodayMode("tasks");
+  return true;
+}
+
+if (todayMode === "action-list") {
   setTodayMode("tasks");
   return true;
 }
@@ -831,75 +828,42 @@ feedback-focused → task-exec-default → task-overview → today-home
 
 ---
 
-## 13. 高度预算、滚动所有权与 Safe Area
+## 13. 页面级滚动、Safe Area 与可访问性文字
 
 ### 13.1 全局约束
 
 ```text
 AppShell 外层：h-[100svh] + flex flex-col + overflow-hidden
-  main: min-h-0 flex-1 flex-col overflow-hidden
-    内容区：h-full + flex flex-col
-      固定区：shrink-0 (header / 核心卡片)
-      弹性区：min-h-0 flex-1 (可滚动内容)
-      固定区：shrink-0 (底部操作)
-  BottomTabBar: fixed bottom-0 z-20
+  main：现有内容容器
+    每个 V3.0D 页面：一个页面级内容纵向滚动区
+      内容按自然顺序流动
+  BottomTabBar：fixed bottom-0 z-20（由现有 AppShell 唯一提供）
 ```
 
-### 13.2 逐页高度预算
+V3.0D 不修改 AppShell、AuthShell、BottomTabBar 或全局 CSS；本阶段只在允许页面组件内让内容区拥有单一纵向滚动。禁止“固定外层 + 狭小中间 list 内滚”以及页面滚动套列表滚动。
 
-#### Welcome（390×844，AuthShell 内）
+### 13.2 页面规则
 
-| 区域 | 高度 | 累计 |
-|------|------|------|
-| safe-area-top | ~47px | 47px |
-| header "清行" | ~40px | 87px |
-| 品牌区（标题+视觉） | ~350px | 437px |
-| 底部按钮区 (2 按钮 + gap + safe-bottom) | ~220px | 657px |
-| 剩余 | ~187px | ✅ |
+| 页面 | 默认系统字号 | 放大字号 / 内容变长 | 禁止 |
+|---|---|---|---|
+| Welcome | 紧凑单屏优先，375–430px 宽度下“开始使用”无需滚动可见 | AuthShell 内容区安全纵向滚动；标题、说明、主视觉、按钮均不得裁切 | 声称永远禁止滚动、极小字号硬塞、第二入口 |
+| TaskListView | 390×844 优先当前任务在前，入口卡保持轻量 | 页面内容自然纵向滚动，不裁切入口卡或压缩 CurrentTaskCard | `overflow-hidden` 锁死内容、独立小滚动框、超出即停止 |
+| ActionListView | header、进度与任务卡在同一页面内容流 | 同一个页面级滚动区承载全部内容 | 固定 header/进度 + 中间任务 list 独立滚动、嵌套滚动 |
+| TaskExecutionView default | 摘要、AI、输入、完成动作均清晰可识别 | 页面内容自然纵向滚动，完成动作始终可到达 | 固定高度裁切、AI 默认内部小滚动框、硬编码行数/高度 |
 
-#### TaskListView（390×844）
+### 13.3 内容尺寸原则
 
-| 区域 | 高度 | 累计 |
-|------|------|------|
-| AppShell padding-top | 32px | 32px |
-| header (退出 + 标题 + 副标题) | ~110px | 142px |
-| TaskProgressCard | ~120px | 262px |
-| hint (条件) | ~40px | 302px |
-| CurrentTaskCard | ~240px | 542px |
-| 行动清单入口卡 | ~110px | 652px |
-| 区域 gap | ~48px | — |
-| 可用 (844-32-76) | ~736px | ✅ 652px |
+- ExecutionTaskCard compact 保留标题、第一条非空 detail（存在时）和单次 estimatedMinutes（存在时），可减少重复标签、装饰、过大留白和多余说明；不写死高度、不裁切必要内容、不以时间代替 detail、不编造内容。
+- AI 输出为独立卡片；默认状态清晰可识别，较长内容由页面级滚动承载；不规定固定行数，不以 line clamp 或极小字号强行适配；guide-focused 保留既有展开和阅读能力。
+- 用户输入为独立区域，默认状态可识别、可点击，保留既有 300 字限制与组件规则；不把当前高度定义为产品固定高度，不修改 ExecutionFeedbackBox；feedback-focused 保留既有扩展行为。
+- “我完成了这一小步”不要求在所有字号下与全部内容同时露出，但必须能通过页面滚动到达，且不被 BottomTabBar 遮挡。
 
-#### ActionListView（390×844）
+### 13.4 Safe Area
 
-| 区域 | 高度 | 累计 |
-|------|------|------|
-| AppShell padding-top | 32px | 32px |
-| header (返回 + 标题 + 副标题) | ~100px | 132px |
-| TaskProgressCard (shrink-0) | ~100px | 232px |
-| 任务列表 (flex-1 overflow-y-auto) | ~504px | 736px |
-| BottomTabBar | 76px | — |
-
-#### TaskExecutionView default（390×844）
-
-| 区域 | 高度 | 累计 |
-|------|------|------|
-| AppShell padding-top | 32px | 32px |
-| header "陪你走这一步" | ~72px | 104px |
-| ExecutionTaskCard (compact) | ~100px | 204px |
-| GuideCard (flex-1, 约 4-6 行) | ~240px | 444px |
-| FeedbackBox (112px) | ~140px | 584px |
-| 完成按钮 | ~48px | 632px |
-| 区域 gap | ~36px | — |
-| 可用 | ~736px | ✅ 632px |
-
-### 13.3 Safe Area
-
-- 维持 C1 的全局 CSS 变量：`--safe-area-top/right/bottom/left`
-- AppShell 和 AuthShell 的 safe-area 逻辑不变
-- BottomTabBar 的 `pb-safe-bottom` 不变
-- 新页面通过 AppShell/AuthShell 自动继承 safe-area
-- V3.0D 不修改 `globals.css` 中的 safe-area 变量
+- 维持 C1 的全局 CSS 变量：`--safe-area-top/right/bottom/left`。
+- AppShell 和 AuthShell 的 safe-area 逻辑不变，BottomTabBar 的 `pb-safe-bottom` 不变。
+- V3.0D 的页面内容底部保留 BottomTabBar 实际高度 + safe area + 至少 16px；新页面通过现有 AppShell/AuthShell 继承 safe area。
+- V3.0D 不修改 `globals.css` 中的 safe-area 变量。
 
 ---
 
@@ -915,7 +879,8 @@ OTP code-entry 状态下：
 - 验证码输入聚焦 → 键盘弹出
 - 由于 AuthShell 已提供 `overflow-y-auto`，浏览器原生聚焦滚动可将输入框和按钮带入视野
 - 不需要为 OtpLoginPage 添加独立的 visualViewport 监听
-- 如果后续真机验收发现键盘遮挡，可通过最小化 AuthShell 内部 padding 调整（但不加入 C3 级别的 visualViewport 逻辑）
+- AuthShell.tsx 在 V3.0D D1 中严格只读；OTP 优先依赖其既有滚动能力与浏览器原生聚焦滚动。
+- 若仍发现键盘遮挡且必须修改 AuthShell：立即停止 D1，记录设备、视口、键盘状态与复现步骤，只向 ChatGPT 汇报；不得自行修改 AuthShell，由 ChatGPT 决定是否建立独立修复批次与新文件范围。
 
 ### 14.3 不适用场景
 
@@ -960,7 +925,7 @@ OTP code-entry 状态下：
 | WelcomePage | `components/auth/WelcomePage.tsx` | 删除模拟内容、改为单屏布局、锁定品牌视觉 |
 | OtpLoginPage | `components/auth/OtpLoginPage.tsx` | 新增 otpStep 双状态、Mock 验证码流程、注册 otp-code-entry / 65 |
 | TaskListView | `components/today/TaskListView.tsx` | 移除 UpcomingTaskList、新增行动清单入口卡 |
-| TaskExecutionView | `components/today/TaskExecutionView.tsx` | ExecutionTaskCard 传 `compact`、default 态高度重分配 |
+| TaskExecutionView | `components/today/TaskExecutionView.tsx` | ExecutionTaskCard 传 `compact`、default 页面级内容流调整 |
 | ExecutionTaskCard | `components/today/ExecutionTaskCard.tsx` | 新增 `compact?: boolean` prop |
 | page.tsx | `app/page.tsx` | 新增 `todayMode="action-list"`、注册 `action-list` / 85、更新 `page-authenticated-root` |
 
@@ -1026,7 +991,7 @@ V3.0D 不修改：
 2. `apps/mobile-app/components/auth/WelcomePage.tsx` — 单屏改造、品牌视觉锁定
 3. `apps/mobile-app/components/auth/OtpLoginPage.tsx` — OTP 双状态、验证码输入、`otp-code-entry` Back Handler
 4. `apps/mobile-app/components/today/TaskListView.tsx` — 移除 UpcomingTaskList、新增入口卡；继续使用只读 CurrentTaskCard，不导入或改用 ExecutionTaskCard
-5. `apps/mobile-app/components/today/TaskExecutionView.tsx` — default 态高度重分配；V3.0D 唯一明确传入 `ExecutionTaskCard compact={true}` 的页面
+5. `apps/mobile-app/components/today/TaskExecutionView.tsx` — default 页面级内容流调整；V3.0D 唯一明确传入 `ExecutionTaskCard compact={true}` 的页面
 6. `apps/mobile-app/components/today/ExecutionTaskCard.tsx` — 新增 `compact?: boolean` prop（默认 `false`）
 
 ### 17.2 建议新增
@@ -1103,93 +1068,92 @@ apps/mobile-app/tailwind.config.ts
 
 ## 19. 实施批次建议
 
-### D1：Welcome 单屏 + OTP Mock 双状态
+### D1：Welcome 默认字号单屏优先 + OTP Mock 双状态
 
-**目标：** 修正 welcome 长页 + 新增 OTP 验证码视觉流程
+**目标：** 删除 welcome 长页与冗余入口，默认字号呈现紧凑 Welcome；放大字号时安全滚动；新增 OTP 验证码视觉流程。
 
-**依赖：** 无（独立于 Today 页面）
+**依赖：** 无（独立于 Today 页面）。
 
 **精确文件范围：**
-- `WelcomePage.tsx`（删减模拟内容，单屏布局，锁定品牌视觉）
+- `WelcomePage.tsx`（删减模拟内容，仅保留“开始使用”，默认字号单屏优先、放大字号安全滚动，锁定品牌视觉）
 - `OtpLoginPage.tsx`（新增 otpStep、email-entry / code-entry、验证码输入形态、Mock 诚实说明、注册 `otp-code-entry` / 65）
 
 D1 必须包含 `otp-code-entry / 65` Back Handler 的注册，但不得修改 `BackControllerContext.tsx`。
 
-**禁止混入：** TaskListView、TaskExecutionView、ActionListView、page.tsx、ExecutionTaskCard
+**禁止混入：** TaskListView、TaskExecutionView、ActionListView、page.tsx、ExecutionTaskCard。
 
 **独立验收条件：**
-- Welcome 在 375×812 下单屏，两个按钮完整可见
-- 主标题："今天，也从一小步开始"
-- 品牌文案："慢一点，也在向前走"
+- 默认字号 375×812 下唯一“开始使用”完整可见；放大字号可安全纵向滚动且无裁切
+- 主标题：“今天，也从一小步开始”
+- 品牌文案：“慢一点，也在向前走。”
+- Welcome 无旧第二登录 CTA、顶部登录或其他第二/第三入口
 - 无模拟任务展示大卡
 - 品牌感保留（清行、小径与嫩芽主视觉）
-- OTP email-entry → 点击"发送验证码" → code-entry（不显示"发送成功"）
-- code-entry 标题为"继续输入验证码"
-- Mock 诚实说明："当前是前端体验流程，暂时不会发送真实邮件。输入任意 6 位数字即可继续体验。"
-- 邮箱旁显示"演示邮箱"
+- OTP email-entry → 点击“发送验证码” → code-entry（不显示“发送成功”）
+- code-entry 标题为“继续输入验证码”
+- Mock 诚实说明：“当前是前端体验流程，暂时不会发送真实邮件。输入任意 6 位数字即可继续体验。”
+- 邮箱旁显示“演示邮箱”
 - 验证码输入：一个逻辑 input + 六个视觉数字格
-- 6 位输入完成后"验证并进入清行"可用 → 点击进入 authenticated
+- 6 位输入完成后“验证并进入清行”可用 → 点击进入 authenticated
 - 返回键从 code-entry 回 email-entry（通过 `otp-code-entry / 65`）
 - lint / build / TypeScript 通过
 
 ### D2：任务总览重构 + 行动清单二级页面
 
-**目标：** 重构任务总览（移除压缩的后续任务列表）+ 新增行动清单页
+**目标：** 重构任务总览（移除压缩的后续任务列表）+ 新增内部称为“行动清单二级页”、对外标题为“今天的其他小步”的只读页面。
 
-**依赖：** D1 完成（不强制，但建议串行）
+**依赖：** D1 完成（不强制，但建议串行）。
 
 **精确文件范围：**
-- `TaskListView.tsx`（移除 UpcomingTaskList、新增入口卡）
+- `TaskListView.tsx`（移除 UpcomingTaskList、新增“后面还有 N 步 / 看看今天的其他小步 →”入口卡）
 - `ActionListView.tsx`（新增，含内部 ActionListTaskCard）
 - `page.tsx`（新增 todayMode="action-list"、`action-list` / 85 Back Handler、更新 `page-authenticated-root`）
 
 D2 完成：
 - `todayMode="action-list"` 状态
 - `action-list / 85` Back Handler
-- `page-authenticated-root` 返回分支更新
+- `page-authenticated-root` 两个独立返回分支
 - 行动清单数据分组规则（基于真实 TaskStatus 和 todayState.tasks）
 
-**禁止混入：** TaskExecutionView、WelcomePage、OtpLoginPage、ExecutionTaskCard
+**禁止混入：** TaskExecutionView、WelcomePage、OtpLoginPage、ExecutionTaskCard。
 
 **独立验收条件：**
-- TaskListView 任务总览不再有压缩的"后面再做"区域
-- "后面还有 N 步"入口卡显示正确（N 来自真实数据）
-- N = 0 时不显示入口卡
-- 点击入口卡 → 进入 ActionListView
+- TaskListView 任务总览不再有压缩的“后面再做”区域
+- 入口卡只显示“后面还有 N 步 / 看看今天的其他小步 →”，N 来自真实数据；N=0 时不显示
+- 点击入口卡 → 进入 ActionListView，UI 标题为“今天的其他小步”
 - ActionListView 分组按数据规则展示：
-  - currentTask 存在，N = 1：显示"正在做"和"接下来"，隐藏"后面再做"
-  - currentTask 不存在，N = 1：隐藏"正在做"，显示"接下来"，隐藏"后面再做"
-  - currentTask 存在，N >= 2：显示"正在做"、"接下来"和"后面再做"
-  - currentTask 不存在，N >= 2：隐藏"正在做"，显示"接下来"和"后面再做"
-  - 固定规则：不补造 currentTask；不提升 locked；不修改 todayState；不显示额外空状态卡；"接下来"始终使用 `upcomingTasks[0]`；"后面再做"始终使用 `upcomingTasks.slice(1)`
+  - currentTask 存在，N = 1：显示“正在做”和“接下来”，隐藏“后面再做”
+  - currentTask 不存在，N = 1：隐藏“正在做”，显示“接下来”，隐藏“后面再做”
+  - currentTask 存在，N >= 2：显示“正在做”、“接下来”和“后面再做”
+  - currentTask 不存在，N >= 2：隐藏“正在做”，显示“接下来”和“后面再做”
+  - 固定规则：不补造 currentTask；不提升 locked；不修改 todayState；不显示额外空状态卡；“接下来”始终使用 `upcomingTasks[0]`；“后面再做”始终使用 `upcomingTasks.slice(1)`
   - 全部完成：不显示入口卡，不进入 ActionListView
-- 行动清单无 checkbox、无按钮、无任务状态操作
-- 中间列表内部滚动，页面不变成长网页
+- 页面内容单一纵向滚动，header、进度和任务同一内容流，无嵌套列表滚动，末项不被 BottomTabBar 遮挡
 - 返回键从 action-list → task-overview → today-home
 - lint / build / TypeScript 通过
 
-### D3：任务执行布局与三状态
+### D3：任务执行 default 页面级内容流调整与三状态保持
 
-**目标：** default 态高度重分配 + ExecutionTaskCard compact 模式
+**目标：** default 态改为页面级纵向内容流 + ExecutionTaskCard compact 模式；不以 flex-1 高度竞争作为目标，不改变 C3 三状态。
 
-**依赖：** D2 完成（共用 TaskExecutionView / ExecutionTaskCard）
+**依赖：** D2 完成（共用 TaskExecutionView / ExecutionTaskCard）。
 
 **精确文件范围：**
-- `TaskExecutionView.tsx`（default 态 GuideCard 分配 flex-1；V3.0D 唯一明确传入 `ExecutionTaskCard compact={true}` 的页面）
+- `TaskExecutionView.tsx`（default 态使用页面内容单一滚动；V3.0D 唯一明确传入 `ExecutionTaskCard compact={true}` 的页面）
 - `ExecutionTaskCard.tsx`（新增 `compact?: boolean` prop，默认 `false`；保留标题 + 小步说明 + 预计时间）
 
-**禁止混入：** ActionListView、WelcomePage、OtpLoginPage、services
+**禁止混入：** ActionListView、WelcomePage、OtpLoginPage、services。
 
 **独立验收条件：**
-- default 态 AI Guide 获得主要弹性空间
-- ExecutionTaskCard compact 模式保留：任务标题 + 小步说明 + 预计时间（~88-110px）
+- default 态当前任务摘要、AI 输出、用户输入、完成动作处于同一页面内容流
+- ExecutionTaskCard compact 保留：任务标题 + 第一条非空小步说明（存在时）+ 预计时间（存在时），不写死高度
 - compact 禁止压缩为仅标签 + 一行标题
 - guide-focused 和 feedback-focused 行为不变
 - textarea 单实例、单 DOM，不用 key 重建
 - 三状态切换草稿不丢失
 - visualViewport 120px 阈值正常
 - Back Handler `task-feedback-focus / 95` 和 `task-guide-focus / 94` 不变
-- 375×812 下 AI 输出区、输入区和完成按钮均完整可识别
+- 默认字号下摘要、AI、输入清楚可识别，完成动作可达；放大字号自然滚动、无裁切/横向滚动/默认 AI 小滚动框
 - lint / build / TypeScript 通过
 
 ### D4：整体返回栈整合与真机验收
@@ -1221,14 +1185,16 @@ D2 完成：
 
 | 级别 | 风险 | 缓解 / 阻断条件 |
 |------|------|---------------|
-| P0 | TaskExecutionView default 态重分配破坏现有三状态互斥 | DOM 稳定性守则不变；Review 逐状态核验 |
+| P0 | TaskExecutionView default 内容流调整破坏现有三状态互斥 | DOM 稳定性守则不变；Review 逐状态核验 |
 | P0 | page-authenticated-root 新增 action-list 分支导致返回跳过 tasks | Back Handler 优先级表 Review 必查 |
-| P0 | ActionListView 撑开 AppShell 变成长网页 | `h-full min-h-0 flex-1 overflow-y-auto` 硬约束 |
+| P0 | ActionListView 形成嵌套滚动或内容被 BottomTab 遮挡 | 单一页面内容滚动区；header、进度、任务同流；底部预留 Tab 实际高度 + safe area + 16px |
 | P0 | OtpLoginPage 双状态重挂载输入导致键盘丢失 | code-entry 输入是新增实例，email 输入在 code-entry 不保留 DOM；切换回 email-entry 恢复 email 值 |
+| P0 | OTP 被误实现为真实认证、虚假“发送成功”或延迟验证成功 | email-entry 仅有约 250ms 视觉过渡；完整六码点击后立即 onLoginSuccess；无 service/验证 delay/loading/timeout |
 | P0 | otp-code-entry / 65 未注册导致 code-entry 返回直接回 welcome | Review 强制检查 OtpLoginPage 注册 otp-code-entry |
 | P1 | ExecutionTaskCard compact prop 被 TaskListView 误用 | compact 默认 false，TaskListView 不传此 prop |
 | P1 | OTP code-entry Back Handler cleanup 失败导致残留 | 精确 priority 区间 + 对称 cleanup 验证 |
-| P1 | Welcome 单屏后 375px 下装饰元素溢出 | 装饰元素 shrink-0 + 条件隐藏 |
+| P1 | Welcome 默认字号或放大字号下内容溢出/裁切 | 默认字号紧凑、唯一按钮可见；放大字号允许 AuthShell 安全滚动，不用极小字号 |
+| P1 | OTP 键盘在只读 AuthShell 下仍遮挡控件 | 优先现有 AuthShell 滚动、浏览器聚焦滚动、OtpLoginPage 范围内调整；仍需改 AuthShell 时停止 D1、记录复现并报告 ChatGPT，另立批次 |
 | P1 | ActionListView 任务卡与 Todo List 趋同 | 禁止 checkbox + 删除线 + 批量操作；Review 检查 |
 | P1 | ActionListView 数据分组与 TaskListView currentTask 判断不一致 | 复用相同过滤逻辑；Review 检查 |
 | P2 | 既有多 lockfiles 警告 | 仅记录 |
@@ -1247,19 +1213,19 @@ D2 完成：
 
 ## 21. Code Review 核心检查点
 
-1. Welcome：单屏、无 `min-h-screen`、两个按钮 375×812 可见；主标题"今天，也从一小步开始"；品牌文案"慢一点，也在向前走"；顶部只显示"清行"，无登录按钮
-2. OTP：`otpStep` 本地状态、Mock 诚实说明"当前是前端体验流程"、code-entry 标题"继续输入验证码"、"演示邮箱"标签存在
-3. OTP 验证码：一个逻辑 input + 六个视觉数字格、`inputMode="numeric"`、`maxLength={6}`
-4. OTP Back Handler：`otp-code-entry / 65` 已注册、仅在 `otpStep === "code-entry"` 时消费
-5. TaskListView：无 UpcomingTaskList、入口卡 N 值来自 `upcomingTasks.length`、N=0 时隐藏
-6. ActionListView：`h-full overflow-hidden`、中间列表 `overflow-y-auto`、三个分组按数据规则、内部 ActionListTaskCard 无按钮/checkbox
-7. ActionListView 数据分组：按 currentTask 存在/不存在 + N 值双条件判断（统一锁定表）；N=1 与 N>=2 的四种组合均符合 §9 固定规则；后续任务排除 completed 和 current
-8. 任务卡关系：TaskListView 继续使用只读 CurrentTaskCard，不导入或改用 ExecutionTaskCard；TaskExecutionView 是 V3.0D 唯一明确使用 ExecutionTaskCard 的页面，始终传 `compact={true}`；不新增其他使用位置
-9. TaskExecutionView：三枚举互斥、DOM 稳定、compact TaskCard 保留标题+小步说明+预计时间、GuideCard flex-1
-10. BackController：`action-list / 85` 已注册、`otp-code-entry / 65` 已注册、page-authenticated-root 处理 action-list、优先级顺序正确
-11. 无 AppShell/BottomTabBar/globals.css/package.json 修改
-12. 无 services/types/CurrentTaskCard/ExecutionFeedbackBox/ExecutionGuideCard 修改
-13. lint / build / TypeScript 通过
+1. Welcome：默认字号紧凑、无 `min-h-screen`、唯一“开始使用”在 375×812 可见；放大字号允许 AuthShell 安全纵向滚动；主标题“今天，也从一小步开始”；品牌文案“慢一点，也在向前走。”；顶部只显示“清行”，无登录/注册/第三入口。
+2. OTP：`otpStep` 本地状态；email-entry 仅有登录方式 Tab 作为密码登录入口和 footer 注册入口“第一次来？创建我的行动记录”，无重复密码链接；code-entry 标题“继续输入验证码”、“演示邮箱”与诚实 Mock 说明存在。
+3. OTP 验证码：一个逻辑 input + 六个视觉数字格、`inputMode="numeric"`、`maxLength={6}`；完整六位后仅用户点击才再次校验并立即 `onLoginSuccess()`，无 isVerifying/loading/验证 delay/timeout/自动提交/service。
+4. OTP Back Handler：`otp-code-entry / 65` 已注册、仅在 `otpStep === "code-entry"` 时消费。
+5. TaskListView：无 UpcomingTaskList、入口卡 N 值来自 `upcomingTasks.length`、N=0 时隐藏；入口 UI 仅为“后面还有 N 步 / 看看今天的其他小步 →”。
+6. ActionListView：真实 UI 标题“今天的其他小步”，页面内容区单一纵向滚动，header/进度/任务同流，无中间独立 `overflow-y-auto` 列表；内部 ActionListTaskCard 无按钮/checkbox。
+7. ActionListView 数据分组：按 currentTask 存在/不存在 + N 值双条件判断（统一锁定表）；N=1 与 N>=2 的四种组合均符合 §9 固定规则；后续任务排除 completed 和 current。
+8. 任务卡关系：TaskListView 继续使用只读 CurrentTaskCard，不导入或改用 ExecutionTaskCard；TaskExecutionView 是 V3.0D 唯一明确使用 ExecutionTaskCard 的页面，始终传 `compact={true}`；不新增其他使用位置。
+9. TaskExecutionView：三枚举互斥、DOM 稳定；default 内容区单一纵向滚动，摘要/AI/输入/完成同流；compact 完整显示标题并允许自然换行，保留第一条非空小步说明与单次预计时间，但不以固定高度、line clamp 或裁切换紧凑。
+10. BackController：`action-list / 85` 已注册、`otp-code-entry / 65` 已注册、page-authenticated-root 使用 execution / action-list 两个独立分支、优先级顺序正确。
+11. 无 AppShell/BottomTabBar/globals.css/package.json 修改。
+12. 无 services/types/CurrentTaskCard/ExecutionFeedbackBox/ExecutionGuideCard 修改。
+13. lint / build / TypeScript 通过。
 
 ---
 
@@ -1267,50 +1233,50 @@ D2 完成：
 
 ### 22.1 D1 验收
 
-- [ ] Welcome 固定单屏，375×812 两个按钮可见
-- [ ] 主标题："今天，也从一小步开始"
-- [ ] 品牌文案："慢一点，也在向前走"
+- [ ] Welcome 默认字号紧凑，375×812 下唯一“开始使用”完整可见；放大字号时 AuthShell 内容区安全纵向滚动，无裁切、无横向滚动
+- [ ] 主标题：“今天，也从一小步开始”
+- [ ] 品牌文案：“慢一点，也在向前走。”
 - [ ] 无模拟任务展示大卡
 - [ ] 品牌感保留（清行、小径与嫩芽主视觉）
-- [ ] 顶部只显示"清行"，无登录按钮
-- [ ] OTP 邮箱输入 → 点击"发送验证码" → 进入验证码输入
-- [ ] code-entry 标题为"继续输入验证码"
-- [ ] Mock 诚实说明："当前是前端体验流程，暂时不会发送真实邮件。输入任意 6 位数字即可继续体验。"
-- [ ] 邮箱旁显示"演示邮箱"
-- [ ] 验证码输入为六个视觉数字格
-- [ ] "重新发送"有倒计时
-- [ ] "更换邮箱"回到 email-entry 并恢复邮箱
-- [ ] 输入 6 位数 → "验证并进入清行"可用 → 点击进入 authenticated
+- [ ] 顶部只显示“清行”，无登录按钮；Welcome 无旧第二登录 CTA、注册按钮、“了解更多”或第三入口
+- [ ] OTP email-entry 只显示清行品牌、页面标题与说明、登录方式 Tab、邮箱输入、“发送验证码”和 footer 注册入口“第一次来？创建我的行动记录”；密码登录仅通过 Tab 进入，footer 不显示第二个密码登录入口。
+- [ ] code-entry 标题为“继续输入验证码”；无登录方式 Tab、密码入口、注册入口、原邮箱输入或第三入口。
+- [ ] Mock 诚实说明：“当前是前端体验流程，暂时不会发送真实邮件。输入任意 6 位数字即可继续体验。”
+- [ ] 邮箱旁显示“演示邮箱”
+- [ ] 验证码输入为一个逻辑 input + 六个视觉数字格
+- [ ] “重新发送”有倒计时
+- [ ] “更换邮箱”回到 email-entry 并恢复邮箱
+- [ ] 未满 6 位保持 disabled、无自动提交；完整 6 位后点击“验证并进入清行”再次检查 `/^\d{6}$/`、清 `formError` 并立即进入 authenticated；无验证 loading/delay/timeout/成功提示/service 调用。
 - [ ] 返回键从 code-entry 回 email-entry（通过 `otp-code-entry / 65`）
 
 ### 22.2 D2 验收
 
-- [ ] 任务总览不再有压缩的"后面再做"长列表
-- [ ] "后面还有 N 步"入口卡完整可读（N 来自真实数据）
+- [ ] 任务总览不再有压缩的“后面再做”长列表
+- [ ] 入口卡只显示“后面还有 N 步 / 看看今天的其他小步 →”，N 来自真实数据
 - [ ] N = 0 时不显示入口卡
-- [ ] 点击入口 → ActionListView
-- [ ] ActionListView 分组按统一锁定表展示（currentTask 存在/不存在 + N 值双条件）
-- [ ] currentTask 存在且 N=1：显示"正在做"+"接下来"，隐藏"后面再做"
-- [ ] currentTask 不存在且 N=1：不显示"正在做"，显示"接下来"，隐藏"后面再做"
-- [ ] currentTask 存在且 N>=2：显示"正在做"+"接下来"+"后面再做"
-- [ ] currentTask 不存在且 N>=2：不显示"正在做"，显示"接下来"+"后面再做"
-- [ ] 不补造 currentTask、不提升 locked、不修改 todayState、不显示额外空状态卡；"接下来"使用 `upcomingTasks[0]`，"后面再做"使用 `upcomingTasks.slice(1)`
+- [ ] 点击入口 → ActionListView，真实 UI 标题为“今天的其他小步”
+- [ ] ActionListView 分组按统一锁定表展示（currentTask 存在/不存在 + N 值双条件）；每个分组仅有分组标题和锁定的 ActionListTaskCard / 卡片列表，无分组尾注文案、空状态说明、临时文案或额外分支文案逻辑。
+- [ ] currentTask 存在且 N=1：显示“正在做”+“接下来”，隐藏“后面再做”
+- [ ] currentTask 不存在且 N=1：不显示“正在做”，显示“接下来”，隐藏“后面再做”
+- [ ] currentTask 存在且 N>=2：显示“正在做”+“接下来”+“后面再做”
+- [ ] currentTask 不存在且 N>=2：不显示“正在做”，显示“接下来”+“后面再做”
+- [ ] 不补造 currentTask、不提升 locked、不修改 todayState、不显示额外空状态卡；“接下来”使用 `upcomingTasks[0]`，“后面再做”使用 `upcomingTasks.slice(1)`
 - [ ] 当前任务使用黄色卡
 - [ ] 后续任务使用暖白卡
 - [ ] 无 checkbox、按钮、任务状态操作
-- [ ] 中间列表可滚动，页面不长
+- [ ] 页面内容单一纵向滚动；header、TaskProgressCard、任务卡同一流；无嵌套小滚动框；末项不被 BottomTabBar 遮挡
 - [ ] 返回键：action-list → task-overview → today-home
 
 ### 22.3 D3 验收
 
-- [ ] default 态 AI Guide 获得更多空间
-- [ ] ExecutionTaskCard compact 保留标题、小步说明、预计时间
+- [ ] default 态当前任务摘要、AI Guide、输入区清楚可识别
+- [ ] ExecutionTaskCard compact 保留标题、第一条非空小步说明（存在时）、预计时间（存在时），不写死高度
 - [ ] compact 不压缩为仅标签 + 一行标题
 - [ ] guide-focused 和 feedback-focused 正常
 - [ ] 三状态切换草稿不丢失
 - [ ] 键盘弹出/收起正常
-- [ ] 完成按钮始终可达
-- [ ] 375×812 下 AI 输出区、输入区和完成按钮均完整可识别
+- [ ] 完成按钮始终可通过页面滚动到达
+- [ ] 默认字号与放大字号均页面自然滚动、无内容裁切、无横向滚动、无默认 AI 嵌套小滚动框、无 BottomTab 遮挡
 
 ### 22.4 D4 验收
 
@@ -1341,15 +1307,15 @@ V3.0D 的 OTP 双状态实现（`otpStep`、`verificationCode`、倒计时）与
 
 ## 24. 架构结论
 
-1. **Welcome 单屏方案：** 删除模拟内容，`h-full` + `flex flex-col`，顶部只有"清行"，底部保留"开始使用"与"已有账号，去登录"两个入口，主标题"今天，也从一小步开始"，品牌视觉锁定小径与嫩芽
-2. **OTP Mock 方案：** OtpLoginPage 本地 `otpStep` 状态，不修改 auth service，Mock 文案始终诚实（"当前是前端体验流程"），"演示邮箱"标签
-3. **OTP 验证码输入：** 一个逻辑 input + 六个视觉数字格，`inputMode="numeric"`，`maxLength={6}`
-4. **OTP Back Handler：** `otp-code-entry / 65`（强制，非可选），OtpLoginPage 注册
-5. **任务总览重构：** 移除 UpcomingTaskList；TaskListView 继续使用只读 CurrentTaskCard，不导入或改用 ExecutionTaskCard；新增行动清单入口卡，N 来自真实数据，N=0 时隐藏
-6. **行动清单方案：** 新增 `todayMode="action-list"`，新建 ActionListView（含内部 ActionListTaskCard），数据分组按 currentTask 存在/不存在 + N 值双条件统一锁定表；不补造 currentTask、不提升 locked、不修改 todayState、不显示额外空状态卡，"接下来"固定使用 `upcomingTasks[0]`，"后面再做"固定使用 `upcomingTasks.slice(1)`
-7. **任务执行三状态：** 保留 C3 架构，default 态 GuideCard 获得 flex-1；TaskExecutionView 是 V3.0D 唯一明确使用 ExecutionTaskCard 的页面，始终传入 `compact={true}`；ExecutionTaskCard 默认 `compact=false`，紧凑模式保留标题+小步说明+预计时间，且不新增其他使用位置
-8. **状态所有权：** 不提升局部状态，`todayMode` 在 page.tsx 管理，`otpStep` 在 OtpLoginPage 本地
-9. **BackController：** 新增 `action-list / 85` + `otp-code-entry / 65`，更新 `page-authenticated-root`
-10. **滚动所有权：** Welcome 不滚动，TaskListView 不滚动，ActionListView 仅中间列表内滚，TaskExecutionView 按 presentation 控制内部滚动
-11. **双 AppShell 防护：** 所有页面保持在单一 AppShell/AuthShell 内，不创建新壳
-12. **V3.1-A 兼容：** V3.0D 的 OTP 状态机构建在 V3.1-A 接入时可复用视觉结构
+1. **Welcome 方案：** 删除模拟内容，顶部只有“清行”，仅保留“开始使用”主动作并进入 otp-login；默认字号单屏优先，放大字号由 AuthShell 安全滚动；主标题“今天，也从一小步开始”，品牌视觉锁定小径与嫩芽。
+2. **OTP Mock 方案：** OtpLoginPage 本地 `otpStep` 状态，不修改 auth service，Mock 文案始终诚实（“当前是前端体验流程”），“演示邮箱”标签。
+3. **OTP 验证码输入：** 一个逻辑 input + 六个视觉数字格，`inputMode="numeric"`，`maxLength={6}`。
+4. **OTP Back Handler：** `otp-code-entry / 65`（强制，非可选），OtpLoginPage 注册。
+5. **任务总览重构：** 移除 UpcomingTaskList；TaskListView 继续使用只读 CurrentTaskCard，不导入或改用 ExecutionTaskCard；入口 UI 锁定为“后面还有 N 步 / 看看今天的其他小步 →”，N 来自真实数据，N=0 时隐藏。
+6. **行动清单二级页方案：** 内部使用 `todayMode="action-list"` 与 ActionListView；真实 UI 标题“今天的其他小步”；数据分组按 currentTask 存在/不存在 + N 值双条件统一锁定表；不补造 currentTask、不提升 locked、不修改 todayState、不显示额外空状态卡，“接下来”固定使用 `upcomingTasks[0]`，“后面再做”固定使用 `upcomingTasks.slice(1)`。
+7. **任务执行三状态：** 保留 C3 架构；default 使用页面级内容流，TaskExecutionView 是 V3.0D 唯一明确使用 ExecutionTaskCard 的页面，始终传入 `compact={true}`；ExecutionTaskCard 默认 `compact=false`，紧凑模式保留标题+小步说明+预计时间且不写死高度、不裁切必要内容。
+8. **状态所有权：** 不提升局部状态，`todayMode` 在 page.tsx 管理，`otpStep` 在 OtpLoginPage 本地。
+9. **BackController：** 新增 `action-list / 85` + `otp-code-entry / 65`，page-authenticated-root 使用两个独立分支。
+10. **滚动所有权：** Welcome 默认字号单屏优先、放大字号安全滚动；TaskListView、ActionListView 与 TaskExecutionView default 均为页面内容区单一纵向滚动；guide-focused / feedback-focused 保留既有专注态滚动与键盘行为。
+11. **双 AppShell 防护：** 所有页面保持在单一 AppShell/AuthShell 内，不创建新壳。
+12. **V3.1-A 兼容：** V3.0D 的 OTP 状态机构建在 V3.1-A 接入时可复用视觉结构。
