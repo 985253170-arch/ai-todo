@@ -3,8 +3,9 @@
 > 状态：当前项目交接文档
 > 用途：新会话 / Claude Code / Codex 接手项目时优先读取
 > 更新日期：2026-07-19
-> 当前状态：V3.0D 已正式完成并关闭；D1、D2、D3、D4 全部通过；V3.1-A 尚未开始施工
-> 最新代码基线：`9dcab1f4b20a3df3f7fce0d22ef99cfa21b7179b` — `fix: improve mobile task execution flow`
+> 当前状态：V3.0D 已正式完成并关闭；V3.1-A 前置只读审计与 Architecture 已完成并通过 ChatGPT Review；尚未创建 Execution Plan 或开始代码施工
+> V3.1-A Architecture 文档提交：`bd9d27094dea383651292d2cfe494b939e2537fd` — `docs: finalize V3.1-A auth architecture`（已 Push）
+> 最新功能代码基线：`9dcab1f4b20a3df3f7fce0d22ef99cfa21b7179b` — `fix: improve mobile task execution flow`
 > 原则：只记录当前有效状态，不重复旧阶段完整 Architecture 或 Execution Plan
 
 ---
@@ -271,31 +272,73 @@ guide-focused
 - 不属于 V3.0D 遗留 P0/P1；
 - 未获单独授权时不得顺带处理。
 
-## 7. 下一阶段：V3.1-A 尚未开始
+## 7. 当前阶段：V3.1-A Architecture 已提交
 
-V3.1-A **尚未开始施工**。
+V3.1-A 尚未开始代码施工，但前置只读审计与 Architecture 均已完成并通过 ChatGPT Review。Architecture 与现行产品文档已完成提交并 Push；本次提交未包含代码、配置、依赖或环境变量。
 
-### 当前边界
+### 7.1 已完成状态
 
-- Codex 未获得 V3.1-A 写代码授权。
+| 项目 | 状态 |
+|---|---|
+| V3.0D | 已正式完成并关闭。 |
+| V3.1-A 前置只读审计 | 已完成并通过。 |
+| V3.1-A Architecture | 已完成并通过 ChatGPT Review；已完成文档提交并 Push。 |
+| Architecture Review | P0：0；P1：0；P2：3。 |
+| Architecture 文档提交 | `bd9d27094dea383651292d2cfe494b939e2537fd` — 已 Push。 |
+| Architecture 提交文件 | `docs/Architecture-V3.1-A-Mobile-Auth.md`、`docs/V3.1-A-Auth-Flow-Lock.md`、`docs/Roadmap-V3.0C-to-V3.3-Mobile-Production.md`。 |
+| Architecture 提交范围 | 未包含代码、配置、依赖或环境变量。 |
+| V3.1-A Execution Plan | 尚未创建。 |
+| V3.1-A 代码施工 | 尚未开始。 |
+| Codex | 未获得 V3.1-A 写代码授权。 |
+
+### 7.2 非阻断 P2
+
+1. A1.5 验证入口须在 Execution Plan 中唯一选择；
+2. Mock adapter 最小内存 Session / `passwordSet` / local signOut；
+3. 页面局部错误与 transient `AuthState.error` 清理。
+
+这些 P2 不阻断 Architecture 通过，但必须由 Execution Plan 精确锁定，不能留给 Codex 自行决定。
+
+### 7.3 当前边界
+
+- 不允许创建 Execution Plan 之外的代码施工授权；本次仅完成现行文档同步。
 - 不允许直接连接真实 Auth、API、Supabase 或数据库。
 - 不允许直接删除 Mock service。
 - 不允许直接修改现有页面视觉结构。
-- 必须先基于最新 V3.0D 基线重新核对 V3.1-A 文档和实际代码。
-- 由 ChatGPT 审查后，才决定是否进入 V3.1-A 代码施工。
+- 不允许安装 Supabase 依赖、设置环境变量、修改 package / lockfile、API Route、数据库或 migration。
+- 不得宣称 Codex 已获授权、真实后端已接入，或 Auth / Supabase 已开始改造。
 
-不得宣称 V3.1-A 已开始、Codex 已获授权、真实后端已接入，或 Auth / Supabase 已开始改造。
+### 7.4 下一阶段
 
-## 8. 最新基线与长期未跟踪项
+由 Claude Code 编写 **V3.1-A Execution Plan**，再经 ChatGPT 审查。只有 Execution Plan 获批并获得明确授权后，才可决定是否允许 Codex 开始代码施工。
 
-### 最新代码基线
+V3.1-A 的当前权威 Architecture 是 [Architecture-V3.1-A-Mobile-Auth.md](Architecture-V3.1-A-Mobile-Auth.md)。其现行产品流程已同步至 [V3.1-A-Auth-Flow-Lock.md](V3.1-A-Auth-Flow-Lock.md) 与 [Roadmap-V3.0C-to-V3.3-Mobile-Production.md](Roadmap-V3.0C-to-V3.3-Mobile-Production.md)。
+
+## 8. Git 基线与长期未跟踪项
+
+### 当前 Git 基线
+
+```text
+ARCHITECTURE_COMMIT：bd9d27094dea383651292d2cfe494b939e2537fd
+docs: finalize V3.1-A auth architecture
+已 Push 至 origin/main
+
+提交文件：
+- docs/Architecture-V3.1-A-Mobile-Auth.md
+- docs/V3.1-A-Auth-Flow-Lock.md
+- docs/Roadmap-V3.0C-to-V3.3-Mobile-Production.md
+
+ARCHITECTURE_COMMIT 是 V3.1-A 现行文档提交，不是功能代码基线。
+```
+
+### 最新功能代码基线
 
 ```text
 9dcab1f4b20a3df3f7fce0d22ef99cfa21b7179b
 fix: improve mobile task execution flow
 ```
 
-D4 无代码提交，因此 V3.0D 最终基线仍是 D3 提交。
+D4 无代码提交，因此最新功能代码基线仍是 D3 提交。**不得将 Handoff 文档提交 HEAD 与最新功能代码基线混淆。**
 
 ### 长期未跟踪项
 
