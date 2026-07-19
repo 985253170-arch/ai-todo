@@ -4,7 +4,7 @@
 > 定位：V3.0C 手机端加固 → V3.3 中国大陆稳定部署，严格顺序推进
 > 依据：V3.0C 只读审计 + ChatGPT 修正 + 现有代码核验
 > 创建日期：2026-07-15
-> 最后修订：2026-07-17（追加 V3.1-A / V3.1-B 串行拆分与真实认证流程锁定）
+> 最后修订：2026-07-19（同步 V3.1-A Architecture Review 通过状态、显式注册流程、A0–A5 阶段与安全门禁）
 
 ---
 
@@ -161,116 +161,100 @@ V3.0A 架构文档曾将 V3.0C 定义为"移动端细节优化（safe-area、触
 
 ## 4. V3.1：Mobile Service Adapter 与真实后端连接
 
-### 4.1 目标
-
-保留 [apps/mobile-app/](../apps/mobile-app/) 的所有 `*.mock.ts`，新增真实 API adapter 实现，通过统一 service facade/provider 切换 Mock/Real。同时不修改现有 `src/app/api/` 的逻辑。核心思路是编写 **API Adapter 层**，将旧 API 的数据格式转换为 mobile-app 的简化类型。
-
-### V3.1 子阶段与严格顺序
-
-V3.1 严格拆分为两个串行子阶段：
+V3.1 严格拆分为两个串行子阶段：先完成真实 Auth，再连接真实业务数据。所有 Mock 保留，通过 facade / adapter 切换；不修改现有 `src/app/api/**`、数据库 schema 或 RLS。
 
 ```text
-V3.1-A：真实认证流程接入
-  → Review、用户验收、提交并 Push
+V3.1-A：Mobile 真实认证
+  → A0 / A1 / A1.5 / A2 / A3 / A4 / A5 全部通过
+  → Review、用户验收、获授权后才可提交
   → V3.1-B：任务、足迹、成长与其他真实 Service Adapter 接入
 ```
 
-#### V3.1-A：真实认证流程接入
+### 4.1 V3.1-A：Mobile 真实认证
+
+V3.1-A 只负责真实 Auth：
+
+- Auth facade；
+- Mock / Real adapter；
+- Supabase Browser Client；
+- 已有账号 OTP 登录；
+- 显式注册；
+- 首次设置密码；
+- 密码登录；
+- Session 恢复；
+- local signOut；
+- 我的页真实账号状态。
+
+它不负责真实任务、deviceId、匿名任务迁移、历史、足迹、成长、AI 或任务同步；这些严格留在 V3.1-B。
+
+#### 登录与注册流程
+
+```text
+已有账号验证码登录
+sendOtp intent = sign-in
+→ shouldCreateUser = false
+→ verifyOtp
+→ password_set=true：AppShell
+→ 其他：首次设置密码门禁
+```
+
+未知邮箱不得在登录流程中自动创建账号，页面只温和引导到 RegisterPage。
+
+```text
+显式注册
+RegisterPage
+→ sendOtp intent = sign-up
+→ shouldCreateUser = true
+→ verifyOtp
+→ Session
+→ 首次设置密码
+→ AppShell
+```
+
+密码登录成功直接进入 `authenticated` / AppShell；`password_set` metadata 仅 best-effort 补写，失败不阻断。
+
+#### V3.1-A 小阶段与硬门禁
+
+| 阶段 | 目标与门禁 |
+|---|---|
+| V3.1-A0 | 部署与 Supabase 前置检查：6 位 Email OTP、publishable key、同源 gateway/CDN、Cookie / Set-Cookie 及认证路径禁用共享缓存能力。环境不具备即停止。 |
+| V3.1-A1 | Auth 合约、client 与 adapter 最小基础：facade、Mock / Real adapter、Browser Client、错误映射、精确依赖版本与唯一 lockfile。 |
+| V3.1-A1.5 | Session / Cookie 最小可行性验证：真实 OTP、Session、同源 `/api/auth/me`、local signOut、缓存安全、双 Profile 隔离与事件竞态验证。**A1.5 失败不得进入 A2。** |
+| V3.1-A2 | 真实 OTP 登录与注册验证码：intent 分流、resend、错误和页面接入。 |
+| V3.1-A3 | 首次设置密码与密码登录：required-password gate、显式退出、metadata 体验标记。 |
+| V3.1-A4 | Session 恢复、我的页与登出：初始化 gate、订阅、真实邮箱、诚实账号状态、async local signOut。 |
+| V3.1-A5 | 集成 Review、真机验收与提交准备：按 Architecture 验收矩阵完成 Mock / Real / 返回链 / 视口 / 工程门禁。 |
+
+#### 部署与安全方向
+
+- 默认采用同源 gateway；当前不采用跨域；
+- 认证响应禁止共享缓存：gateway、CDN、反向代理与 ISR 不得缓存认证 / Session 路径；
+- mobile Real adapter 使用 `NEXT_PUBLIC_SUPABASE_URL` 与 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`；
+- Real signOut 固定 `auth.signOut({ scope: "local" })`：只退出当前浏览器 Session，同 Session 标签页收敛 guest，其他 Profile 与设备不受影响；
+- A1.5 是真实 Session / Cookie / 缓存 / local signOut 的硬门禁，不能以跨域、前端 userId 或 service role 绕过。
+
+详细架构见 [Architecture-V3.1-A-Mobile-Auth.md](Architecture-V3.1-A-Mobile-Auth.md)，产品流程见 [V3.1-A-Auth-Flow-Lock.md](V3.1-A-Auth-Flow-Lock.md)。
+
+### 4.2 V3.1-B：任务、足迹、成长与其他真实 Service Adapter 接入
 
 范围：
 
-- 输入邮箱；
-- 发送 6 位验证码；
-- 输入并验证验证码；
-- 自动登录或注册；
-- 首次登录后设置密码；
-- 后续支持密码登录；
-- 保留邮箱验证码登录；
-- 保留 Mock；
-- 页面通过 auth service facade 调用。
+- 真实任务；
+- deviceId；
+- 匿名任务迁移；
+- 历史、足迹与成长；
+- AI 与其他非认证业务 adapter；
+- 任务同步；
+- 保留所有 Mock service，并通过统一 facade 切换 Mock / Real。
 
-详细需求锁定见 [V3.1-A-Auth-Flow-Lock.md](V3.1-A-Auth-Flow-Lock.md)。
+V3.1-B 在 V3.1-A 完成、Review 和验收关闭前不得开始。
 
-#### V3.1-B：任务、足迹、成长与其他真实 Service Adapter 接入
+### 4.3 V3.1 共通边界
 
-范围：
-
-- 任务数据；
-- 足迹数据；
-- 成长数据；
-- 其他非认证业务 Adapter；
-- 保留所有 Mock service；
-- 通过统一 facade 切换 Mock / Real。
-
-### 4.2 允许范围
-
-| # | 项目 | 说明 |
-|---|------|------|
-| 1 | 编写 API Adapter 层 | 旧 API 类型 → mobile-app 类型映射 |
-| 2 | 新增 `authService` adapter | 接 Supabase Auth（通过现有 API 或直接 Supabase client），保留 `authService.mock.ts` |
-| 3 | 新增 `taskService` adapter | 接 `/api/generate-tasks`、`/api/task-group/*`、`/api/task-companion`，保留 `taskService.mock.ts` |
-| 4 | 新增 `historyService` adapter | 接 `/api/task-groups/history`，保留 `historyService.mock.ts` |
-| 5 | 新增 `growthService` adapter | 接 `/api/task-groups/stats`、`/api/task-groups/review`，保留 `growthService.mock.ts` |
-| 6 | 新增统一 service facade/provider | 页面通过 facade 调用，不直接选择 Mock 或 Real。开发和测试可切回 Mock |
-| 7 | 类型适配 | `resolved_today` 等旧 API 状态到 mobile-app 简化模型的映射 |
-| 8 | 部署方案 | 默认优先同源方案。如果跨域，需单独审查 CORS、credentials、Cookie、服务端配置 |
-| 9 | 错误处理对齐 | API 错误 → 用户可见温柔提示 |
-| 10 | 真机数据流验证 | Android Chrome + iOS Safari 各至少一次 |
-
-### 4.3 页面组件修改规则
-
-**页面视觉结构和产品 UI 锁定**。不允许自由重做 UI。但在以下情况下允许最小修改：
-
-- 真实 OTP/Auth 流程需要多阶段状态（如发送验证码 → 倒计时 → 重新发送）
-- 可在经过 UI Spec、架构方案和执行方案审查后，最小修改 [page.tsx](../apps/mobile-app/app/page.tsx) 或 Auth 页面逻辑
-- 修改范围必须在执行方案中明确列出
-- 不允许自由重做 UI 或改变产品视觉结构
-
-### 4.4 Mock Service 处理
-
-- **不删除** `*.mock.ts` 文件
-- 新增真实 API adapter 文件
-- 新增统一 service facade 或 provider，在开发和测试时可切回 mock
-- 保留 mock 能力用于离线开发和测试
-
-### 4.5 部署说明
-
-- V3.1 默认优先同源部署方案
-- 如果采用跨域部署，必须单独审查 CORS、credentials、Cookie 和服务端配置
-- 在禁止修改 `src/app/api/` 的前提下，不得声称跨域一定可以完成
-- 部署方案由执行方案阶段确定
-
-### 4.6 禁止范围
-
-| # | 禁止项 |
-|---|--------|
-| 1 | 修改 `src/app/api/` 任何文件 |
-| 2 | 修改现有 hooks |
-| 3 | 修改 Supabase schema |
-| 4 | 修改 AI prompts |
-| 5 | 删除 `*.mock.ts` |
-| 6 | 安装 Capacitor |
-| 7 | 做 APK |
-| 8 | 国内部署 |
-
-### 4.7 前置风险记录
-
-V3.0C 审计发现的以下问题不进入 V3.0C，记录为 V3.1 前置风险：
-
-- Mock service 类型不兼容旧 API（mobile-app `TaskStatus` 缺少 `resolved_today`，`Task` 字段数远少于旧系统）
-- 旧 API 返回数据格式与 mobile-app 类型之间的映射需逐字段验证
-
-### 4.8 验收出口
-
-- [ ] 所有 4 个 mock service 保留，对应真实 API adapter 已新增
-- [ ] 统一 service facade/provider 已新增，页面通过 facade 调用
-- [ ] 开发/测试模式下可切回 Mock
-- [ ] 登录/注册/任务生成/任务完成/历史/统计 全流程数据真实
-- [ ] 页面视觉结构和产品 UI 锁定（如有修改，已在执行方案中列出）
-- [ ] 未删除或覆盖任何 `*.mock.ts` 文件
-- [ ] lint + build 通过
-- [ ] 真机数据流通过
-
+- 页面视觉结构和产品 UI 锁定；如真实 Auth 需最小状态调整，必须在后续 Execution Plan 明确列出；
+- 不删除或覆盖任何 `*.mock.ts`，真实能力只通过新增 adapter 层接入；
+- 不修改 `src/**`、根 API Route、Supabase schema、RLS 或 AI prompts；
+- V3.1-A 当前已通过 Architecture Review，但尚未创建 Execution Plan，Codex 未获代码授权。
 ---
 
 ## 5. V3.2：Capacitor Android APK 与发布测试
