@@ -67,5 +67,45 @@ export interface RegisterInput {
 }
 
 export type LoadingState = "idle" | "loading" | "success" | "error";
-export type AuthScreen = "welcome" | "otp-login" | "password-login" | "register";
+export type AuthMode = "mock" | "real";
+export type AuthStatus = "initializing" | "guest" | "authenticating" | "authenticated-needs-password" | "authenticated" | "signing-out" | "recovery-signout-pending" | "error";
+export type AuthScreen = "welcome" | "otp-login" | "password-login" | "register" | "password-setup";
+export type OtpIntent = "sign-in" | "sign-up";
+export interface AuthUser { id: string; email: string; passwordSet: boolean; }
+export type AuthErrorCode =
+  | "not-configured"
+  | "rate-limited"
+  | "network-error"
+  | "session-expired"
+  | "invalid-otp"
+  | "invalid-credentials"
+  | "invalid-email"
+  | "unknown-auth-error"
+  | "recovery-request-failed"
+  | "recovery-verify-failed"
+  | "recovery-session-invalid"
+  | "recovery-password-update-failed"
+  | "recovery-marker-invalid"
+  | "recovery-sign-out-failed"
+  | "recovery-evidence-timeout"
+  | "recovery-storage-unavailable";
+export interface AuthError { code: AuthErrorCode; userMessage: string; retryable: boolean; operation: string; }
+export type AuthResult<T> = { ok: true; data: T } | { ok: false; error: AuthError };
+export interface SendOtpInput { email: string; intent: OtpIntent; }
+export interface VerifyOtpInput { email: string; code: string; intent: OtpIntent; }
+export interface PasswordSignInInput { email: string; password: string; }
+export interface SetPasswordInput { password: string; }
+export interface SendRecoveryOtpInput { email: string; }
+export interface VerifyRecoveryOtpInput { email: string; code: string; }
+export interface UpdateRecoveryPasswordInput { password: string; }
+export interface RecoveryOtpDelivery { resendAfterSeconds: 60; }
+export type AuthSessionEventType =
+  | "INITIAL_SESSION"
+  | "SIGNED_IN"
+  | "SIGNED_OUT"
+  | "TOKEN_REFRESHED"
+  | "USER_UPDATED"
+  | "PASSWORD_RECOVERY";
+export interface AuthSessionEvent { type: AuthSessionEventType; user: AuthUser | null; }
+export interface AuthState { status: AuthStatus; user: AuthUser | null; error: AuthError | null; }
 export type AppTab = "today" | "footprint" | "growth" | "me";
