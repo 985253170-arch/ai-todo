@@ -1,854 +1,710 @@
-# V3.1-A Execution Plan — Mobile 真实认证
+# V3.1-A Execution Plan — Mobile 真实认证与 Recovery OTP
 
-> **状态：** Execution Plan Review 修订稿，等待 ChatGPT Review；不是代码授权。
+> **状态：** R1、R2 已完成、Review、提交并 Push，正式关闭。当前为 R3 Session ID Evidence Contract 三文档修订，等待完整 Review；文档 Review 通过不构成代码或提交授权。
 >
-> **Architecture：** [Architecture-V3.1-A-Mobile-Auth.md](Architecture-V3.1-A-Mobile-Auth.md) 已通过 ChatGPT Review（P0：0；P1：0；P2：3）。
->
-> **权限：** 本文件只设计未来的分阶段实施。Codex 尚未获得代码授权；不得据此修改代码、安装依赖、创建临时入口、设置环境变量、修改 Supabase、commit 或 push。只有本方案再次经 ChatGPT Review 通过并获得逐阶段明确授权后，才可能施工。
+> **当前阶段：** R3 三文档完整一致性通过后，仍须依次经 ChatGPT 判断文档可以提交、用户确认、精确提交三份文档，并确认文档提交成功、staged 已为空，且 R3 代码及其他文件未进入该文档提交；只有随后 ChatGPT 明确授权，才可施工以下未来五文件：
+> ```text
+> R1 Contract Extension
+> +
+> R3 Controller Consumption
+> ```
+> R4 未授权，且不得在 R3 的实现、Claude Code Review、ChatGPT 最终判断与用户提交确认前评估。
 
 ---
 
-## 1. 目标、基线与现行产品锁定
+## 1. 当前基线、阶段账本与旧方案废弃
 
-V3.1-A 只为独立 mobile App 建立真实邮箱认证闭环：已有帐号 OTP 登录、显式注册、首次设置密码、密码登录、Session 初始化与恢复、local signOut、我的页真实帐号状态。它不涉及真实任务、deviceId、匿名迁移、历史、成长、AI、任务同步或 V3.1-B。
-
-### 1.1 Git 与功能基线
-
-| 项目 | 值 | 含义 |
-|---|---|---|
-| 分支 | `main` | 当前文档基线。 |
-| HEAD / origin/main | `c7abd47b7d48034970f06fad7e52a476e0500dd1` | 最新文档 / Handoff 基线，二者相等。 |
-| Architecture commit | `bd9d27094dea383651292d2cfe494b939e2537fd` | `docs: finalize V3.1-A auth architecture`。 |
-| 最新功能代码基线 | `9dcab1f4b20a3df3f7fce0d22ef99cfa21b7179b` | V3.0D-D3 `fix: improve mobile task execution flow`。 |
-
-**HEAD 是文档与 Handoff 基线；最新功能代码基线是 V3.0D-D3。两者不得混淆。**
-
-### 1.2 不可变产品流程
-
-```text
-已有帐号 OTP 登录
-→ sendOtp intent = sign-in
-→ shouldCreateUser: false
-
-显式注册
-→ sendOtp intent = sign-up
-→ shouldCreateUser: true
-
-密码登录成功
-→ authenticated
-→ AppShell
-→ password_set 仅 best-effort 补写；失败不阻断、不降级
-
-退出当前帐号
-→ auth.signOut({ scope: "local" })
-```
-
-- OTP / 注册 OTP / 启动恢复的 `password_set !== true`：进入 `authenticated-needs-password`，只显示 password setup，不显示 AppShell。
-- 同浏览器共享同一 Session 的标签页经 `SIGNED_OUT` 收敛 guest；其他 Profile / 设备的独立 Session 不受影响。
-- `PASSWORD_RECOVERY` 必须 fail-closed，绝不进入 AppShell。
-- A1.5 任一硬门禁失败，**不得进入 A2**。
-
-### 1.3 明确不做
-
-不得修改 `src/**`、根 package / lockfile、根 API Route、数据库、migration、RLS、prompts、mobile Next config、AppShell、BottomTabBar、BackController、Today / Footprints / Growth、所有 Mock source。不得新增忘记密码、密码重置、OAuth、手机号、MFA、global signOut、第二套 Auth 页面、路由、History listener 或 V3.1-B 能力。
-
----
-
-## 2. 已确认事实与依赖决策
-
-### 2.1 Package、脚本与现有代码
-
-| 项目 | 只读事实 |
+| 阶段 / 项目 | 当前事实 |
 |---|---|
-| package manager | npm；根与 `apps/mobile-app` 各有 lockfile v3，无 workspaces、pnpm、yarn 或 Bun lockfile。 |
-| mobile 唯一 lockfile | `apps/mobile-app/package-lock.json`。未来依赖安装只允许从 `apps/mobile-app` 运行，只改变此文件与同目录 `package.json`。 |
-| root lockfile | `package-lock.json`，严格只读。 |
-| mobile 现有 Supabase | 无直接或间接 Supabase 依赖。 |
-| root 已锁 Supabase | `@supabase/ssr` `0.12.0`、`@supabase/supabase-js` `2.108.2`；只读参考，不升级。 |
-| mobile scripts | `npm run lint` → `eslint .`；`npm run build` → `next build`；无独立 typecheck，build 是 TypeScript 门禁。 |
-| dev scripts | root 与 mobile 都是 `next dev`，默认都占用 3000；未指定端口时不能同时作为两个 upstream 运行。 |
-| mobile Auth | `page.tsx` 只有 boolean guest/authenticated；OTP 为 timeout / 任意六位；Password / Register direct import Mock。 |
-| current Mock exports | `loginWithOtp`、`loginWithPassword`、`register`、`logout`、`getCurrentUser`。 |
-| current Me | 硬编码 `user@example.com`、“已同步”、任务跨设备保存承诺、同步式 logout。 |
-| root `/api/auth/me` | Cookie-backed Session read，但 route 未显式设置 no-store；不得改 root code 规避 gateway 安全门禁。 |
+| HEAD / origin/main | `aba8eacdaa4ae18cb7e8cb1ac8c27ec9cbee8158`，二者一致。 |
+| R1 | 已完成、Review、提交并 Push，正式关闭；以下 R1 card 仅保留为 Historical / Completed record。 |
+| R2 | 已完成、Review、提交并 Push，正式关闭；以下 R2 card 仅保留为 Historical / Completed record。 |
+| R3 | Session ID Evidence Contract 三文档修订中。R3 代码尚未通过、不可提交；Review 通过后仍须由 ChatGPT 判断文档可以提交、用户确认并精确提交三份文档，确认文档提交成功、staged 已为空，且 R3 代码及其他文件未进入该文档提交后，才可由 ChatGPT 明确授权进入五文件 `R1 Contract Extension + R3 Controller Consumption` 施工。 |
+| R4 | 未授权；不得在 R3 实施、Claude Code Review、ChatGPT 最终判断与用户提交确认前评估。 |
+| R6a / R6b | R6a 为 Development Reset Password Email Template `{{ .Token }}` 的独立外部门禁；R6b 为真实运行验证门禁，均未授权。 |
 
-### 2.2 固定依赖版本
+现有其他工作区 dirty/untracked 内容均不属于本 card 的授权范围；不得回滚、清理、暂存或重新归类。
 
-| 包 | mobile 精确版本 | 理由 |
-|---|---:|---|
-| `@supabase/ssr` | `0.12.3` | 高于 Architecture 的 `0.10.0` cookie/cache-header 安全门槛。 |
-| `@supabase/supabase-js` | `2.110.7` | 满足 `@supabase/ssr@0.12.3` peer `^2.110.5`；当前 Node 24 满足其 Node `>=22`。 |
-
-- 不使用 `latest`、`^` 或 `~`。
-- 本次不重新查询 npm registry；只有 registry 证明已撤回、deprecated 或 peer dependency 已变化时才重新审查版本。
-- 未来获授权安装命令唯一为：
-
-```bash
-cd apps/mobile-app
-npm install --save-exact @supabase/ssr@0.12.3 @supabase/supabase-js@2.110.7
-```
-
-本次不执行。安装后只允许 mobile `package.json` 与 `package-lock.json` 成对变化。
-
-### 2.3 Bundle / key 安全
-
-mobile Real mode 只可读取：
+Recovery 的唯一正式流程：
 
 ```text
-NEXT_PUBLIC_QINGXING_AUTH_MODE=mock | real
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+recovery-email-entry
+→ recovery-requesting
+→ recovery-code-entry
+→ recovery-code-verifying
+→ recovery-password-required
+→ recovery-password-updating
+→ recovery-signout-pending
+→ recovery-complete
+→ password-login
 ```
 
-- `SUPABASE_SERVICE_ROLE_KEY`、`sb_secret_*`、任何服务端 secret key、access token、refresh token、原始 Cookie 值、raw provider payload：**绝不允许**进入 browser bundle、React state、UI、日志、analytics 或 URL。
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 是公开客户端配置，允许进入 browser bundle，但不得称为 secret。
-- email、六位 OTP、password、confirmPassword 仅可存在于当前表单所必需的局部组件 state 或原生 input；不得进入顶层 `AuthState`、Facade 长期状态、URL、localStorage、sessionStorage、Cookie、日志、analytics，或传给无关组件；不得展示已提交的完整历史值。
-- OTP 必须在 submit 后立即清空，并在 change email、screen change、success、signOut、unmount 时清空。password / confirmPassword 必须在 submit 后按页面需要立即清空，并在 success、screen change、signOut、unmount 时清空；错误文案不得回显，且不得写入 `AuthUser` 或 `AuthState`。email 仅供当前流程短期使用；OTP 已发送后只显示 masked email，并在流程退出、signOut 或 unmount 时按页面规则清理。
-- production 下 mode 缺失、`mock`、未知，或 real 缺 URL / publishable key，均为 `not-configured`，在 AuthShell fail-closed；不得 production Mock fallback。
-- development / test 下 mode 缺失或 `mock` 使用 Mock adapter；real 仅在两个 public 配置齐全时可用。
+以下仅作为废弃历史记录，不得成为施工路径：
+
+```text
+resetPasswordForEmail(..., { redirectTo })
+→ ConfirmationURL / token_hash
+→ 邮件链接回跳
+→ PASSWORD_RECOVERY 后立即 local signOut
+```
+
+当前唯一语义：
+
+```ts
+sendRecoveryOtp({ email })
+// auth.resetPasswordForEmail(email)，不传 redirectTo
+
+verifyRecoveryOtp({ email, code })
+// auth.verifyOtp({ email, token: code, type: "recovery" })
+
+updateRecoveryPassword({ password, expectedSessionId })
+// auth.updateUser({ password, data: { password_set: true } })
+// adapter pre/post current Session ID must equal expectedSessionId
+```
+
+Recovery owner 消费匹配的 `USER_UPDATED` 后，执行 `auth.signOut({ scope: "local" })`；signOut 成功后才清 marker，收敛 guest，再进入 `password-login`。Recovery Session 绝不进入 ordinary `authenticated` 或 AppShell。
 
 ---
 
-## 3. 最终文件总表
+## 2. 真实代码映射与不可变实现边界
 
-### 3.1 最终预计新增文件
-
-| 文件 | 阶段 | 唯一职责 | 最终提交 | 未来 Codex 可改 | Review / 回退 |
-|---|---|---|---:|---:|---|
-| `apps/mobile-app/services/authService.ts` | A1–A4 | 唯一 mode selector、稳定 AuthFacade export、production config fail-closed。 | 是 | 是 | 只此文件读 mode / env；授权回退仅撤销新增 Auth layer。 |
-| `apps/mobile-app/services/authService.real.ts` | A1–A4 | Real adapter、最小 user / event 映射、local scope signOut。 | 是 | 是 | 审查 intent、同步 auth callback、无 secret / raw payload。 |
-| `apps/mobile-app/services/authService.mock-adapter.ts` | A1–A5 | 未改 Mock source 的 wrapper、`pendingOtp`、current-tab memory Session / listeners。 | 是 | 是 | 审查 pending contract、硬刷新 guest、无 password persistence。 |
-| `apps/mobile-app/lib/supabase-client.ts` | A1 | mobile 唯一 cached Browser Client factory。 | 是 | 是 | 只 publishable key / public URL。 |
-| `apps/mobile-app/lib/auth-errors.ts` | A1–A4 | AuthError mapping、温和文案、最小安全诊断。 | 是 | 是 | UI 无 raw provider error，日志无敏感数据。 |
-
-### 3.2 最终预计修改文件
-
-| 文件 | 阶段 | 唯一职责 | 最终提交 | 未来 Codex 可改 | Review / 回退 |
-|---|---|---|---:|---:|---|
-| `apps/mobile-app/types/app.ts` | A1 | Auth types、`AuthScreen` 增 `password-setup`；保留 `MockUser` / `RegisterInput`。 | 是 | 是 | typecheck / export boundary。 |
-| `apps/mobile-app/package.json` | A1 | 精确声明两项 Supabase runtime dependencies。 | 是 | 是 | 仅 two exact dependencies。 |
-| `apps/mobile-app/package-lock.json` | A1 | mobile 唯一 lockfile。 | 是 | 是 | v3 / no root dependency drift。 |
-| `apps/mobile-app/app/page.tsx` | A1–A4 | **A1 创建并长期复用**的 Auth runtime controller、identity gate、action/event convergence；A2–A4 只接产品 UI / Me。 | 是 | 是 | 单订阅、四 guard、无第二 History listener；授权回退仅 Auth diff。 |
-| `apps/mobile-app/components/auth/OtpLoginPage.tsx` | A2 | sign-in OTP email / code / resend、局部 error / busy、既有 OTP back handler。 | 是 | 是 | no fake timeout / raw error。 |
-| `apps/mobile-app/components/auth/PasswordLoginPage.tsx` | A3 | password login form、局部 error / busy、密码清理。 | 是 | 是 | no raw adapter / Mock import。 |
-| `apps/mobile-app/components/auth/RegisterPage.tsx` | A2–A3 | sign-up email / code 与 required-password-setup mode；无 register-password return。 | 是 | 是 | intent / gate / Back cleanup。 |
-| `apps/mobile-app/components/me/MeView.tsx` | A4 | real user / status / async logout Props。 | 是 | 是 | 无 direct facade import。 |
-| `apps/mobile-app/components/me/MeAccountCard.tsx` | A4 | real email + logged-in state。 | 是 | 是 | no hardcoded email。 |
-| `apps/mobile-app/components/me/MeSyncCard.tsx` | A4 | honest account-status copy，删除任务同步承诺。 | 是 | 是 | no V3.1-B claim。 |
-| `apps/mobile-app/components/me/MeConfirmSheet.tsx` | A4 | async local signOut pending / retry；clear-cache unchanged。 | 是 | 是 | fail cannot fake guest。 |
-
-### 3.3 A1.5 临时并删除文件
-
-| 文件 | 唯一职责 | development 约束 | 最终提交 | 删除门禁 |
-|---|---|---|---:|---|
-| `apps/mobile-app/components/auth/A15SessionProbe.tsx` | 仅调用 / 观察 A1 production controller 的开发验证 panel。 | runtime development guard；无正式 route / URL entry / AppShell / BottomTabBar。 | 否 | A2 前删除并完成 source / `.next` / Git evidence。 |
-| `apps/mobile-app/services/authService.a15-probe.ts` | 仅 development 暴露 `requestPasswordRecoveryForA15(email)`，真实 provider recovery event 触发。 | production 调用直接拒绝；仅 Probe import；不进入 facade / service index。 | 否 | 同 Probe 删除。 |
-| `apps/mobile-app/app/page.tsx` A1.5-only import / mount / callbacks | 仅 development 将 Probe 连接到已存在 controller 的受控测试接口。 | production 页面无 probe render path；无 URL / route。 | 否（此临时片段） | 同两临时文件删除并 source search 为零。 |
-
-### 3.4 永久保留与严格只读
-
-**永久保留、零修改：**
-
-```text
-apps/mobile-app/services/authService.mock.ts
-apps/mobile-app/services/taskService.mock.ts
-apps/mobile-app/services/historyService.mock.ts
-apps/mobile-app/services/growthService.mock.ts
-apps/mobile-app/services/serviceDelay.ts
-apps/mobile-app/mockData/mockData.ts
-```
-
-**严格只读：**
-
-```text
-src/**
-package.json
-package-lock.json
-next.config.ts
-apps/mobile-app/next.config.ts
-apps/mobile-app/services/index.ts
-apps/mobile-app/components/auth/AuthShell.tsx
-apps/mobile-app/components/auth/WelcomePage.tsx
-apps/mobile-app/components/shell/AppShell.tsx
-apps/mobile-app/components/shell/BottomTabBar.tsx
-apps/mobile-app/contexts/BackControllerContext.tsx
-apps/mobile-app/components/today/**
-apps/mobile-app/components/footprints/**
-apps/mobile-app/components/growth/**
-数据库 / migration / RLS / API Route / prompts
-```
+1. `apps/mobile-app/services/authService.ts` 是唯一 facade selector；当前尚无 Recovery actions。
+2. `apps/mobile-app/services/authService.real.ts` 只经 `getSupabaseBrowserClient()` 使用一个 cached Browser Client；其 `onAuthStateChange` 只同步归一化并通知 listener；不得改变为 async callback。
+3. `apps/mobile-app/app/page.tsx` 已有唯一 facade、唯一 Auth subscription、`subscriptionGenerationRef`、`authRevisionRef`、action request IDs、初始化 guard、normal signOut ownership 与旧的 Recovery immediate-signOut 分支。未来只能在同一 controller 内替换该旧分支。
+4. `apps/mobile-app/lib/supabase-client.ts` 必须持续是唯一 Browser Client factory；不得新增第二 client。
+5. `apps/mobile-app/components/auth/A15SessionProbe.tsx` 必须只经父级 callback 使用 controller/facade；不得 import Real adapter 或 Browser Client，且不得建立 reducer / subscription。
+6. A1.5-R 不修改 `apps/mobile-app/package.json`、`apps/mobile-app/package-lock.json`、三项正式 Auth 页面、`src/**`、Gateway、API Route、schema、RLS、migration 或 prompts。
 
 ---
 
-## 4. A0 — 部署发现、唯一方案或阻断（无代码）
+## 3. Facade、Session proof 与错误分层
 
-A0 不创建 probe、不改仓库、不安装依赖、不修改部署设置。A0-a 由 Claude Code 只读发现；A0-b 由 Claude Code 给出唯一可实施方案，或明确标记 blocker。用户只提供权限 / 截图 / 只读确认，不设计拓扑。
+### 3.1 Permanent facade additions
 
-### 4.1 A0-a：Claude Code 只读部署发现
+`apps/mobile-app/services/authService.ts` 继续是唯一页面入口，新增：
 
-已在仓库内确认：
+```ts
+export interface SendRecoveryOtpInput { email: string; }
+export interface VerifyRecoveryOtpInput { email: string; code: string; }
+export interface UpdateRecoveryPasswordInput {
+  password: string;
+  expectedSessionId: string;
+}
+export interface RecoveryOtpDelivery { resendAfterSeconds: 60; }
+export interface RecoverySessionEvidence {
+  user: AuthUser;
+  sessionId: string;
+}
 
-- root 与 mobile `dev` script 都为 `next dev`，默认端口均是 3000；未指定端口时不能同时运行；
-- 未发现 `.vercel/project.json`；
-- 未发现 tracked Vercel、gateway、reverse-proxy、CDN、DNS、deployment 文档或配置；
-- Git remote 仅为 GitHub source remote，不能证明 hosting、domain、CDN 或 path routing；
-- root `/api/auth/me` 是 root current origin 的相对路径，mobile 未来也必须通过同一公开 origin 请求它；
-- 仓库中没有可只读识别的 deployment provider / Vercel project / custom domain / CDN / reverse proxy / DNS provider。
-
-A0-a 未来在用户提供的已连接平台只读权限下，必须继续确认：
-
-1. root 与 mobile 的当前 deployment project / service；
-2. current production domain 与 custom domain；
-3. edge/CDN/reverse-proxy/DNS provider；
-4. 是否同一 Vercel project，或两个独立 project；
-5. 哪个 control plane 能配置 path-based routing、Cookie / Set-Cookie / Cache-Control / Expires / Pragma passthrough 与 route cache policy；
-6. current `/api/auth/me` 的实际 public origin 与 response cache policy。
-
-### 4.2 A0 DEPLOYMENT BLOCKER
-
-当前不能确定唯一 gateway，因为缺少**单一事实：当前生产 public ingress 的控制面身份（提供该生产 origin 的 hosting / edge provider 与其 project / service）**。
-
-```text
-A0 DEPLOYMENT BLOCKER
-缺少事实：当前生产 public ingress 的 provider/project（从而确认 production origin、custom domain 与可配置的 path routing / cache control plane）。
-Claude Code 已检查：root/mobile package scripts、全部 tracked deployment/gateway/proxy docs/config、.vercel/project.json、Git remote、root /api/auth/me source。
-用户仅需提供：该 provider/project 名称及其只读 dashboard 访问或一张显示 provider、project/service 与 production domain 的截图。
-用户不需要：选择 gateway、设计端口、写 proxy rule、判断 Cookie 或 cache policy。
-未解决前：不得进入 A1。
+sendRecoveryOtp(input: SendRecoveryOtpInput): Promise<AuthResult<RecoveryOtpDelivery>>;
+verifyRecoveryOtp(input: VerifyRecoveryOtpInput): Promise<AuthResult<RecoverySessionEvidence>>;
+updateRecoveryPassword(input: UpdateRecoveryPasswordInput): Promise<AuthResult<RecoverySessionEvidence>>;
 ```
 
-### 4.3 A0-b：解除 blocker 后的唯一建议方案
+`AuthSessionEvent` 的最小新增字段为 `sessionId: string | null`。
 
-当 A0-a 确认 public ingress control plane 支持 path routing 与 route cache policy 后，唯一方案是：**在已确认的 production ingress control plane 配置 external same-origin reverse proxy / gateway**；不使用 mobile `next.config.ts` rewrite，不在 root 托管 mobile，不使用跨域。
-
-| 项目 | 唯一设计 |
-|---|---|
-| gateway 技术 / 平台 | 已确认的 production ingress control plane 的 path-based reverse proxy / edge routing capability；A0 blocker 解除前不猜名称。 |
-| local unified origin | `http://qingxing.localhost:<gateway-port>`，gateway port 在 A0-a 根据可用 local gateway tool 明确后锁定。 |
-| local mobile upstream | `http://127.0.0.1:3001`（从 `apps/mobile-app` 启动 `next dev --port 3001`）。 |
-| local root upstream | `http://127.0.0.1:3000`（从 root 启动 `next dev --port 3000`）。 |
-| local `/` route | mobile upstream `127.0.0.1:3001`。 |
-| local `/api/auth/me` route | root upstream `127.0.0.1:3000`。 |
-| production unified origin | A0-a 确认的 single HTTPS custom / production domain。 |
-| production `/` route | mobile deployment service。 |
-| production `/api/auth/me` route | root deployment service。 |
-| cache policy location | confirmed ingress/CDN path rule：Auth / Session path Caching Disabled 或 Minimum TTL=0，禁止 shared cache / ISR / static cache。 |
-| Cookie/header location | confirmed ingress request/response forwarding rule：保留 `Cookie`、`Set-Cookie`、`Cache-Control`、`Expires`、`Pragma`，不得改写到其他 host。 |
-
-用户只在已确认平台 Dashboard 打开对应 ingress / routing / cache 页面，提供只读截图或确认结果，并确认拥有 domain / project 权限。Claude Code 给出规则名称、目标服务和验证项；用户不负责技术选择。
-
-### 4.4 A0 用户外部检查表与证据
-
-| 检查 | 用户操作 | Claude Code 只读核验 | 通过证据 |
+| action | Real adapter | Mock adapter | security boundary |
 |---|---|---|---|
-| 6 位 OTP | Supabase Dashboard → Authentication → Email Templates，确认 email template 使用 six-digit Token / OTP。 | 检查 Architecture-required product flow。 | 配置截图 / 安全文字记录。 |
-| publishable key | Supabase Dashboard → Project Settings → API，确认 publishable key 存在。 | 只确认类型 / project ref，不接收 key。 | key type / project ref。 |
-| same project | 确认 root 与 mobile target 使用同一 project ref。 | 对照安全 project-ref evidence。 | ref 一致。 |
-| redirect allowlist | 在 A1.5 前临时允许由 A0-a 锁定的 exact same-origin development recovery URL。 | 对照 helper exact `redirectTo`。 | allowlist setting 截图。 |
-| route/cache | 在 confirmed ingress 平台查看 route / forwarding / cache setting。 | 核对 `/`、`/api/auth/me` upstream、headers、TTL / disabled cache。 | route rule 与 header policy。 |
+| `sendRecoveryOtp` | exact `auth.resetPasswordForEmail(email)`；无第二参数。 | 仅模块内存 delivery state；不建 Session/event。 | email 只在调用期间。 |
+| `verifyRecoveryOtp` | 必须同时确认 `data.user` 与 `data.session` 非空；adapter 私有、同步地从成功 Session 提取格式正确的 JWT `session_id`，并仅返回 `{ user, sessionId }`。提取失败必须返回 fail-closed `recovery-session-invalid`。 | 只为当前 owner harness 建内存 Recovery Session、生成新的 mock session ID，并以同一 ID 发 normalized `PASSWORD_RECOVERY`。 | facade 不返回 Session/token/Cookie；原始 JWT 不得离开 Real adapter。 |
+| `updateRecoveryPassword` | 调用前与调用后均须确认当前 Session ID 精确等于 `expectedSessionId`；只返回 `{ user, sessionId }`。 | 只在当前 mock Recovery Session ID 与 `expectedSessionId` 一致时更新 metadata，以同一 ID 发 `USER_UPDATED`。 | password 只存在当前 form/action；`expectedSessionId` 仅由 Controller 内存持有。 |
 
-A0 失败报告：
+Promise evidence 是 adapter 已确认 `data.user + data.session` 后返回的最小 `RecoverySessionEvidence`；event evidence 是 normalized `PASSWORD_RECOVERY` 的最小 `AuthSessionEvent`。两份 evidence 的 user ID 和非空 `sessionId` 都必须完全匹配。双证据匹配后，controller 使用既有 facade 的 `getCurrentUser()` **一次**确认当前 user：只接受 `ok && data !== null && data.id` 同时匹配两份 evidence 的结果；该 read 绑定当前 flowId、attemptId、document generation、marker revision 与 recoveryRevision，不新建初始化路径，不保存原始 Session。null/error/ID mismatch/sessionId mismatch 必须 fail closed。
 
-```text
-A0 STOP
-条件：<单一缺失或失败条件>
-证据：<安全摘要，不含 Cookie/key/token>
-影响：<为何无法证明 OTP / same-origin / Cookie / cache 安全>
-需要用户或部署方动作：<精确平台页面或权限>
-代码状态：未修改仓库；不得进入 A1。
+Session ID extraction 只能在 Real adapter 私有、同步边界内短暂读取 `session.access_token` 并提取格式正确的 JWT payload `session_id`。不得向 facade 或 Controller 传递 token、payload、hash 或 fingerprint；不得在 `onAuthStateChange` callback 调用异步 `getClaims()`，不得因 extraction 触发 refresh 或 callback reentry。`sessionId` 只用于 provider event correlation，不是 identity trust、owner authority、marker/storage/UI/log/error 字段或 token 替代品；最终 user identity 仍由 `getCurrentUser()` 确认。
+
+### 3.2 Error layers
+
+`AuthErrorCode` 只容纳页面可安全展示的稳定类别：
+
+```ts
+"recovery-request-failed"
+| "recovery-verify-failed"
+| "recovery-session-invalid"
+| "recovery-marker-invalid"
+| "recovery-sign-out-failed"
+| "recovery-evidence-timeout"
+| "recovery-storage-unavailable"
+| "recovery-password-update-failed"
 ```
 
-**A0 gate：** ChatGPT 审查 discovery / blocker resolution / external evidence；不通过不授权 A1。
+内部 `RecoveryOperationReason` 仅供 controller 分流/安全日志：`owner-refresh`、`observer-existing-flow`、`tab-identity-conflict`、`marker-expired`、`marker-corrupt`、`event-user-mismatch`、`event-session-mismatch`、`session-id-unavailable`、`late-evidence`。Probe 只显示非敏感状态标签；日志只记录 reason、event type、attempt/flow 是否匹配，不记录 email、OTP、password、token、Cookie、Session ID、URL、raw provider payload。不得依赖 raw provider message 做页面判断。
 
 ---
 
-## 5. A1 — 最终 Auth runtime controller、adapter、client 与依赖基础
+## 4. Marker、tab identity、非原子冲突与 lifecycle
 
-A1 创建的 `page.tsx` Auth runtime controller 是**最终产品直接复用的 controller**；A1.5 直接验证它，A2–A4 不得复制或重建它。A1 不完成 OTP、Register、Password、Me 的正式产品交互；既有 UI 在 development 默认 Mock mode 下保持现有可访问 / 可演示结构，不显示半完成 Real 登录。A2 / A3 / A4 只将各产品页面接到已存在 controller 的 actions / props。
+### 4.1 Schema and constants
 
-### 5.1 A1 exact file list
+R2 新增唯一 helper `apps/mobile-app/lib/recovery-marker.ts`，只处理 schema、storage、parse、compare、classification；不得调用 Supabase、fetch、React state。
 
-```text
-apps/mobile-app/services/authService.ts
-apps/mobile-app/services/authService.real.ts
-apps/mobile-app/services/authService.mock-adapter.ts
-apps/mobile-app/lib/supabase-client.ts
-apps/mobile-app/lib/auth-errors.ts
-apps/mobile-app/types/app.ts
-apps/mobile-app/package.json
-apps/mobile-app/package-lock.json
-apps/mobile-app/app/page.tsx
-```
+```ts
+export const RECOVERY_MARKER_KEY = "qingxing.auth.recovery.v1";
+export const RECOVERY_TAB_ID_KEY = "qingxing.auth.tab-id.v1";
+export const RECOVERY_MARKER_VERSION = 1;
+export const RECOVERY_MARKER_TTL_MS = 15 * 60 * 1000;
+export const RECOVERY_EVIDENCE_TIMEOUT_MS = 12 * 1000;
+export const RECOVERY_VERIFY_REQUEST_TIMEOUT_MS = 30 * 1000;
+export const RECOVERY_UPDATE_TIMEOUT_MS = 30 * 1000;
+export const RECOVERY_SIGN_OUT_TIMEOUT_MS = 15 * 1000;
 
-### 5.2 Auth contract 与 controller 状态
+export type RecoveryMarkerPhase =
+  | "verifying"
+  | "password-required"
+  | "updating"
+  | "signing-out";
 
-`types/app.ts` 新增最小 `AuthMode`、`AuthUser`、`AuthError`、`AuthResult<T>`、`AuthStatus`、`AuthState`、`OtpIntent`、`AuthSessionEventType`、`AuthSessionEvent` 与 `AuthScreen` 的 `password-setup`。保留 `MockUser` / `RegisterInput`。
-
-AuthStatus 至少为：
-
-```text
-initializing
-guest
-authenticating
-authenticated-needs-password
-authenticated
-signing-out
-recovery-signout-pending
-error
-```
-
-`services/authService.ts` 是页面唯一 Auth import，导出：
-
-```text
-sendOtp({ email, intent })
-verifyOtp({ email, code, intent })
-signInWithPassword({ email, password })
-setPassword({ password })
-getCurrentUser()
-signOut()
-subscribeAuthState(listener)
-```
-
-`page.tsx` A1 创建并拥有：
-
-1. 完整 `AuthState`；
-2. stable / memoized facade 单例取得；
-3. 唯一 subscription 与 cleanup；
-4. `getCurrentUser()` 初始化；
-5. `subscriptionGeneration`（只管 subscription / effect observer lifecycle 与 cleanup / Strict Mode）；
-6. `authRevision`（只管 non-INITIAL_SESSION event order）；
-7. `initRevision`（初始化 snapshot）；
-8. page-level action `requestId` / action generation 与 `actionRevision` snapshot；
-9. `recoveryFailClosedLock`（独立于 revision：Recovery 期间优先阻止所有 AppShell identity 恢复）；
-10. controller-owned `recoveryOperationRef`（`requestId`、shared `promise`、`status`、`settledResult`）；
-11. normal `SIGNED_OUT` cleanup；
-12. `recovery-signout-pending` state 与独立 recovery effect observer；
-13. explicit local signOut；
-14. fatal initialize / configuration error；
-15. production fail-closed；
-16. AuthShell / AppShell identity gate。
-
-初始化顺序固定：
-
-```text
-1. subscriptionGeneration 建立。
-2. facade.subscribeAuthState 建立。
-3. initRevision = authRevision。
-4. getCurrentUser()。
-5. 仅 generation 有效且 authRevision === initRevision 时应用结果。
-```
-
-`INITIAL_SESSION` 明确忽略且不提升 revision。每个 `SIGNED_IN`、`SIGNED_OUT`、`TOKEN_REFRESHED`、`USER_UPDATED`、`PASSWORD_RECOVERY` 都先提升 `authRevision`，再进入同步 reducer / reconciliation；但当 `recoveryFailClosedLock` 开启时，其优先级高于 `SIGNED_IN`、`TOKEN_REFRESHED`、`USER_UPDATED`，这些 event 不得恢复任何可进入 AppShell 的 identity state，且不得取消当前 recovery operation。`initializing` 只显示 AuthShell 中性 loading；不闪 Welcome，不渲染 AppShell。仅 lock 未开启的 `authenticated` 渲染既有唯一 AppShell。
-
-### 5.3 Real adapter 与同步 callback 安全规则
-
-Real adapter 只使用 `NEXT_PUBLIC_SUPABASE_URL` 与 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 创建 module-cached Browser Client。
-
-- sign-in OTP：`shouldCreateUser:false`；sign-up OTP：`shouldCreateUser:true`。
-- verify：`verifyOtp({ email, token: code, type: "email" })`。
-- password login 成功直接 mapped `passwordSet:true`；metadata `updateUser` 为 best effort、非阻断。
-- set password：仅已有 Session gate 中 `updateUser({ password, data:{password_set:true} })`。
-- initial user：`auth.getUser()` 是唯一身份权威。
-- signOut：唯一 `auth.signOut({ scope: "local" })`。
-
-**`onAuthStateChange((event, session) => { ... })` callback 必须同步。**
-
-callback 内只允许：
-
-1. 读取 `event`；
-2. 同步把 `session?.user` 映射成最小 `AuthUser | null`；
-3. 同步调用 `listener(normalizedEvent)`；
-4. 立即返回。
-
-callback 内明确禁止：
-
-```text
-async callback
-await
-auth.signOut
-auth.getUser
-auth.updateUser
-auth.refreshSession
-任何其他 Supabase API
-fetch
-延迟 / timer / 等待业务逻辑
-```
-
-因此：
-
-```text
-onAuthStateChange callback
-→ 同步发 PASSWORD_RECOVERY normalized event
-→ callback 立即返回
-
-page.tsx reducer
-→ 先提升 authRevision
-→ recoveryFailClosedLock = true
-→ user = null
-→ status = recovery-signout-pending
-→ 首次 Recovery 创建唯一 recoveryRequestId
-→ 不显示 AppShell
-
-独立 recovery effect observer
-→ 观察当前 recoveryRequestId 的 controller-owned shared operation
-→ callback 已返回后才首次 facade.signOut()
-→ adapter local scope signOut
-→ 当前有效 SIGNED_OUT 或 event-missing Promise success 幂等 guest
-→ 当前有效 Promise failure 保持锁并进入 AuthShell fatal error
-```
-
-### 5.4 Recovery fail-closed lock、shared operation 与 Strict Mode
-
-`recoveryFailClosedLock` 是独立于 `subscriptionGeneration`、`authRevision`、`initRevision`、page action `requestId` / `actionRevision` 的 controller state / ref。它的优先级高于 `SIGNED_IN`、`TOKEN_REFRESHED`、`USER_UPDATED`：锁开启时绝不恢复可渲染的 user、`authenticated` 或 `authenticated-needs-password`，因此绝不进入 AppShell。
-
-#### 5.4.1 首个与重复 PASSWORD_RECOVERY
-
-1. 首个 `PASSWORD_RECOVERY`：先提升 `authRevision`，开启 `recoveryFailClosedLock`，置 `user = null`、`status = recovery-signout-pending`，创建唯一 `recoveryRequestId`，取消普通 action / init 的写回资格，并启动 callback 外的 local signOut。
-2. 锁期间 `SIGNED_IN`、`TOKEN_REFRESHED`、`USER_UPDATED`：仍记录 event 顺序并提升 `authRevision`，但不得关闭 lock、不得恢复 user / 身份状态、不得取消或使当前 recovery operation 失效；UI 保持 pending 或 fatal AuthShell error。
-3. 锁期间再次收到 `PASSWORD_RECOVERY`：幂等处理；不得新建 requestId、不得发第二个 signOut、不得令当前 operation 失效。
-4. `INITIAL_SESSION` 一律忽略，且不得关闭 lock。
-
-#### 5.4.2 controller-owned single-flight operation
-
-Recovery request 的所有者是 controller，而非某次 `useEffect` 实例。`recoveryOperationRef` 必须至少包含：
-
-```text
-{
-  requestId,
-  promise,
-  status: pending | succeeded | failed,
-  settledResult: success | failure | null
+export interface RecoveryMarkerV1 {
+  version: 1;
+  flowId: string;
+  ownerTabId: string;
+  phase: RecoveryMarkerPhase;
+  createdAt: number;
+  expiresAt: number;
 }
 ```
 
-- 同一 `recoveryRequestId` 至多调用一次 `facade.signOut()`；创建 operation 时即保存 shared Promise。
-- recovery effect 仅是 shared operation 的 observer：Strict Mode cleanup 可以使该 observer 失效，但不得清除、取消或私有化 controller 的 operation / Promise。
-- Strict Mode replay 若发现相同 current requestId 的 operation，必须复用并观察同一 Promise，不得第二次调用 signOut；新的 observer 必须仍能取得已 settle 或后续 settle 的结果。
-- `subscriptionGeneration` 只决定 subscription / observer 是否仍可写 React；`authRevision` 只记录事件顺序；`recoveryRequestId` 标识 recovery operation；它们及 effect observer lifecycle 不得合并为一个 generation。
-- 实际组件卸载后，shared Promise 可自然结束，但不得 dispatch、写 React state 或启动补偿性第二次请求。
+marker 严格只含六字段；禁止 email、userId、OTP、password、token、Cookie、Session、URL、masked email、instance ID 或 provider payload。
 
-#### 5.4.3 唯一解锁、fallback 与 retry
+### 4.2 Parse and absolute expiry
 
-只有以下当前有效结果可以解除 `recoveryFailClosedLock`：
+parse 仅接受 plain object 且拒绝任何额外字段，验证 version、UUID `flowId`/`ownerTabId`、phase、有限 timestamps、`expiresAt > createdAt`、`expiresAt === createdAt + RECOVERY_MARKER_TTL_MS`、`now < expiresAt`。若 `now + 60_000 < createdAt`，视为系统时钟回拨/不安全 marker。睡眠恢复、`pageshow`、visibility return、storage event 和任何 timer 先重读并重验 marker。
 
-1. `SIGNED_OUT` event：收敛为 `guest`、`user = null`、清 recovery operation、解除 lock；或
-2. shared signOut Promise 成功但 `SIGNED_OUT` 缺失：执行一次幂等 guest fallback，再清 operation、解除 lock。
+15 分钟从 controller 在 `verifyRecoveryOtp` 前成功写入 `verifying` marker 时开始，是绝对不可续期 deadline。`password-required`、`updating`、`signing-out` 保留相同 `createdAt`/`expiresAt`。update operation 一旦启动即消费该 Recovery Session；失败只可受控 cleanup，不能在同一 Session retry。deadline 到达时 owner 使当前 attempt settled，启动一次 fail-closed signOut。safe guest 后用户重新开始 verify 才能生成新 flowId、新 Recovery Session 和新 15 分钟周期。
 
-两种成功路径均不得进入 AppShell；后续迟到 `SIGNED_OUT` 只能 no-op 确认。
+### 4.3 tabId、duplicated tab and owner rule
 
-- shared Promise failure：若 `SIGNED_OUT` 已处理则丢弃；否则保持 `recoveryFailClosedLock = true`、`user = null`，进入 AuthShell fatal error，绝不显示 AppShell。
-- 安全 retry 仅在前一个 operation 已 settled 为 failure 后允许；创建新的 requestId 和新的 shared operation，但保留同一 fail-closed lock。旧 Promise 不得与新 operation 并发写回。
-- 普通 `SIGNED_OUT` 可先于 Promise 到达：按上列唯一解锁规则完成 guest cleanup；Promise settle 后仅 no-op。Promise success 先到则按 event-missing fallback 完成相同 cleanup。
+- 每个 document 启动读取 `sessionStorage[RECOVERY_TAB_ID_KEY]`；不存在/无效时用 `crypto.randomUUID()` 创建并写入。该值只作 marker owner 候选，不能证明身份或 owner privilege。
+- 当前 owner 的必要条件是：当前 document 有**本页面生命周期内**、在 verify 前创建且仍 active 的 `recoveryOtpVerificationAttempt`，并且 marker ownerTabId 匹配。只匹配 persisted tabId 绝不够。
+- reload 和 browser duplicated tab 都丢失 in-memory attempt。即使浏览器复制 sessionStorage 且 two tabs 有相同 tabId，新的 document 没有 active attempt，必须 `recovery-blocked`/uncertain，不能恢复 owner、password UI、update 或 signOut ownership。
+- Strict Mode effect replay 不创建新 attempt、不轮换 tabId；它只能重新观察同一 document 的 refs。
 
-### 5.5 P2：Mock adapter 精确 pendingOtp 合约
+### 4.4 localStorage has no CAS and bounded conflict convergence
 
-`authService.mock-adapter.ts` 只能使用模块内 memory：
+`localStorage` 不提供原子 compare-and-swap；read-validate-write 不是锁，也不能把任一次成功 `getItem()` 当作独占证明。协调只发生在调用 provider **之前**：verify action 必须先让当前 flow 成为已稳定的唯一 marker owner，才可创建 `recoveryOtpVerificationAttempt` 和调用 `verifyRecoveryOtp`。
+
+A / B 从空 marker 同时创建 flow 时，固定执行以下有限算法；它不依赖真正 CAS：
+
+```text
+1. initial write
+   read + validate current marker
+   → only absent marker may write own verifying marker
+   → setItem(own marker)
+   → queueMicrotask / defer one task
+   → exact re-read
+
+2. exact re-read
+   current === own marker
+   → candidate owner；再次 queueMicrotask 后再 exact re-read 一次；
+     两次均为 own marker 才允许 provider verify。
+
+   current is valid foreign marker
+   → compare local flowId and foreign flowId.
+
+3. deterministic winner
+   local flowId > foreign flowId
+   → local is loser：不再写 marker，进入 blocked。
+
+   local flowId < foreign flowId
+   → local may perform exactly one guarded convergence overwrite：
+     overwrite 前必须 re-read，且值仍逐字段等于刚才的 foreign snapshot；
+     才可 setItem(own marker)。
+     overwrite 后必须 defer + exact re-read：
+       - current === own marker：local candidate owner，再做第二次稳定 re-read；
+       - current is a lower foreign flow：local loser；
+       - current is another higher foreign flow 或无法验证：terminal conflict，local blocked，不再写。
+
+4. terminal condition
+   每个 local flow 最多 initial write + one guarded overwrite；不得无限互相覆盖。
+   terminal conflict、storage exception 或超过该上限时：当前 tab blocked，
+   active=false、settled=true、clear all owned timers、invalidate local request；
+   不调用 provider，不进入 password gate，不进入 AppShell。
+```
+
+因此不能出现“A 与 B 各自永久认为自己 winner”：任何 privileged transition 前都必须 exact re-read current marker；只有当前 storage 仍等于 own marker、当前 document 仍有 active attempt、且第二次稳定 re-read 也成功的 tab 可继续。后续 `storage` event 一律重新读取 marker：
+
+- current marker 属于更小 foreign flow：本 tab 立即 loser；
+- current marker 仍等于 own marker：保持 candidate/owner；
+- current marker 是不同更高 flow、无效或读取失败：本 tab terminal blocked/uncertain，不再 overwrite；
+- stale event、旧 Promise、旧 timer 只要 flowId/attemptId/markerRevision 不匹配即 no-op。
+
+loser 固定执行：`active=false`、`settled=true`、clear request/evidence/update/signOut timers、invalidate local requestId、忽略后续 stale Promise/event/storage event，并进入 `recovery-blocked`。有效 existing marker 阻止新 flow；只有 marker 已过期且 read-before-remove 确认 storage 仍是同一原记录时，才可删除后开始新 flow。owner 异常关闭只能等 expiry；不得提前接管。
+
+### 4.5 Storage unavailable behavior
+
+- 无 Recovery marker/lock/attempt 且普通 Session 已由 normal controller 安全分类时：普通登录和既有 authenticated AppShell 不因 storage API 不可用而改变。
+- 用户尝试开始 Recovery 时：读/写 storage 失败即拒绝 start，返回 `recovery-storage-unavailable`；普通 login 不受影响。
+- 存在 marker、lock、attempt、Recovery event，或必须读取 marker 才能安全解释 non-null Session 时：storage failure 为 Recovery-uncertain，`AppShell=false`。observer、duplicated/reloaded document、owner candidate、identity-uncertain document 和 marker ownership-lost document 均不得主动 signOut；只有当前 document 自己的 late successful verify Promise 满足 dedicated local evidence rule 时，才可进行无 marker authority cleanup。
+
+---
+
+## 5. Single controller operations, evidence and timers
+
+`page.tsx` 继续是唯一 controller、唯一 Auth subscription owner。`subscriptionGeneration` 管理 effect；`authRevision` 管理非 `INITIAL_SESSION` event 顺序；action request ID 管理页面操作；marker snapshot revision 管理 storage 变化。它们不得合并。
 
 ```ts
-let currentSession: AuthUser | null = null;
-let pendingOtp:
-  | { normalizedEmail: string; intent: OtpIntent }
-  | null = null;
-const listeners = new Set<AuthStateListener>();
+type RecoveryOtpVerificationAttempt = {
+  flowId: string;
+  ownerTabId: string;
+  attemptId: number;
+  documentGeneration: number;
+  baseAuthRevision: number;
+  recoveryRevision: number | null;
+  markerRevision: number;
+  phase: "request-pending" | "awaiting-evidence" | "confirming-session" | "settled";
+  active: boolean;
+  settled: boolean;
+  promiseEvidence: RecoverySessionEvidence | null;
+  eventEvidence: {
+    user: AuthUser;
+    userId: string;
+    sessionId: string;
+    recoveryRevision: number;
+  } | null;
+  requestTimeoutId: number | null;
+  evidenceTimeoutId: number | null;
+  startedAt: number;
+};
+
+type RecoveryPasswordUpdateAttempt = {
+  flowId: string;
+  ownerTabId: string;
+  attemptId: number;
+  documentGeneration: number;
+  baseAuthRevision: number;
+  recoveryRevision: number;
+  markerRevision: number;
+  expectedSessionId: string;
+  phase: "updating" | "awaiting-user-updated" | "settled";
+  active: boolean;
+  settled: boolean;
+  promiseEvidence: RecoverySessionEvidence | null;
+  eventEvidence: {
+    user: AuthUser;
+    userId: string;
+    sessionId: string;
+    recoveryRevision: number;
+  } | null;
+  timeoutId: number | null;
+  startedAt: number;
+};
+
+type RecoveryCompletionSignOutOperation = {
+  flowId: string | null;
+  ownerTabId: string | null;
+  requestId: number;
+  documentGeneration: number;
+  baseAuthRevision: number;
+  recoveryRevision: number | null;
+  phase: "completion" | "cancel" | "refresh-fail-closed" | "unexpected-fail-closed";
+  active: boolean;
+  settled: boolean;
+  observedSignedOut: boolean;
+  promise: Promise<AuthResult<void>>;
+  timeoutId: number | null;
+  startedAt: number;
+};
+
+const recoveryOtpVerificationAttempt = useRef<RecoveryOtpVerificationAttempt | null>(null);
+const recoveryPasswordUpdateAttempt = useRef<RecoveryPasswordUpdateAttempt | null>(null);
+const recoveryCompletionSignOutOperation = useRef<RecoveryCompletionSignOutOperation | null>(null);
+const consumedRecoverySessionIds = useRef<Set<string>>(new Set());
 ```
 
-不得使用 localStorage、sessionStorage、Cookie、password、token 持久化。
+### 5.1 create/settle order
 
-| 方法 | 原 Mock source 调用 | 精确行为 |
-|---|---|---|
-| `sendOtp` | `delay()` via unchanged `serviceDelay.ts` | 校验并规范化 email，写 `{normalizedEmail,intent}`；不建 Session、不发 event；新 send / resend 覆盖旧 pendingOtp。 |
-| `verifyOtp` | `loginWithOtp(email)` | 必须 pendingOtp 存在、normalized email 相等、intent 相等、code 为六位数字；否则返回对应 Mock AuthError且不建 Session。成功后清 pendingOtp，建 `mock:<normalizedEmail>` / `passwordSet:false` Session，发 `SIGNED_IN`。 |
-| `signInWithPassword` | `loginWithPassword(email,password)` | 保留 legacy password ignored 行为；成功建 `passwordSet:true` currentSession，发 `SIGNED_IN`。 |
-| `setPassword` | 无 | 只复制 currentSession 并设 `passwordSet:true`，发 `USER_UPDATED`；绝不保存 password。无 Session 返回 `session-expired`。 |
-| `getCurrentUser` | 有 Session 时 `getCurrentUser()` 以保留原 delay | 无 Session 返回 null，硬刷新 guest；有 Session 时以 currentSession 覆盖 email / passwordSet。 |
-| `signOut` | `logout()` | await 原 delay；清 currentSession / pendingOtp；发 `SIGNED_OUT`；仅当前 tab facade Session。 |
-| `subscribeAuthState` | 无 | listener Set 注册；cleanup 只删本 listener，Strict Mode 不留重复。 |
-| 旧 `register` | 不调用 | 永久保留但 facade 注册是 sign-up OTP → setPassword，绝不伪造 code / confirmPassword。 |
+1. Factory first rejects observer, no-current-marker, stale markerRevision, active competing operation, inconsistent ownerTabId, invalid/missing Session ID, or a Session ID already present in `consumedRecoverySessionIds`.
+2. Verification factory creates its ref object with new monotonic attempt/request ID, current document generation, `active=true`, `settled=false`, then writes required marker phase before provider call. Update factory first atomically consumes the confirmed Recovery Session ID in controller memory, creates the unique update ref with `expectedSessionId`, then writes required marker phase before provider call.
+3. Every Promise/event/timer callback first checks reference identity, current document generation, `active`, `!settled`, flowId, attempt/request ID, generation, markerRevision, relevant recoveryRevision, user ID, and where applicable exact Session ID equality.
+4. Settle first sets `settled=true`, `active=false`, clears every owned timer, then invalidates ref before state transition / next operation. Old timer cannot touch a new attempt.
+5. completion signOut is single-flight: only its factory calls `auth.signOut`; duplicate timeout/Promise/event sees current settled/observed state and no-ops. `SIGNED_OUT` never uses Session ID correlation; it must match its local operation identity and origin.
 
-新的不同邮箱 `sendOtp` 覆盖 pendingOtp；screen reset、explicit local signOut 或 successful verify 清 pendingOtp。
+### 5.2 evidence and exact timeout semantics
 
-### 5.6 transient error 所有权
-
-| 操作 | stable state | transient error / busy owner | set | clear |
-|---|---|---|---|---|
-| initialize / config | initializing | `page.tsx` `AuthState.error`（fatal） | getCurrentUser / configuration 无法稳定确定身份 | retry 前；valid session reconciliation；old result invalid。 |
-| sendOtp / resend | guest, same screen | OTP / Register local | action failure | email edit、retry 前、success code stage、screen reset / unmount。 |
-| verifyOtp | guest, code stage | OTP / Register local | action failure | code edit、retry、success、change email / unmount。 |
-| password login | guest, password screen | Password local | action failure | email/password edit、retry、success前 clear password、unmount。 |
-| setPassword | needs-password | Register setup local | action failure | password edit、retry、success / unmount clear both。 |
-| normal signOut | authenticated / needs-password | Me sheet or setup local | action failure | retry、sheet close、success；failure restores original stable state。 |
-| PASSWORD_RECOVERY | `recoveryFailClosedLock` 已开启且无 normal stable Auth allowed | `page.tsx` fatal `AuthState.error` + controller-owned recovery operation | 当前 shared local signOut Promise failure；锁保持 | retry 前；当前有效 `SIGNED_OUT` 或 event-missing success fallback 后 guest；绝不 AppShell。 |
-
-页面 action 开始先清 own transient error，记录 `requestId` 与 `actionRevision`；screen unmount / screen change / new action / auth event 后过期结果不得写 error 或顶层 state。普通 `SIGNED_OUT` 清全部 auth drafts / transient UI；成功后清 OTP / password，不记录敏感值。
-
-### 5.7 A1 future Codex boundary
-
-**可修改 exact files：** 5.1 列出的九个文件。`app/page.tsx` 必须建立完整 final controller，但不接正式 OTP / Register / Password / Me interaction。
-
-**禁止：** Auth / Me UI files、A1.5 temporary files、所有 3.4 strict read-only files。
-
-**必须运行（未来授权时）：** exact mobile npm install、mobile lint / build、diff check、sole-lockfile check、secret source/bundle check、controller race static review。
-
-**Claude Code Review：** final controller exists in A1；single subscription；INITIAL_SESSION ignore；all other events revision-first；Recovery lock 高于 identity-restoring events；synchronous adapter callback；controller-owned shared recovery operation / Strict Mode fallback；recovery effect outside callback；production fail-closed；pendingOtp contract；无 raw sensitive logging。
-
-**ChatGPT stop：** A0 未解除、root lockfile changed、secret / legacy anon fallback、Mock source changed、callback async API、controller 推迟到 A4、或 UI 变成半真实流程。
+- verify starts a 30-second **request watchdog**. If neither Promise success nor `PASSWORD_RECOVERY` arrives, settle local verify failure without signOut because Session evidence does not exist.
+- the first valid Promise success with non-empty sessionId **or** a `PASSWORD_RECOVERY` with non-empty sessionId stops request watchdog and starts the 12-second **evidence deadline**. Thus slow network is not destroyed before any evidence exists; once a possible Recovery Session exists, bounded pairing begins.
+- verify Promise/event evidence must exactly match current document generation, flow, owner attempt, userId, sessionId and current recoveryRevision. On pair, controller calls bounded one-time `getCurrentUser()` confirmation. Only matching minimal current user and exact current owner marker enter `recovery-password-required`. Duplicate matching `PASSWORD_RECOVERY` is a no-op; a mismatched or missing sessionId never binds a current attempt.
+- 12-second expiry, Promise failure after event, user/session mismatch, Session ID extraction failure, Session confirmation failure, marker ownership loss, marker expiry or stale markerRevision settles the attempt. Only when the current document's own verify Promise may have established a Session does it start exactly one `unexpected-fail-closed` cleanup; this cleanup has no marker authority and must not clear a marker.
+- update atomically consumes the confirmed Recovery Session ID before calling the adapter and uses a 30-second watchdog. `USER_UPDATED` and update Promise must exactly match the unique active update attempt, expectedSessionId and userId. Any failure, timeout, marker conflict or evidence mismatch forbids retry in that Session and triggers controlled cleanup; only a new Recovery Session can start a new update.
+- signOut uses a 15-second watchdog. Current `SIGNED_OUT` wins and settles guest even if Promise later rejects. Promise success fallback settles guest only if `SIGNED_OUT` has not already settled. Failure retains marker/lock and enters fatal retry; retry creates a new completion requestId, never reuses old timer.
 
 ---
 
-## 6. A1.5 — 直接验证 A1 controller 的 Session / Cookie MVP
+## 6. Full Recovery-first Auth and lifecycle decision table
 
-A1.5 只验证 A1 已建立的 production runtime controller。Probe 不得复制 AuthState reducer、event mapping、recovery handler、revision guard 或 signOut state transition；它只能调用与观察 `page.tsx` 暴露的 development-only controlled test interface。
+All non-`INITIAL_SESSION` Auth events increment `authRevision` before routing. `INITIAL_SESSION` is ignored as identity truth. `storage` / lifecycle events never change AuthUser, invoke normal reconciliation, open AppShell or call signOut by themselves.
 
-### 6.1 临时真实 recovery helper
+| input | no Recovery | owner verifying | owner password-required | owner updating | observer blocked | signout-pending | fatal | corrupt/expired/storage-uncertain |
+|---|---|---|---|---|---|---|---|---|
+| `INITIAL_SESSION` | ignore | ignore | ignore | ignore | ignore | ignore | ignore | ignore |
+| `SIGNED_IN` | normal reconcile | record only; AppShell=false | record only | record only | blocked | no restore | no restore | no restore |
+| `TOKEN_REFRESHED` | normal reconcile | record only | record only | record only | blocked | no restore | no restore | no restore |
+| `USER_UPDATED` | normal reconcile | ignore for completion | ignore unless no update attempt | only unique active consumed Session + exact expectedSessionId/user ID evidence may proceed | blocked | no normal reconcile | no normal reconcile | no normal reconcile |
+| `PASSWORD_RECOVERY` | no valid marker + current document's own verify Promise Session => one no-marker-authority cleanup | bind only exact matching sessionId/user/attempt evidence; duplicate is no-op | duplicate/stale/mismatch no-op | duplicate/stale/mismatch no-op | blocked; never signOut | no-op | no-op | owner/identity uncertain => cleanup only under its dedicated local evidence rule |
+| `SIGNED_OUT` | guest | settle only matching local cleanup/guest; clear marker only after local success evidence | guest only if controlled cleanup is current | guest only if controlled cleanup is current | guest convergence; observer did not signOut | idempotent guest | idempotent guest | idempotent guest |
+| `storage` marker create/update | no Auth change | re-read/compare | re-read/compare | re-read/compare | stay blocked | no Auth change | no Auth change | re-read; no Auth change |
+| `storage` marker remove/expire | no Auth change | settle only under own controlled rules | no direct AppShell | no direct AppShell | wait `SIGNED_OUT` or authoritative current null confirmation | no direct AppShell | no direct AppShell | reclassify; no Auth change |
+| `pageshow`/visibility return | no Auth change | revalidate marker/deadline | revalidate marker/deadline | revalidate marker/deadline | revalidate marker | revalidate operation | revalidate operation | re-read; classify uncertainty |
+| `pagehide`/unmount | normal cleanup | no React write; marker remains | no React write; marker remains | no React write; marker remains | cleanup listener only | shared operation may settle without React write | cleanup listener only | cleanup listener only |
 
-`apps/mobile-app/services/authService.a15-probe.ts`：
+AppShell is permitted only when:
 
 ```text
-唯一 export：requestPasswordRecoveryForA15(email)
-仅 development 可调用
-仅 A15SessionProbe import
-不加入 AuthFacade
-不加入 services/index.ts
-不加入任何产品 UI
-production 调用直接拒绝
+authState.status === "authenticated"
+AND no valid marker
+AND no Recovery lock
+AND no active verify/update/signOut operation
+AND marker storage read and classification succeeded.
 ```
 
-它使用已有 mobile Browser Client，并调用：
+---
+
+## 7. Startup, refresh and observer bootstrap
+
+Fixed order:
+
+```text
+1. obtain/create sessionStorage tabId
+2. read and validate marker; capture markerRevision
+3. establish Recovery lock / owner-candidate / observer / uncertain classification
+4. establish the one Auth subscription
+5. re-read marker; if changed, replace startup classification
+6. capture initRevision + markerRevision
+7. call getCurrentUser()
+8. apply only when generation/authRevision/markerRevision still match
+```
+
+| startup case | required result |
+|---|---|
+| no marker + null Session | guest. |
+| no marker + normal valid Session + storage usable | existing normal passwordSet mapping. |
+| no marker + normal valid Session + storage unavailable | normal login may remain authenticated only because no Recovery signal exists; Recovery start remains disabled. |
+| historic owner marker + non-null Session | no in-memory attempt after reload; `recovery-blocked`/fatal without destructive signOut, never owner recovery. |
+| foreign marker + non-null Session | `recovery-blocked`; no signOut/takeover/AppShell. |
+| foreign marker + null Session | blocked until marker expires/removes **and** current `getCurrentUser()` confirmation remains null. |
+| marker corrupt/expired + non-null Session | `recovery-blocked`/fatal; no destructive signOut without the current document's own late-success verify evidence. |
+| marker corrupt/expired + null Session | read-before-remove exact invalid record; guest. |
+| marker read error + non-null Session with Recovery signal | Recovery-uncertain, AppShell=false; no destructive signOut unless the dedicated own late-success evidence rule applies. |
+| concurrent marker change during startup | markerRevision invalidates stale init result; reclassify before any normal mapping. |
+
+---
+
+## 8. Unique Development-only Probe and helper
+
+Scheme B is the only A1.5-R entry: existing `A15SessionProbe.tsx` extends into conceptual owner/observer views within one component. It has no route, no direct Browser Client/adapter import, no second controller/reducer/subscription, no sensitive display/logging and is production inaccessible.
+
+R1 removes `authService.a15-probe.ts` direct Browser Client call and old `redirectTo`. Its only possible retained purpose is a Development guard plus a thin parent-injected facade port; it cannot call Supabase, subscribe, own Recovery state, or form a second path. If R1 Review finds direct parent callbacks equally sufficient, R1 deletes this helper immediately; then R4/R9 omit it. It never remains merely to preserve old behavior.
+
+Future temporary `page.tsx` code is delimited exactly:
 
 ```ts
-auth.resetPasswordForEmail(email, {
-  redirectTo: <A0 已锁定的同源 development URL>,
-})
+/* A1_5_PROBE_START */
+// imports, mount and callbacks used only by A15SessionProbe
+/* A1_5_PROBE_END */
 ```
 
-- 不使用 service role / secret；
-- 不记录 email、recovery link、token_hash、Cookie、provider payload；
-- 输入 email 仅短期组件内存使用；
-- 不得伪造 provider event。
-
-### 6.2 A1.5 temporary input lifecycle
-
-Probe **不提供 password input 或 password-login capability**。它只允许短期组件内存：测试 email、六位 OTP；这些与正式表单一样只能存在于当前局部组件 state 或原生 input，绝不进入顶层 `AuthState`、Facade 长期状态、URL、storage、Cookie、日志、analytics 或无关组件。
-
-- email 输入时可完整显示；send 后只显示 masked email；
-- OTP submit 后立即清空，并在 change email、screen change、success、signOut、component unmount 时清空；
-- 不复制、下载或显示已提交的完整历史值；
-- React DevTools 风险通过只使用专门测试帐号控制；禁止真实个人主帐号。
-
-### 6.3 真正 PASSWORD_RECOVERY 测试路径
-
-1. A0-a / A0-b 锁定 exact same-origin development URL，例如 `http://qingxing.localhost:<gateway-port>/`；不得在本计划中猜实际 port。
-2. 用户在 Supabase Dashboard Redirect URL allowlist 临时允许该**准确** URL；用户负责 Dashboard 确认，Claude Code 只读核对 screenshot / setting。
-3. Probe 调 `requestPasswordRecoveryForA15(testEmail)`；provider 给专用测试帐号发送 recovery email。
-4. 测试者在同一 browser / same-origin target 点击真实邮件链接；不得复制 token_hash。
-5. browser 回到 same-origin page 后，Real adapter 的同步 callback 发真实 `PASSWORD_RECOVERY`；A1 controller 立即 `recovery-signout-pending`，不显示 AppShell；独立 recovery effect local signOut。
-6. Network / UI 记录成功 guest 或 failure AuthShell fatal error。受控 normalized-event harness 可补测 failure branch / race，但**不能替代真实 provider event**。
-7. A1.5 结束后，用户与 ChatGPT 判断该临时 development redirect allowlist 是否应移除；默认应移除。若环境有其他明确开发用途需保留，必须由 ChatGPT 明确记录理由；不得静默保留。
-
-若当前 PKCE / redirect / provider 配置不能使真实 recovery link 产生 `PASSWORD_RECOVERY`，报告：
-
-```text
-A1.5 STOP — REAL PASSWORD_RECOVERY
-失败点：<redirect / PKCE / provider event 的单一证据>
-已验证：<不含 token 的 Network / UI 摘要>
-禁止动作：不得用人工伪造 event 取代真实证据；不得进入 A2。
-```
-
-### 6.4 Probe 可见能力与验证矩阵
-
-Probe 仅提供：sign-in / sign-up send OTP、verify OTP、masked current user 与 same-origin `/api/auth/me` match result、local signOut、request recovery、调用 controller controlled race harness。它无 route、无 URL parameter entry、无 AppShell / BottomTabBar。
-
-| 测项 | 操作 | 通过证据 |
-|---|---|---|
-| production controller | Probe 调 production facade / observed controller；不 duplicate reducer。 | AuthState / transitions 与 normal page 同一实现。 |
-| callback safety | 静态检查 Real adapter callback。 | callback 无 async / await / Supabase API / fetch；仅 sync normalize + listener。 |
-| sign-in / sign-up | 各自发送 / verify。 | false 不建未知帐号，true 注册并建立 Session。 |
-| `/api/auth/me` | login 前后、refresh、local signOut 后。 | null → current minimal user → retained → null。 |
-| cache | Network headers。 | Cookie / Set-Cookie / Cache-Control / Expires / Pragma passthrough；private/no-store equivalent；no shared reuse。 |
-| profiles | Profile A/B 或 private window 独立登录，A local signOut。 | A null、B remains own Session、no cross-account leak。 |
-| tabs | same Profile two tabs local signOut。 | other tab gets SIGNED_OUT guest。 |
-| init race | controller harness delay init then send each event。 | late init rejected by revision guard。 |
-| recovery | real recovery email link；harness 补测 race / failure。 | callback 立即返回；首个 Recovery 开 lock / pending；随后注入 `SIGNED_IN`、`TOKEN_REFRESHED`、`USER_UPDATED` 仍无 AppShell、operation 不取消；最终仅 guest 或 fatal AuthShell error。 |
-| recovery Strict Mode fallback | 首次 observer 发 shared signOut 后立即 cleanup / replay；故意不发 `SIGNED_OUT`。 | replay 复用同一 shared Promise；Promise success 仍 guest fallback；实际 signOut 调用次数恰为 1。 |
-
-### 6.5 production / deletion evidence
-
-**A1.5 临时存在期间：**
-
-- production page 无 probe render path；
-- 无 route、无 URL parameter entry；
-- Probe 有 runtime development guard；
-- 浏览器访问 production build 看不到 probe。
-
-不得声称仅 `NODE_ENV` compile-time false 已证明无 bundle 残留。
-
-**A1.5 删除后、A2 前：**
-
-1. 删除 `A15SessionProbe.tsx`；
-2. 删除 `authService.a15-probe.ts`；
-3. 删除 page import / mount / callbacks；
-4. source search 下列关键字为零：
-
-```text
-A15SessionProbe
-authService.a15-probe
-requestPasswordRecoveryForA15
-```
-
-5. 运行 production `npm run build`；搜索 `.next` 产物同三关键字，结果必须为零；
-6. `git diff` / `git diff --name-only` 不存在两临时文件，且 page 不含 temporary-only code；
-7. Claude Code Review 删除证据后，ChatGPT 才能允许 A2。
-
-临时文件绝不进入最终提交。
-
-### 6.6 A1.5 future Codex boundary
-
-**可修改 exact files：**
-
-```text
-apps/mobile-app/components/auth/A15SessionProbe.tsx
-apps/mobile-app/services/authService.a15-probe.ts
-apps/mobile-app/app/page.tsx（仅 A1.5 mount / controlled callbacks）
-```
-
-不得修改其他文件。必须给出 development matrix、real recovery evidence、Network safety summary、source / `.next` deletion search、production build、Git range。任一 OTP / session / cache / profile / local scope / callback safety / race / recovery / cleanup failure 都停止。
+The permanent Recovery controller must be outside this boundary. R9 may delete only both temporary Probe files that still exist and this delimited block; it may not revert any permanent controller line.
 
 ---
 
-## 7. Action / Event 双通道收敛规则
+## 9. Exact Batch cards R1–R10
 
-### 7.1 统一处理算法
+### R1 — Historical / Completed: Recovery facade baseline
 
-每个 action 启动记录：
+> **状态：** 已完成、Review、提交并 Push，正式关闭。以下记录只保留历史范围、验证与回退信息；不是当前授权入口，也不会由本次 Review 再次授权。
 
-```text
-requestId = next request counter
-actionRevision = current authRevision
+1. **Historical enter condition:** 已满足；R1 已关闭，不再作为当前 action 或 ChatGPT gate。
+2. **Allowed files:** `apps/mobile-app/types/app.ts`; `apps/mobile-app/services/authService.ts`; `apps/mobile-app/services/authService.real.ts`; `apps/mobile-app/services/authService.mock-adapter.ts`; `apps/mobile-app/lib/auth-errors.ts`; `apps/mobile-app/services/authService.a15-probe.ts`。
+3. **New files:** 无；R1 不创建文件。
+4. **Temporary files:** `apps/mobile-app/services/authService.a15-probe.ts`；仅在删除/替换 helper import 绝对必要时的 `apps/mobile-app/components/auth/A15SessionProbe.tsx` 与 `apps/mobile-app/app/page.tsx` future boundary block。
+5. **Permanent files:** `apps/mobile-app/types/app.ts`; `apps/mobile-app/services/authService.ts`; `apps/mobile-app/services/authService.real.ts`; `apps/mobile-app/services/authService.mock-adapter.ts`; `apps/mobile-app/lib/auth-errors.ts`。
+6. **Forbidden files:** `apps/mobile-app/lib/recovery-marker.ts`; `apps/mobile-app/components/auth/OtpLoginPage.tsx`; `apps/mobile-app/components/auth/PasswordLoginPage.tsx`; `apps/mobile-app/components/auth/RegisterPage.tsx`; `apps/mobile-app/package.json`; `apps/mobile-app/package-lock.json`; `src/**`; Gateway; environment; Supabase; Email Template。
+7. **Implementation steps:** 添加三 facade action/types/error contract；Real adapter 使用精确 Recovery OTP calls；Mock adapter 仅最小内存行为；移除 helper 的 `redirectTo` 与 direct Supabase call，或删除 helper。R3 的 Session ID Evidence Contract 在本 card 后通过批准的 extension 实现，不能被描述为 R1 重做。
+8. **Static validation:** TypeScript contract、source search 无 active `redirectTo` Recovery call、唯一 Browser Client/subscription、无敏感日志。
+9. **Manual validation:** 不运行浏览器、OTP、Recovery 或平台操作；仅检查静态 contract/harness 接口。
+10. **Claude Code Review gate:** 审阅 R1 exact diff、facade direction、adapter call shape 与 helper 是否完全移除第二路径。
+11. **Historical gate:** R1 已关闭；后续当前门禁以顶部阶段账本与 R3 card 为准。
+12. **Rollback:** 仅经授权逐路径回退本 card 的 allowed paths；不得恢复 link-based Recovery。
+13. **Stop condition:** 需要 marker/controller/formal UI/package/lockfile/Gateway/platform变更，或产生第二 client/subscription 时立即停止。
+14. **Historical next:** 无；R2 已关闭，R3 是唯一待审文档阶段。
+
+### R2 — Historical / Completed: marker helper
+
+> **状态：** 已完成、Review、提交并 Push，正式关闭。以下记录只保留历史范围、验证与回退信息；不是当前授权入口。
+
+1. **Historical enter condition:** 已满足；R2 已关闭，不再作为当前 action 或 ChatGPT gate。
+2. **Allowed files:** `apps/mobile-app/types/app.ts`（仅 marker schema type 必须共享时）。
+3. **New files:** `apps/mobile-app/lib/recovery-marker.ts`。
+4. **Temporary files:** 无；R2 不创建或修改 temporary Probe/page code。
+5. **Permanent files:** `apps/mobile-app/lib/recovery-marker.ts` 与允许时的 `apps/mobile-app/types/app.ts` shared marker type。
+6. **Forbidden files:** `apps/mobile-app/app/page.tsx`; `apps/mobile-app/services/authService.ts`; `apps/mobile-app/services/authService.real.ts`; `apps/mobile-app/services/authService.mock-adapter.ts`; `apps/mobile-app/lib/auth-errors.ts`; `apps/mobile-app/components/auth/A15SessionProbe.tsx`; `apps/mobile-app/services/authService.a15-probe.ts`; formal Auth pages; package/lockfile; `src/**`; Gateway/platform files。
+7. **Implementation steps:** 六字段 schema、strict parse、absolute expiry、read-before-remove、non-CAS compare/write/re-read、conflict classification；不调用 React/Supabase。
+8. **Static validation:** serialization/parser fixtures、extra field rejection、expiry/corruption/clock rollback/non-CAS conflict unit harness；检查无 forbidden field。
+9. **Manual validation:** 不运行浏览器、OTP、Recovery 或平台操作；人工审阅 helper API 与 fixture results。
+10. **Claude Code Review gate:** 审阅 helper 独立性、无 client/subscription/React、严格字段和 bounded conflict algorithm。
+11. **Historical gate:** R2 已关闭；R3 的当前文档门禁见顶部阶段账本。
+12. **Rollback:** 仅经授权删除 `apps/mobile-app/lib/recovery-marker.ts` 或回退允许的 shared type。
+13. **Stop condition:** helper 需要 controller、Browser Client、subscription、Probe UI 或额外文件时立即停止。
+14. **Historical next:** 无；R3 Session ID Evidence Contract 文档修订等待 ChatGPT Review。
+
+### R3 — Session ID Evidence Contract extension and permanent single controller protocol
+
+1. **Enter condition:** R1、R2 均已关闭；R3 Evidence Contract 三文档完整 Review 已通过；ChatGPT 已判断三文档允许提交；用户已确认三文档提交；三份文档已精确提交并确认提交成功；staged 已恢复为空；R3 代码及其他文件未进入该文档提交；且 ChatGPT 已明确授权 R3 五文件施工。缺少任一条件不得进入代码施工。
+2. **Allowed files:** `apps/mobile-app/types/app.ts`; `apps/mobile-app/services/authService.ts`; `apps/mobile-app/services/authService.real.ts`; `apps/mobile-app/services/authService.mock-adapter.ts`; `apps/mobile-app/app/page.tsx`。
+3. **New files:** 不新增文件。
+4. **Temporary files:** `apps/mobile-app/app/page.tsx` 中未来由 `/* A1_5_PROBE_START */` 至 `/* A1_5_PROBE_END */` 包围的边界注释本身及其仅 Probe import/mount/callback 区域属于 temporary page code；R3 只可在不存在时插入这对边界，不得把永久 controller 放入其中。该 temporary page code 由 R9 删除。
+5. **Permanent files:** `apps/mobile-app/types/app.ts` 的 evidence types；`apps/mobile-app/services/authService.ts` 的 facade contract；`apps/mobile-app/services/authService.real.ts` 的私有同步 Session ID extraction / event mapping；`apps/mobile-app/services/authService.mock-adapter.ts` 的唯一 mock Session record；`apps/mobile-app/app/page.tsx` 边界外的 Recovery controller。
+6. **Forbidden files:** `apps/mobile-app/lib/auth-errors.ts`; `apps/mobile-app/lib/recovery-marker.ts`; `apps/mobile-app/lib/recovery-marker.test.ts`; `apps/mobile-app/lib/supabase-client.ts`; `apps/mobile-app/components/auth/A15SessionProbe.tsx`; `apps/mobile-app/services/authService.a15-probe.ts`; `apps/mobile-app/components/auth/OtpLoginPage.tsx`; `apps/mobile-app/components/auth/PasswordLoginPage.tsx`; `apps/mobile-app/components/auth/RegisterPage.tsx`; `apps/mobile-app/package.json`; `apps/mobile-app/package-lock.json`; `src/**`; Gateway/platform files.
+7. **Implementation steps:**
+   - `types/app.ts`：新增 `RecoverySessionEvidence`、`AuthSessionEvent.sessionId`、`UpdateRecoveryPasswordInput.expectedSessionId` 与仅供 R3 的 operation evidence types；不得包含 token 或 provider payload。
+   - `authService.ts`：更新 Recovery facade signatures；unavailable facade 保持 typed fail-closed；不得解码 JWT 或创建第二 client。
+   - `authService.real.ts`：在私有同步边界提取格式正确的 Session ID；verify/update 输出 user + sessionId；update 执行 pre/post Session consistency；subscription 输出 sessionId；不得暴露 JWT、不得在 callback 调 `getClaims()`、不得创建第二 subscription。
+   - `authService.mock-adapter.ts`：扩展既有唯一 mock Session record；每个 Recovery verify 生成新 Session ID；PASSWORD_RECOVERY / TOKEN_REFRESHED / USER_UPDATED 复用对应 ID；新 Recovery Flow 生成不同 ID；SIGNED_OUT 为 null；不持久化 token/OTP/password，不创建第二 Session store。
+   - `page.tsx`：以 exact Session ID 配对 verify Promise / PASSWORD_RECOVERY、重复 PASSWORD_RECOVERY 幂等、每 Session 一次 update、以 expectedSessionId 配对 update Promise / USER_UPDATED、重复 USER_UPDATED 幂等、marker ownership loss 后撤销 destructive authority、完整 Strict Mode settlement 与 AppShell fail-closed；保持唯一 client、唯一 subscription、唯一 Controller 与唯一 AppShell。
+8. **Static validation:** controller harness 验证 Session ID match/mismatch、old Flow event → new Flow Promise 拒绝、duplicate PASSWORD_RECOVERY / USER_UPDATED no-op、one-update-per-Session、no duplicate signOut、foreign marker authority revocation、stale event/timer 拒绝、single subscription、永久代码不在 boundary 内；adapter source 验证 token 不离开 Real adapter、无 callback `getClaims()`。
+9. **Manual validation:** 不运行真实 OTP；仅使用 R3 允许的受控无网络 contract/controller harness。
+10. **Claude Code Review gate:** Review exact R3 diff、contract direction、private extraction boundary、mock semantics、operation ownership、single client/subscription、Strict Mode settlement 与 AppShell gate。
+11. **Exit condition:** R3 五文件工作完成后，必须通过独立安全 Review、ChatGPT 最终判断与用户确认 R3 代码提交，才可精确提交 R3 代码；文档 Review 或本 card 完成均不自动授权 R4。
+12. **ChatGPT gate:** 仅在 R3 代码已按上述门禁完成后，才可决定是否授权 R4。
+13. **Rollback:** 仅经授权逐路径回退本 card 的 permanent paths 或删除该 temporary boundary；不得回滚整个 `page.tsx`。
+14. **Stop condition:** R3 三文档未完整 Review、未获 ChatGPT 文档提交判断、未获用户确认、未精确提交或未确认提交成功、staged 未恢复为空，或 R3 代码及其他文件已进入文档提交时，均不得进入 R3；此外 token/JWT 进入 facade 或 Controller；sessionId 进入 marker/storage/log/error/UI；async Auth call 造成 callback reentry；旧 Flow event 可绑定新 Flow；同 Session 第二 update；marker ownership loss 后仍启动 owner completion signOut；Strict Mode cleanup 留下 active operation；需要正式 UI、第二 client/subscription、Gateway、package/lockfile 或 boundary 外临时 Probe 扩展时立即停止。
+15. **Next:** R4 不自动开始。
+
+### R4 — existing Probe only
+
+1. **Enter condition:** R3 已通过 Claude Code Review，ChatGPT 明确授权 R4。
+2. **Allowed files:** `apps/mobile-app/components/auth/A15SessionProbe.tsx`; `apps/mobile-app/app/page.tsx` 中 `A1_5_PROBE_START/END` 之间文本；`apps/mobile-app/services/authService.a15-probe.ts`（仅 R1 未删除且仍存在）。
+3. **New files:** 无；R4 不创建文件。
+4. **Temporary files:** 所有 R4 allowed paths/blocks 都是 temporary，R9 删除。
+5. **Permanent files:** 无；R4 不修改 permanent controller/facade/marker logic。
+6. **Forbidden files:** `apps/mobile-app/types/app.ts`; `apps/mobile-app/services/authService.ts`; `apps/mobile-app/services/authService.real.ts`; `apps/mobile-app/services/authService.mock-adapter.ts`; `apps/mobile-app/lib/auth-errors.ts`; `apps/mobile-app/lib/recovery-marker.ts`; formal Auth pages; package/lockfile; `src/**`; Gateway/platform files。
+7. **Implementation steps:** owner/observer conceptual Probe controls及 controlled test harness ports；无 direct client/provider call、reducer、subscription、敏感状态。
+8. **Static validation:** Development guard/source scan、Probe 不 import adapter/client、boundary 内外 diff separation。
+9. **Manual validation:** controlled no-network harness only；不运行真实 OTP/Recovery/browser平台操作。
+10. **Claude Code Review gate:** 审阅 temporary-only scope、no second path、no sensitive display/log。
+11. **ChatGPT gate:** 仅可决定是否授权 R5。
+12. **Rollback:** 仅经授权删除/回退 R4 的 allowed temporary files/block。
+13. **Stop condition:** 需要新 file、route、formal UI、permanent controller modification、direct provider/client或第二 subscription时立即停止。
+14. **Next:** R5 不自动开始。
+
+### R5 — static engineering review
+
+1. **Enter condition:** R4 已通过 Claude Code Review，且 ChatGPT 明确授权 R5。
+2. **Allowed files:** 无；本 Batch 不允许编辑仓库文件。
+3. **New files:** 无；本 Batch 不允许创建仓库文件。
+4. **Temporary files:** 无新增 temporary file；只观察 R1–R4 已存在的 temporary Probe paths。
+5. **Permanent files:** 无新增 permanent file；只观察 R1–R3 已授权 permanent paths。
+6. **Forbidden files:** `apps/mobile-app/**`; `src/**`; `docs/**`; package/lockfile; env; Gateway; Supabase; Email Template；任何外部配置。
+7. **Implementation steps:** 执行 TypeScript（mobile build）、lint、build、diff check、exact scope、secret scan、single client/subscription scan、AppShell/static Probe boundary review。
+8. **Static validation:** `npm run lint`、`npm run build`、`git diff --check`、exact-file diff、sensitive scan、single client/subscription search。
+9. **Manual validation:** 无浏览器、OTP、Recovery 或平台操作；只人工审阅命令输出与静态报告。
+10. **Claude Code Review gate:** 审核所有静态证据与 R1–R4 范围。
+11. **ChatGPT gate:** 仅可独立决定是否授权 R6a；R6b、R7、R8 不自动授权。
+12. **Rollback:** 无修改可回退。
+13. **Stop condition:** 任一静态检查失败、范围越界、敏感扫描命中、第二 client/subscription 或 AppShell gate 缺口即停止。
+14. **Next:** R6a 不自动开始。
+
+### R6 — two separately authorized external gates
+
+#### R6a — Development Reset Password template gate
+
+1. **Enter condition:** R5 已通过，ChatGPT 明确授权**仅** Development Reset Password template 变更。
+2. **Allowed files:** 无；不允许修改仓库文件。
+3. **New files:** 无；不允许创建仓库文件。
+4. **Temporary files:** 无。
+5. **Permanent files:** 无。
+6. **Forbidden files:** `apps/mobile-app/**`; `src/**`; `docs/**`; package/lockfile; env; Gateway；所有非 `qingxing-dev` Reset Password Email Template；Login OTP/Magic Link、registration confirmation、email-change templates。
+7. **Implementation steps:** 仅将 `qingxing-dev` Reset Password template 设置为本计划的 `{{ .Token }}` 目标文本。
+8. **Static validation:** 不适用；仓库 diff 必须无新文件，配置记录不得含 key/token/Cookie。
+9. **Manual validation:** 用户或 Claude Code 记录模板类别与 `{{ .Token }}` placeholder 的非敏感确认；不得发送 OTP。
+10. **Claude Code Review gate:** 只审阅模板类别/placeholder 证据和仓库零 diff。
+11. **ChatGPT gate:** ChatGPT 独立决定是否授权 R6b；R6a 通过不授权真实 Recovery。
+12. **Rollback:** 仅经新授权恢复该同一 Development Reset Password template；不得修改其他模板。
+13. **Stop condition:** 错误项目、错误模板类别、出现 ConfirmationURL/token_hash、无法给出非敏感确认或任何仓库文件变化即停止。
+14. **Next:** R6b 不自动开始。
+
+#### R6b — real owner single-tab Recovery test
+
+1. **Enter condition:** R6a 已确认，专用 Development 测试邮箱可用，ChatGPT 明确授权真实 Recovery run。
+2. **Allowed files:** 无；不允许修改仓库文件。
+3. **New files:** 无；不允许创建仓库文件。
+4. **Temporary files:** 无新增；只观察 R1–R4 已授权 temporary Probe paths。
+5. **Permanent files:** 无新增；只观察已授权 facade/controller/marker paths。
+6. **Forbidden files:** `apps/mobile-app/**`; `src/**`; `docs/**`; package/lockfile; env; Gateway; Supabase 配置；Email Template；非授权测试账号。
+7. **Implementation steps:** 从 `http://qingxing.localhost:3002` 使用 dedicated Development mailbox 完成 owner request/verify/update/local signOut 运行证据。
+8. **Static validation:** 核验 source 无 redirectTo/link recovery；运行前 exact Git scope、single client/subscription、AppShell gate 静态证据仍通过。
+9. **Manual validation:** 记录 Promise / PASSWORD_RECOVERY Session ID equality、TOKEN_REFRESHED / USER_UPDATED continuity、new Recovery Session difference、SIGNED_OUT null Session、AppShell=false、local signOut、相对 `/api/auth/me=null` 的非敏感 Browser/Network 证据。
+10. **Claude Code Review gate:** 审阅真实 owner 单标签证据和失败停止证据。
+11. **ChatGPT gate:** 仅可决定是否授权 R7。
+12. **Rollback:** 无仓库/配置改动可回退；测试失败仅停止并保留非敏感证据。
+13. **Stop condition:** OTP/Session/evidence/AppShell/signOut/API 任一失败、跨域、敏感日志、第二 client/subscription 或未授权平台动作即停止。
+14. **Next:** R7 不自动开始。
+
+### R7 — observer, clone, storage and refresh runtime evidence
+
+1. **Enter condition:** R6b 已通过 Claude Code Review，ChatGPT 明确授权 R7。
+2. **Allowed files:** 无；不允许修改仓库文件。
+3. **New files:** 无；不允许创建仓库文件。
+4. **Temporary files:** 无新增；只观察已存在 `apps/mobile-app/components/auth/A15SessionProbe.tsx`、保留时的 `apps/mobile-app/services/authService.a15-probe.ts` 与 `app/page.tsx` 的 `A1_5_PROBE_START/END` block。
+5. **Permanent files:** 无新增；只观察 `app/page.tsx` 边界外 controller、`types/app.ts` 与 `lib/recovery-marker.ts`。
+6. **Forbidden files:** `apps/mobile-app/**`; `src/**`; `docs/**`; package/lockfile; env; Gateway; Supabase; Email Template；任何外部配置。
+7. **Implementation steps:** 使用已授权 runtime harness 验证 observer bootstrap、duplicated-tab sessionStorage、simultaneous flow conflict、stale event、owner refresh、abnormal close、expiry、clock/sleep restore、storage unavailable/corrupt marker 和 signOut failure。
+8. **Static validation:** 重查 no-CAS algorithm、timer identity guards、owner-only factories、observer signOut counter wiring 与 exact source boundaries。
+9. **Manual validation:** 在 Browser Origin 使用专用 Development Profiles/tabs；每个 scenario 记录非敏感 event/state/header evidence。
+10. **Claude Code Review gate:** 审阅 one-owner convergence、observer no-signOut、timer cleanup、expiry/fail-closed runtime evidence。
+11. **ChatGPT gate:** 仅可决定是否授权 R8。
+12. **Rollback:** 无仓库/配置改动可回退；运行失败只停止。
+13. **Stop condition:** 双 owner、无限 overwrite、observer signOut/takeover、expired flow grant、stale timer write、Session/AppShell leak 或未授权外部修改即停止。
+14. **Next:** R8 不自动开始。
+
+### R8 — normal OTP, Profile, Cookie and cache evidence
+
+1. **Enter condition:** R7 已通过 Claude Code Review，ChatGPT 明确授权 R8。
+2. **Allowed files:** 无；不允许修改仓库文件。
+3. **New files:** 无；不允许创建仓库文件。
+4. **Temporary files:** 无新增；只观察既有 A15 Probe facade ports 与已授权 A1.5 temporary paths。
+5. **Permanent files:** 无新增；只观察 facade、Real adapter、controller、marker helper 与 root `/api/auth/me` 行为。
+6. **Forbidden files:** `apps/mobile-app/**`; `src/**`; `docs/**`; package/lockfile; env; Gateway; Supabase; Email Template；任何外部配置。
+7. **Implementation steps:** 验证 facade-level `sign-in` `shouldCreateUser:false` / unknown non-creation，`sign-up` `true` / Session creation，current user ID/API match，Profile A/B isolation、same-profile SIGNED_OUT、Cookie/header/cache evidence。
+8. **Static validation:** 检查 normal intents、relative `/api/auth/me`、single client/subscription、source 中无 secret/link recovery。
+9. **Manual validation:** 从 Browser Origin 运行 normal OTP/Profile/cache cases，记录 HTTP status/header names、minimal ID match、无 Set-Cookie reuse 的非敏感证据。
+10. **Claude Code Review gate:** 审阅 normal OTP provider/controller/cookie gate 与 Profile/cache evidence。
+11. **ChatGPT gate:** 仅可决定是否授权 R9。
+12. **Rollback:** 无仓库/配置改动可回退；任一运行失败只停止。
+13. **Stop condition:** sign-in 自动建号、sign-up 未建 Session、ID mismatch、跨 Profile leak、shared cache、Cookie header loss、Set-Cookie reuse 或未授权外部修改即停止。
+14. **Next:** R9 不自动开始。
+
+### R9 — temporary Probe deletion
+
+1. **Enter condition:** R8 已通过 Claude Code Review，ChatGPT 明确授权 R9。
+2. **Allowed files:** `apps/mobile-app/components/auth/A15SessionProbe.tsx`; `apps/mobile-app/services/authService.a15-probe.ts`（仅当 R1 未删除且仍存在）; `apps/mobile-app/app/page.tsx` 中从 `A1_5_PROBE_START` 到 `A1_5_PROBE_END` 的完整边界 block。
+3. **New files:** 无。
+4. **Temporary files:** 上述两临时文件及该 page boundary block；本 Batch 只删除这些临时内容。
+5. **Permanent files:** `apps/mobile-app/app/page.tsx` 边界外 Recovery controller、`apps/mobile-app/types/app.ts`、`apps/mobile-app/lib/recovery-marker.ts`、facade/adapters 均永久保留且不得删除。
+6. **Forbidden files:** 所有其他 `apps/mobile-app/**` 路径；`src/**`; `docs/**`; package/lockfile; env; Gateway; Supabase; Email Template；整文件回滚 `app/page.tsx`。
+7. **Implementation steps:** 删除 allowed temporary files/block，重新 production build，再执行精确 source/build scans。
+8. **Static validation:**
+   - **Source scan roots only:** `apps/mobile-app/app/**`, `apps/mobile-app/components/**`, `apps/mobile-app/services/**`, `apps/mobile-app/lib/**`, `apps/mobile-app/types/**`。
+   - **Source scan exclusions:** `docs/**`, `.git/**`, review artifacts, plan files, Execution Plan 本身。
+   - **Build scan root only:** 新建的 `apps/mobile-app/.next/**`。
+   - **keywords:** `A15SessionProbe`, `authService.a15-probe`, `A1_5_PROBE_START`, `A1_5_PROBE_END`, `D1`, `temporary probe markers`。
+   - Execution Plan 自身含这些文字不影响结果；上述 source roots 或 `.next/**` 命中任一 keyword 即 R9 failed。
+9. **Manual validation:** production build 页面中无 Probe UI、无 Probe route/URL entry；现有正式 Auth 页面仍是唯一产品入口。
+10. **Claude Code Review gate:** 审阅 delete diff、精确 scan roots/exclusions、build 输出和 permanent controller preservation。
+11. **ChatGPT gate:** 仅可决定是否授权 R10。
+12. **Rollback:** 仅经授权恢复本 card 列出的临时 files/block；不得恢复已删除的旧 link Recovery 语义或整体 page 文件。
+13. **Stop condition:** production source/build artifact 命中任一 keyword、permanent controller 被删除、正式 Auth 页面受影响、scan root 外文件变化或 build 失败即停止。
+14. **Next:** R10 不自动开始。
+
+### R10 — A1.5-R final gate
+
+1. **Enter condition:** R9 deletion Review 已通过，ChatGPT 明确授权 R10。
+2. **Allowed files:** 无；不允许修改仓库文件。
+3. **New files:** 无；不允许创建仓库文件。
+4. **Temporary files:** 无；R9 后不应存在 A15 temporary Probe file 或 page boundary block。
+5. **Permanent files:** 无新增；只审阅 R1–R3 已授权 permanent files。
+6. **Forbidden files:** `apps/mobile-app/**`; `src/**`; `docs/**`; package/lockfile; env; Gateway; Supabase; Email Template；任何外部配置。
+7. **Implementation steps:** 汇总 Recovery/observer、normal OTP/provider、Profile/cache/API、deletion、Git scope 与 35-row matrix evidence。
+8. **Static validation:** staged empty、`git diff --check`、exact-file diff、R9 scans、single client/subscription、AppShell gate、no secret/log scan。
+9. **Manual validation:** 复核每个 matrix row 的 prerequisite/harness/expected/failure/evidence 已有非敏感记录，不补发 OTP 或修改平台。
+10. **Claude Code Review gate:** 输出 A1.5-R final Review，确认无 P0/P1 blocking finding。
+11. **ChatGPT gate:** ChatGPT 单独决定是否允许后续 A2 计划/授权；R10 不授权 A2。
+12. **Rollback:** 无仓库/配置改动可回退；发现缺口只停止并回到对应 Batch 的计划修订。
+13. **Stop condition:** 任一 matrix 缺证、Probe artifact、Git 范围越界、P0/P1、安全/缓存/Session failure 或未授权动作即停止。
+14. **Next:** A2 不自动开始。
+
+---
+
+## 10. Template and local topology
+
+Future template target only, not current authorization:
+
+```html
+<h2>重置你的清行密码</h2>
+<p>这是清行密码重置验证码。</p>
+<p>请回到清行，在密码找回页面填写下面的验证码：</p>
+<p style="font-size: 28px; font-weight: 700; letter-spacing: 8px;">
+  {{ .Token }}
+</p>
+<p>如果不是你本人操作，可以忽略这封邮件。</p>
 ```
 
-1. requestId 已失效：完全丢弃；页面卸载也不写 busy。
-2. Auth event 已提升 authRevision：action result 不得更新顶层 AuthState、不得写迟到 error；页面仍存在时仅可安全结束自身 busy。
-3. action success 且 revision 未变：可用 minimal user / void 作**一次幂等 fallback**；随后 event 只能幂等确认，不得重复 navigation / cleanup。
-4. action failure 且 revision 已变：为迟到结果，完全丢弃，不得覆盖 event state。
-5. `screen` change、unmount、retry/new request、higher-priority event 都使旧 requestId 无效。
-
-### 7.2 逐 action 权威表
-
-| 操作 | 预期 event | 最终身份权威 | Promise 职责 | event 先到 | Promise 先到 | event 缺失 | Promise error 迟到 / unmount |
-|---|---|---|---|---|---|---|---|
-| sendOtp / resend | 无 Session event | Promise | code stage / timer / local error | 不适用 | 成功进 code / restart timer | 不适用 | current request 才展示 error；unmount 丢弃。 |
-| verifyOtp | `SIGNED_IN` | normalized event | busy / immediate error / event-missing fallback | event changes AuthState，promise 不再顶层写 | fallback minimal user 一次；event later no-op confirm | current success fallback 可进入 mapped state，记录 event-missing diagnostic | revision changed / unmount 时丢弃。 |
-| signInWithPassword | `SIGNED_IN`，可后跟 `USER_UPDATED` | normalized event | busy / immediate error / fallback | 同上 | direct authenticated fallback；later USER_UPDATED只更新 metadata | current fallback authenticated，记录 diagnostic | 丢弃，不可覆盖 new state。 |
-| setPassword | `USER_UPDATED` | normalized event | busy / immediate error / fallback | event maps passwordSet true | fallback maps needs-password → authenticated；later event no-op | current fallback allowed，记录 diagnostic | 丢弃。 |
-| normal signOut | `SIGNED_OUT` | normalized event | sheet busy / immediate error / guest fallback | event clears root once，promise success no-op | fallback guest once，event later no-op | current void success guest fallback，记录 diagnostic | event changed / unmount 时丢弃，不写 sheet error。 |
-| recovery local signOut | `SIGNED_OUT` | normalized event plus `recoveryFailClosedLock` / shared fail-closed operation | recovery pending / guarded fatal error；不取得 identity authority | 当前有效 SIGNED_OUT 是唯一 event 解锁路径，guest / user null；promise no-op | Promise success 缺 event 时一次 guest fallback，解除 lock；later event no-op | guarded guest fallback only；Recovery 期间后续 `SIGNED_IN` / `TOKEN_REFRESHED` / `USER_UPDATED` 均不得 AppShell | failure 仅在当前 operation、lock 仍开且尚无 SIGNED_OUT 时 fatal；锁保持，retry 才能新 request。 |
-
-Strict Mode 只影响 `subscriptionGeneration` / effect cleanup；不改变 auth event authority，也不允许 duplicate subscription / recovery signOut。页面 Action 与 adapter event 不能分别拥有两套 reducer。
-
----
-
-## 8. A2 — 真实 OTP 与显式注册验证码
-
-### 8.1 exact files
+Locked local topology:
 
 ```text
-apps/mobile-app/app/page.tsx
-apps/mobile-app/components/auth/OtpLoginPage.tsx
-apps/mobile-app/components/auth/RegisterPage.tsx
-apps/mobile-app/types/app.ts
-apps/mobile-app/services/authService.ts
-apps/mobile-app/services/authService.real.ts
-apps/mobile-app/services/authService.mock-adapter.ts
-apps/mobile-app/lib/auth-errors.ts
+Browser Origin:  http://qingxing.localhost:3002
+listener only:   127.0.0.1:3002
+mobile upstream: http://127.0.0.1:3001
+root upstream:   http://127.0.0.1:3000
+/ → mobile
+/api/auth/me → root, requested relatively from Browser Origin
 ```
 
-### 8.2 目标与限制
-
-- Otp 保留 email-entry / code-entry、single input / six boxes、masked email、60 秒 resend、`otp-code-entry / 65`、change email。
-- email submit 走 `sendOtp({intent:"sign-in"})`，只有 success 进 code stage；verify / resend 均按第 7 节双通道规则。
-- Register 走 `register-email → register-code`，send / resend 固定 `sign-up`；verify 成功由**已存在 A1 controller**转换到 `authenticated-needs-password` / `password-setup`；不得有 register-password return state。
-- 本节 email / 六位 OTP 仅是 §2.3 定义的当前表单局部短期输入：OTP submit 后立即清空，并在 change email、screen change、success、signOut、unmount 时清空；发送后只显示 masked email，绝不写入 AuthState、Facade、URL、storage、Cookie、日志或 analytics。
-- 删除 demo “任意六位”行为；Mock mode 只作为 honest Mock facade contract。
-- account-existence 映射只用 A1.5 证明的 structured provider evidence，否则中性 fallback；不得二次探测。
-
-**Codex 可改：** 本节 8.1 八文件。**禁止：** Password / Me、shell、BackController、root / Mock source / config。
-
-**Review / stop：** intent false / true、no duplicate request / raw error、no bypass、A1.5 deletion complete。provider evidence 不安全、第二 Auth UI、A1.5 regression 均停止。
+Future authorized PowerShell runbook uses `Get-NetTCPConnection -LocalPort 3000,3001,3002`, root `npm run dev -- --hostname 127.0.0.1 --port 3000`, mobile equivalent on 3001, and only user-confirmed existing external Gateway command. No Gateway config may be created/edited. Browser Cookie/Profile/cache evidence never uses bare listener/upstreams.
 
 ---
 
-## 9. A3 — Password gate 与 password login
+## 11. Validation matrix
 
-### 9.1 exact files
+每行均为独立 gate。非敏感证据只能是 status/event 顺序、Browser Origin、HTTP status/header names、marker 字段名、source/build scan count、controller counter 或截图引用；绝不记录 email、OTP、password、token、Cookie 或 Session value。
 
-```text
-apps/mobile-app/app/page.tsx
-apps/mobile-app/components/auth/PasswordLoginPage.tsx
-apps/mobile-app/components/auth/RegisterPage.tsx
-apps/mobile-app/types/app.ts
-apps/mobile-app/services/authService.ts
-apps/mobile-app/services/authService.real.ts
-apps/mobile-app/services/authService.mock-adapter.ts
-apps/mobile-app/lib/auth-errors.ts
-```
-
-### 9.2 目标与限制
-
-- OTP / register OTP / startup mapped `passwordSet:false` 由 A1 controller render `password-setup`；AppShell 不出现。
-- Register existing PaperCard 承载 setup mode；success clear password / confirm then authenticated。
-- 注册 `auth-password-setup / 70`，消费 back；`register-flow / 66` 只对 pre-session code stage。
-- explicit local signOut 成功 guest，失败仍 needs-password，可 retry。
-- PasswordLoginPage only parent actions / mapped errors；password success direct authenticated；metadata补写失败 nonblocking。
-- password / confirmPassword 仅是 §2.3 定义的当前表单局部短期输入；submit 后按页面需要立即清空，并在 success、screen change、signOut、unmount 时清空；不得回显于错误、写入 AuthUser / AuthState、URL、storage、Cookie、日志或 analytics。
-- password fields 不新增 reset / forgot-password。
-
-**Codex 可改：** 9.1 八文件。**禁止：** OTP / Me / shell / context / root / Mock source / config。
-
-**Review / stop：** no bypass、local scope only、no global signOut、no reset feature、metadata failure not gate。
-
----
-
-## 10. A4 — Me UI、完整产品 wiring 与 controller 集成复验
-
-A4 **不首次创建** initialization、subscription、revision controller、recovery handler 或 AuthShell/AppShell gate；它们必须已在 A1 成立。A4 将 A2 / A3 的 product interactions 与 A1 controller 完整接线，并对它执行 integration revalidation。
-
-### 10.1 exact files
-
-```text
-apps/mobile-app/app/page.tsx
-apps/mobile-app/components/me/MeView.tsx
-apps/mobile-app/components/me/MeAccountCard.tsx
-apps/mobile-app/components/me/MeSyncCard.tsx
-apps/mobile-app/components/me/MeConfirmSheet.tsx
-apps/mobile-app/types/app.ts
-apps/mobile-app/services/authService.ts
-apps/mobile-app/services/authService.real.ts
-apps/mobile-app/services/authService.mock-adapter.ts
-apps/mobile-app/lib/auth-errors.ts
-```
-
-### 10.2 A4 工作
-
-- page 将 A1 controller 的 real `user`、status、action result、logout error 传给 Me；不另建 service call。
-- MeAccountCard render real email，无硬编码 fallback。
-- MeSyncCard 固定文案：
-
-```text
-标题：账号状态
-徽标：已登录
-说明：你正在使用这个账号继续清行。行动记录的真实保存与跨设备同步，会在后续连接中完成。
-```
-
-- MeConfirmSheet 将 normal signOut action busy / error 与第 7 节 event authority 接线：pending disable close / confirm；success close；failure stay sheet / retry；clear-cache unchanged。
-- 对 A1 controller 进行 integration revalidation：cold start、session restore no flash、Strict Mode cleanup、same-profile tab `SIGNED_OUT`、two-profile local scope、Recovery lock 优先于后续 `SIGNED_IN` / `TOKEN_REFRESHED` / `USER_UPDATED`、event-missing fallback single-flight、existing BackController chain。
-
-**Codex 可改：** 10.1 十文件。**禁止：** AuthShell / Welcome / AppShell / BottomTabBar / BackController context、root / Mock source / config。
-
-**Review / stop：** A4 只集成、不复制 controller；no flash、no false signOut、no cross-profile logout、no task-sync claim。Recovery lock / shared-operation 或其 Strict Mode fallback 任一回归均停止；任何 controller defect 回到 A1 contract review，不能在 Me 层另造状态机。
+| # | 前置条件 | Harness / 操作输入 | 期望状态 | 失败判断 | 非敏感证据 |
+|---:|---|---|---|---|---|
+| 1 | R6b 测试邮箱 | 调用 `sendRecoveryOtp` | 中性 request 结果；不建 Session/marker | raw provider error 或提前 Session | facade result code、event count |
+| 2 | known/unknown 测试邮箱 | 分别请求 Recovery | 不枚举账号；页面/Probe 中性 | 账号存在性文案/状态泄露 | UI copy screenshot、result category |
+| 3 | 当前六位 Token | owner verify 当前 Token | Promise / PASSWORD_RECOVERY 的 user ID + non-empty sessionId 均精确匹配才可继续 | 单一 evidence、sessionId 缺失/不匹配或旧 Flow event 打开 gate | event/Promise order、session-match boolean |
+| 4 | 错误 code | 输入 controlled wrong code | 无 Session/gate，local form 可重试 | AuthState/AppShell 改变 | status、error code |
+| 5 | 过期 code | 输入过期 code | 无 owner authority | password-required/AppShell | status、error code |
+| 6 | resend 后旧 code | 新 request 后提交旧 code | old flow/attempt 无效 | old code 写当前 flow | flow/attempt ID match boolean |
+| 7 | controller harness | Promise success 后注入 matching user ID + sessionId event | 事件前保持 verifying | Promise 单独进入 gate | state timeline、session-match boolean |
+| 8 | controller harness | 先注入 matching user ID + sessionId event，再 Promise success | Promise 前保持 verifying | event 单独进入 gate | revision/evidence timeline、session-match boolean |
+| 9 | controller harness | 对同一 attempt 注入 duplicate matching event | 一次 evidence/transition，duplicate no-op | 第二 gate/signOut/getCurrentUser | transition、signOut、getCurrentUser counters |
+| 10 | first evidence 已到 | 不提供第二 evidence，推进 12 秒 clock | 一次无 marker authority fail-closed cleanup；不清 marker | password gate、多次 signOut 或 marker 被清 | timeout ID、signOut counter、marker state |
+| 11 | verify request pending | 不提供任何 evidence，推进 30 秒 clock | local verify failure，不 signOut | signOut 或 active attempt 残留 | status、operation counter |
+| 12 | paired evidence + current user | `getCurrentUser` 返回 matching minimal user，marker 真实重读仍为 exact owner | owner password-required，AppShell=false | ID/session/marker mismatch 或 null 后仍 gate | user-ID/session/marker equality boolean、render state |
+| 13 | foreign valid marker | 第二 tab 启动/收到 marker | recovery-blocked | password UI/update/takeover | render state、operation counters |
+| 14 | observer tab | owner 完成或发生 recovery event | observer signOut counter 恒为零 | observer 调用 signOut | observer counter |
+| 15 | owner password-required | update Promise + matching expectedSessionId/user ID `USER_UPDATED` | 一次 completion signOut | ordinary authenticated/AppShell | event order、session-match、counter |
+| 16 | update failure before TTL | 尝试同 Session retry | 拒绝第二 update；受控 cleanup；仅新 Recovery Session 可新 update | 新 attempt ID / 旧 result 覆盖新 attempt | consumed-session、timer、signOut counters |
+| 17 | non-owner/stale/old-session update | 注入 foreign、stale 或 sessionId mismatch `USER_UPDATED` | 不完成、不 signOut | foreign update 完成 flow | owner/session match boolean |
+| 18 | completion operation | local signOut Promise/event 成功 | guest 后才由 exact owner completion 清 marker | marker 先清、foreign marker 清除或重复 cleanup | marker phase、signOut count |
+| 19 | completion failure harness | signOut error/15s timeout | fatal lock/marker retained；新 request retry | guest/AppShell 或复用旧 request | status、request ID |
+| 20 | historical owner marker + Session | reload owner document | `recovery-blocked` / fatal without destructive signOut；不恢复 owner、也不清/覆盖 marker；等待 `SIGNED_OUT` 或权威 current Session=null 收敛 | password UI/owner restore/marker removal/refresh signOut | startup state、counter、marker state |
+| 21 | foreign marker + Session | 新 observer document load | blocked，不 signOut | normal reconcile/AppShell | render state、counter |
+| 22 | active owner closes | close owner / start new observer | marker 保留至 expiry，无接管 | observer becomes owner | marker presence、observer state |
+| 23 | active marker near TTL | advance deadline in each phase | owner cleanup；null Session stale marker安全移除 | TTL 后仍 owner/gate | expiry timestamp、operation counter |
+| 24 | malformed/extra-field fixture | helper parse/read | marker invalid，AppShell=false | malformed marker accepted | parser result、field-name list |
+| 25 | storage-throw fixture | normal no-Recovery login then Recovery start | normal defined；Recovery start blocked | normal state ambiguity/Recovery start | status、error code |
+| 26 | duplicated browser tab | copy sessionStorage after owner verify starts | clone lacks memory attempt，blocked | second owner/update/signOut | attempt existence、render state |
+| 27 | interleaved A/B harness | both read empty/write own/defer/re-read | bounded winner; loser settled/timers cleared | dual winner/infinite overwrite | write count、winner/loser IDs |
+| 28 | Profile A/B sessions | A local signOut | A null；B unchanged | cross-profile Session effect | per-profile API status |
+| 29 | same Profile two tabs | A local signOut | B gets SIGNED_OUT→guest | B stays authenticated or self-signOut | event/state timeline |
+| 30 | known/unknown normal sign-in | facade `sendOtp({intent:"sign-in"})` | shouldCreateUser=false；unknown not created | auto account creation | adapter option/result evidence |
+| 31 | normal sign-up email | facade `sendOtp({intent:"sign-up"})` + verify | shouldCreateUser=true；Session created | no Session/wrong intent | adapter option/event evidence |
+| 32 | normal OTP then signOut | relative `/api/auth/me` before/after | null → matching minimal ID → null | mismatch/cache stale | HTTP status and ID-match boolean |
+| 33 | Browser Origin gateway | inspect auth/API headers across profiles | forwarding + private/no-store equivalent/no reuse | missing header/shared cache/Set-Cookie reuse | header names/values class |
+| 34 | delayed-init and Strict Mode harness | delay init; inject event/storage change; replay effect | stale init discarded; one subscription/listener/timer/op；cleanup 留下零 active verify/update/completion op | stale write/duplicate operation/active completion after cleanup | revision/generation/counter evidence |
+| 35 | R9 production rebuild | perform exact R9 source/build scan | only six marker fields; zero Probe artifacts | forbidden sensitive/probe keyword match | scan roots, exclusion list, match counts |
+| 36 | Real adapter contract harness | successful Session / malformed JWT payload / absent claim | only valid `session_id` maps to `sessionId`; failure is typed fail-closed; raw JWT never crosses adapter | token/payload leaks, async callback reentry or correlation admission on failure | result category、source scan count |
+| 37 | controller harness | old Flow `PASSWORD_RECOVERY` sessionId then new Flow verify Promise sessionId | old event cannot bind / admit new Flow | user-ID-only match admits | flow/session match booleans、state timeline |
+| 38 | controller harness | same Session duplicate / delayed `USER_UPDATED` after consumed update | no second update, no second completion signOut | second update or stale event consumes new operation | consumed-session、update/signOut counters |
+| 39 | controller harness | foreign/absent/invalid/storage-unavailable marker after owner evidence | revoke destructive owner authority; blocked/fatal; no foreign clear/overwrite | normal update or owner completion signOut starts | marker status、operation counters |
+| 40 | real R6b prerequisite | Recovery verify / TOKEN_REFRESHED / USER_UPDATED / new Recovery verify / SIGNED_OUT | verify Promise/event same Session ID; refresh and update retain it; new verify differs; SIGNED_OUT accepts null | any invariant assumed without evidence | non-sensitive equality booleans/event order |
 
 ---
 
-## 11. A5 — 集成验收、Review 与提交准备
+## 12. Engineering, deletion, A2 and A3 gates
 
-A5 不新增功能。只有 ChatGPT 单独授权的缺陷修复可进入 A5。A1–A4 默认不 commit；checkpoint commit 需 ChatGPT 与用户另行授权。最终 commit 仅 A5 全部通过后由 Claude Code 逐文件 `git add <path>`，禁止 `git add .`。
+Every code Batch requires mobile TypeScript via `npm run build`, `npm run lint`, `npm run build`, `git diff --check`, exact diff, staged set check, sensitive source/bundle/log scan, unique client/subscription scan, AppShell gate review and Development-only reachability review. R9 additionally requires production build rebuild followed by source and `.next` scans.
 
-### 11.1 验收矩阵
+A2 only covers ordinary sign-in/sign-up OTP pages, intent, resend, mapped errors and Back behavior. It does not alter Recovery protocol or add Recovery UI. A3 only after A2 may add PasswordLogin “忘记密码？” entry, `ForgotPasswordPage.tsx`, formal Recovery email/code/password UI, password update and password-login return; it must reuse this controller protocol and cannot create a second controller/client/subscription.
 
-| 类别 | 必测 |
-|---|---|
-| Mock | facade flows、pendingOtp mismatch / overwrite、current-tab Session、hard refresh guest、Mock signOut、Mock source zero diff。 |
-| Real OTP | sign-in false / sign-up true、send / resend 60s、invalid / expired、safe account fallback。 |
-| Password | no metadata gate、set password、password direct authenticated、metadata update nonblocking。 |
-| Controller | callback sync-only static check、init / event race、event / Promise ordering table、Strict Mode、recovery shared-operation single-flight。 |
-| Session | restore no Welcome flash、two Profiles、same-session tabs、normal local signOut success / failure。 |
-| Recovery | real provider email-link event；Recovery lock 后强制 `SIGNED_IN` / `TOKEN_REFRESHED` / `USER_UPDATED` 仍无 AppShell；当前 shared signOut 不取消；`SIGNED_OUT` 缺失的 Promise fallback guest；failure 保持 lock / fatal AuthShell；Strict Mode replay 实际 signOut 恰为一次。 |
-| Cache/security | A0 evidence、A1.5 Network headers、no Set-Cookie reuse、`/api/auth/me` match、bundle secret scan、temporary artifact deletion scan。 |
-| UI/back | 375px、390×844、430px；Android Chrome；iOS Safari if available；one AuthShell / AppShell；Auth no bottom Tab；OTP / register / password setup / Me back chain。 |
-| Engineering | `npm run lint`、`npm run build`、TypeScript through build、`git diff --check`、exact file scope。 |
-
-### 11.2 Review flow
-
-```text
-每小阶段未来施工
-→ Codex exact-file 汇报 / command output / manual evidence
-→ Claude Code Review
-→ ChatGPT 决定下一阶段
-
-A1.5
-→ external evidence + real recovery evidence + temporary deletion review
-→ ChatGPT 通过
-→ 才可 A2
-
-A5
-→ Claude Code 全量 Review
-→ ChatGPT 最终把关 + 用户授权
-→ Claude Code explicit staging / commit / push
-```
-
-不允许跨阶段并行。用户只完成 A0 外部确认、A1.5 测试帐号 / recovery email / 平台只读证据与必要真机 / 最终视觉验收。
+Current state is not commit-ready. Future commit requires completed authorized work, deletion of all temporary Probe artifacts, final Claude Code Review, lint/build/diff success, exact Git scope, ChatGPT approval and explicit per-file staging. `git add .`, `git add -A`, `git add -N` are prohibited.
 
 ---
 
-## 12. 回退策略（仅明确授权）
+## 13. Current next step
 
-| 阶段 | 触发 | exact files | 回退规则 |
-|---|---|---|---|
-| A1 | dependency/config/secret/controller/mock contract fail | A1 nine files | 逐文件、授权后撤销；不改 root lockfile。 |
-| A1.5 | OTP / Session / cache / profile / callback / race / real recovery / Recovery lock / event-missing fallback / Strict Mode single-flight fail | two temporary files + page temporary fragments | 停止，删除 temp files（授权后）；保留 A1 controller 供诊断；绝不切方案 A。 |
-| A2 | intent / OTP / registration / Back failure | A2 eight files | 仅回到已通过 A1 controller + Mock mode；不删 adapters / Mock source。 |
-| A3 | setup / local signOut / metadata failure | A3 eight files | 回到已通过 A2 UI / A1 controller；不新增 reset / global signOut。 |
-| A4 | integration flash / false logout / Profile behavior | A4 ten files | 保留 Mock；停止 Real path；先回 A1 controller contract review。 |
-
-不得 reset、clean、stash、rebase、amend、force push 或 broad restore。
-
----
-
-## 13. 阶段总表
-
-| 阶段 | exact files | 本轮调用 Codex | Review gate | 停止条件 |
-|---|---|---:|---|---|
-| A0 | 无仓库文件 | 否 | ChatGPT discovery / deployment evidence | A0 blocker、OTP/key/gateway/header/cache 不具备。 |
-| A1 | 5.1 九文件 | 否 | Claude Code controller / dependency / callback security → ChatGPT | controller不在A1、async callback API、Recovery lock / shared-operation / Strict Mode fallback 缺失、root lockfile、secret / fallback、Mock drift。 |
-| A1.5 | 3.3 的两临时文件 + page temporary fragments | 否 | Claude Code evidence + `.next` deletion Review → ChatGPT | any Session/cache/Profile/recovery lock/event-missing fallback/Strict Mode cleanup failure。 |
-| A2 | 8.1 八文件 | 否 | Claude Code UI / intent / Back → ChatGPT | A1.5 not closed、flow / evidence conflict。 |
-| A3 | 9.1 八文件 | 否 | Claude Code gate / signOut → ChatGPT | bypass / global scope / metadata gate。 |
-| A4 | 10.1 十文件 | 否 | Claude Code Me / integration controller revalidation → ChatGPT | flash / false logout / duplicated controller / sync claim。 |
-| A5 | 无功能新增文件 | 否 | Claude Code full review → ChatGPT / 用户 | matrix / lint / build / scope / security failure。 |
-
----
-
-## 14. 风险结论
-
-| 项目 | 结论 |
-|---|---|
-| P0 | 0。缓存风险由 A0 / A1.5 外部证据解决，不通过不进入 A2。 |
-| 未解决 Execution Plan 级 P1 | 0。A1 controller时序、sync callback、A0职责、真实 recovery、Action/Event权威、Recovery fail-closed lock 与 Strict Mode shared-operation ownership 均已锁定。 |
-| P2 | 3，均锁定：临时 production evidence；必要短期 OTP / password 输入生命周期；Mock pendingOtp contract。 |
-| Recovery 保证 | `recoveryFailClosedLock` 优先于 `SIGNED_IN` / `TOKEN_REFRESHED` / `USER_UPDATED`；Recovery 期间绝不进入 AppShell；Strict Mode 不重复 signOut，且 cleanup 不丢 shared Promise 的有效 guest fallback。 |
-| 外部 blocker | A0 public ingress provider/project fact；随后 OTP / publishable key / same-origin gateway / header/cache / real recovery evidence。 |
-| 实现风险 | provider anti-enumeration、test email / network、多 tab、SDK lockfile scope、gateway no-store 实证。 |
-
-### 14.1 Architecture 一致性
-
-- 登录 `shouldCreateUser:false`：已锁定。
-- 显式注册 `shouldCreateUser:true`：已锁定。
-- 密码登录 direct authenticated：已锁定。
-- local signOut `auth.signOut({ scope: "local" })`：已锁定。
-- `PASSWORD_RECOVERY` fail-closed lock：已锁定；锁优先于后续 `SIGNED_IN` / `TOKEN_REFRESHED` / `USER_UPDATED`，期间绝不进入 AppShell；仅当前 `SIGNED_OUT` 或 event-missing shared Promise success fallback 可解锁为 guest。
-- Strict Mode recovery shared operation：已锁定；controller 级 operation 至多一次 signOut，observer cleanup 不丢 fallback，retry 仅在失败 settle 后新建 operation。
-- 必要短期 OTP / password 输入：已锁定；只在局部表单 / 原生 input，按 submit / success / screen change / signOut / unmount 清理，绝不进入顶层 AuthState、持久化、日志或 analytics。
-
----
-
-## 15. Execution Plan 文档验收
-
-本文件再次提交 ChatGPT Review 前必须确认：
-
-```text
-仅 docs/Execution-Plan-V3.1-A-Mobile-Auth.md 修改
-staged 为空
-HEAD / origin/main 仍为 c7abd47b7d48034970f06fad7e52a476e0500dd1
-无代码、依赖、配置、环境变量、Supabase、临时 probe、Codex、commit 或 push
-```
-
-本方案本身仍不授权任何施工。
+1. ChatGPT completes the R3 Session ID Evidence Contract 三文档 Review。
+2. 仅在 Review 通过后，ChatGPT 判断三文档可以提交，用户确认提交，并精确暂存和提交这三份文档；确认文档提交成功、staged 已为空，且 R3 代码及其他文件未进入该文档提交后，才可由 ChatGPT 单独决定是否授权 R3 五文件 `R1 Contract Extension + R3 Controller Consumption` 施工。
+3. 文档 Review 通过不等于 R3 代码自动获得施工授权。代码、template、Gateway、real OTP、A1.5-R、A2、Codex、暂存、commit 和 push 均继续受各自门禁约束。
